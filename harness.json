@@ -66,5 +66,18 @@
       "sso",
       "audit"
     ]
+  },
+  "pipeline": {
+    "required_statuses": ["seal", "ratchet", "canon-check"],
+    "review": {
+      "lenses": ["correctness", "canon-sync"],
+      "block_at": "high",
+      "budget_usd": 0.5,
+      "model": "sonnet"
+    },
+    "merge": {
+      "squash": true,
+      "tag": true
+    }
   }
 }
