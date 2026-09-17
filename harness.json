@@ -31,7 +31,8 @@
       "breaker_tripped"
     ],
     "stakes_threshold": 1,
-    "locked": false
+    "locked": false,
+    "model": "sonnet"
   },
   "departments": {
     "Testing": {
@@ -43,7 +44,8 @@
   "budgets": {
     "tokens_per_seat": 400000,
     "tokens_per_round": 3000000,
-    "minutes_per_seat": 40
+    "minutes_per_seat": 40,
+    "usd_per_seat": 3
   },
   "tracks": {
     "vertical": [
@@ -82,7 +84,7 @@
   },
   "bundle": {
     "version": "0.1.0-dev",
-    "sha": "37daa30",
+    "sha": "7805e92",
     "installedAt": "2026-09-17"
   }
 }

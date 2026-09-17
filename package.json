@@ -31,7 +31,11 @@
     "test:report": "node scripts/harness/test-run.mjs",
     "harness:deploy": "node scripts/harness/deploy.mjs",
     "harness:status": "node scripts/harness/statuses.mjs",
-    "harness:pipeline": "node scripts/harness/pipeline.mjs"
+    "harness:pipeline": "node scripts/harness/pipeline.mjs",
+    "harness:plant": "node scripts/harness/round.mjs plant",
+    "harness:go": "node scripts/harness/round.mjs go",
+    "harness:estop": "node scripts/harness/round.mjs estop",
+    "harness:decide": "node scripts/harness/decider.mjs"
   },
   "repository": {
     "type": "git",
