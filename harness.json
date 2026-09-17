@@ -1,0 +1,45 @@
+{
+  "$schema": "./scripts/harness/harness.schema.json",
+  "app": { "name": "hlab-b", "status": "prototyping" },
+  "yolo": {
+    "mode": "full",
+    "rounds": 3,
+    "stop_on": [
+      "irreversible",
+      "constitutional",
+      "crossDeptConflict",
+      "authorityGap",
+      "external",
+      "budget_exceeded",
+      "breaker_tripped"
+    ],
+    "stakes_threshold": 1.0,
+    "locked": false
+  },
+  "departments": {
+    "Testing": { "rounds": 3, "escalation": "full", "since": "round-0" }
+  },
+  "budgets": { "tokens_per_seat": 400000, "tokens_per_round": 3000000, "minutes_per_seat": 40 },
+  "tracks": {
+    "vertical": [
+      "game",
+      "pacman",
+      "cli",
+      "just for me",
+      "personal tool",
+      "single user",
+      "no accounts"
+    ],
+    "method": ["team", "users", "roles", "deploy", "email", "schedule", "table", "api"],
+    "enterprise": [
+      "payment",
+      "billing",
+      "gdpr",
+      "personal data",
+      "compliance",
+      "multi-tenant",
+      "sso",
+      "audit"
+    ]
+  }
+}

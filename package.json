@@ -15,8 +15,17 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "check": "npm run format:check && npm run lint && npm run typecheck && npm run knip && npm run test",
-    "prepare": "husky"
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm run knip && npm run test && npm run check:security",
+    "prepare": "husky",
+    "canon:graph": "node scripts/harness/canon-graph.mjs",
+    "canon:map": "node scripts/harness/canon-graph.mjs --map",
+    "canon:check": "node scripts/harness/canon-check.mjs",
+    "harness:stats": "node scripts/harness/stats.mjs",
+    "harness:ledger": "node scripts/harness/ledger.mjs",
+    "harness:route": "node scripts/harness/router.mjs",
+    "graph:system": "node ../bundle/scripts/system-graph/system-graph.mjs --root . --out canon/generated/system-graph.json",
+    "graph:query": "node ../bundle/scripts/system-graph/graph-query.mjs canon/generated/graph.json",
+    "check:security": "npm audit --audit-level=high --omit=dev"
   },
   "repository": {
     "type": "git",
@@ -28,6 +37,7 @@
     "@axe-core/playwright": "4.13.0",
     "@eslint/js": "10.0.1",
     "@playwright/test": "1.63.0",
+    "@types/node": "22.20.3",
     "eslint": "10.10.0",
     "eslint-config-prettier": "10.1.8",
     "husky": "9.1.7",

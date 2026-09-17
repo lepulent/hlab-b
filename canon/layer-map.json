@@ -1,0 +1,20 @@
+{
+  "layers": {
+    "composition": ["src/main.ts", "src/main.tsx", "index.html"],
+    "ui": ["src/**/*.tsx", "src/ui/**", "src/components/**"],
+    "domain": ["src/domain/**", "src/game/**", "src/*.ts"],
+    "transport": ["api/**"],
+    "persistence": ["src/store/**", "api/store/**"],
+    "infrastructure": ["sst.config.ts", "infra/**"],
+    "tests": ["tests/**", "src/**/*.test.ts", "src/**/*.test.tsx", "api/**/*.test.ts"],
+    "harness": ["scripts/**", ".claude/**", "canon/**", "harness.json"]
+  },
+  "direction": [
+    ["ui", "domain"],
+    ["transport", "domain"],
+    ["domain", "persistence"],
+    ["composition", "ui"],
+    ["composition", "domain"],
+    ["composition", "transport"]
+  ]
+}

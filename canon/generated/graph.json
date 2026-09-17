@@ -1,0 +1,183 @@
+{
+  "generatedAt": "2026-09-17T15:50:47.395Z",
+  "nodes": [
+    {
+      "id": "MAP",
+      "kind": "map",
+      "label": "MAP",
+      "file": "canon/MAP.md",
+      "assurance": "draft",
+      "version": null,
+      "valid_from": null,
+      "valid_to": null,
+      "layer": "harness"
+    },
+    {
+      "id": "CONSTITUTION",
+      "kind": "constitution",
+      "label": "CONSTITUTION",
+      "file": "canon/constitution.md",
+      "assurance": "draft",
+      "version": null,
+      "valid_from": null,
+      "valid_to": null,
+      "layer": "harness"
+    },
+    {
+      "id": "C-1",
+      "kind": "principle",
+      "label": "No data shape without a migration path once real records exist",
+      "file": "canon/constitution.md",
+      "tier": "constitutional",
+      "binds_from": "beta",
+      "layer": "harness"
+    },
+    {
+      "id": "check:canon-check/record-shape",
+      "kind": "check",
+      "label": "canon-check/record-shape"
+    },
+    {
+      "id": "C-2",
+      "kind": "principle",
+      "label": "Personal data never leaves its declared store",
+      "file": "canon/constitution.md",
+      "tier": "constitutional",
+      "binds_from": "beta",
+      "layer": "harness"
+    },
+    {
+      "id": "check:policy/manifest-classification",
+      "kind": "check",
+      "label": "policy/manifest-classification"
+    },
+    {
+      "id": "C-3",
+      "kind": "principle",
+      "label": "Every AWS resource is tagged from birth",
+      "file": "canon/constitution.md",
+      "tier": "governing",
+      "binds_from": "prototyping",
+      "layer": "harness"
+    },
+    {
+      "id": "check:policy/tags-present",
+      "kind": "check",
+      "label": "policy/tags-present"
+    },
+    {
+      "id": "file:src/game.test.ts",
+      "kind": "file",
+      "label": "src/game.test.ts",
+      "file": "src/game.test.ts"
+    },
+    {
+      "id": "file:src/game.ts",
+      "kind": "file",
+      "label": "src/game.ts",
+      "file": "src/game.ts"
+    },
+    {
+      "id": "func:src/game.ts#nextPosition",
+      "kind": "function",
+      "label": "nextPosition",
+      "file": "src/game.ts",
+      "line": 18,
+      "exported": true
+    },
+    {
+      "id": "file:src/main.ts",
+      "kind": "file",
+      "label": "src/main.ts",
+      "file": "src/main.ts"
+    },
+    {
+      "id": "file:tests/e2e/app.spec.ts",
+      "kind": "file",
+      "label": "tests/e2e/app.spec.ts",
+      "file": "tests/e2e/app.spec.ts"
+    },
+    {
+      "id": "infra:site:Web",
+      "kind": "site",
+      "label": "Web",
+      "logicalId": "Web",
+      "line": 25,
+      "buildOutput": "dist"
+    }
+  ],
+  "edges": [
+    {
+      "source": "CONSTITUTION",
+      "target": "C-1",
+      "type": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "C-1",
+      "target": "check:canon-check/record-shape",
+      "type": "enforced_by",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CONSTITUTION",
+      "target": "C-2",
+      "type": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "C-2",
+      "target": "check:policy/manifest-classification",
+      "type": "enforced_by",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CONSTITUTION",
+      "target": "C-3",
+      "type": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "C-3",
+      "target": "check:policy/tags-present",
+      "type": "enforced_by",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.ts",
+      "target": "func:src/game.ts#nextPosition",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.test.ts",
+      "target": "file:src/game.ts",
+      "type": "IMPORTS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/main.ts",
+      "target": "file:src/game.ts",
+      "type": "IMPORTS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.test.ts",
+      "target": "func:src/game.ts#nextPosition",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/main.ts",
+      "target": "func:src/game.ts#nextPosition",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.test.ts",
+      "target": "file:src/game.ts",
+      "type": "TESTS",
+      "confidence": "EXTRACTED"
+    }
+  ]
+}

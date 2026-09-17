@@ -1,0 +1,1 @@
+One file per capability, `CAP-<n>.md`. Frontmatter: id, kind: capability, title, version, assurance, valid_from, valid_to, binds, requires, provides, preserves, department. Body: `## Why`, `## Criteria` with `### CAP-n.k <sentence>` headings, each followed by `bindings: [...]` and `pointers:` list lines of the form `- path#symbol:start-end@blob`. See the lab's 06-growth-graph.md.

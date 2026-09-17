@@ -4,3 +4,11 @@ dist
 playwright-report
 test-results
 coverage
+_bmad/
+.claude/skills/
+.claude/hooks/tea-enforce.cjs
+canon/generated/
+canon/index/
+ledger/
+.harness/
+records/

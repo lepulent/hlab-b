@@ -1,0 +1,16 @@
+{
+  "testGlobs": [
+    "tests/e2e/**/*.spec.ts",
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx",
+    "api/**/*.test.ts",
+    "tests/**/*.test.ts"
+  ],
+  "pactConfigGlobs": [],
+  "excludeGlobs": [],
+  "disabledRules": [],
+  "maxFileLines": 600,
+  "stopScanWindowSeconds": 900,
+  "maxScannedFiles": 5000,
+  "hookSha256": "f2ede9d399358d8810c660a29590f0c1683f7164bb3199038d26787f8324491c"
+}

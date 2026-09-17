@@ -1,0 +1,85 @@
+{
+  "generatedAt": "2026-09-17T15:49:42.885Z",
+  "root": ".",
+  "nodes": [
+    {
+      "id": "file:src/game.test.ts",
+      "kind": "file",
+      "label": "src/game.test.ts",
+      "file": "src/game.test.ts"
+    },
+    {
+      "id": "file:src/game.ts",
+      "kind": "file",
+      "label": "src/game.ts",
+      "file": "src/game.ts"
+    },
+    {
+      "id": "func:src/game.ts#nextPosition",
+      "kind": "function",
+      "label": "nextPosition",
+      "file": "src/game.ts",
+      "line": 18,
+      "exported": true
+    },
+    {
+      "id": "file:src/main.ts",
+      "kind": "file",
+      "label": "src/main.ts",
+      "file": "src/main.ts"
+    },
+    {
+      "id": "file:tests/e2e/app.spec.ts",
+      "kind": "file",
+      "label": "tests/e2e/app.spec.ts",
+      "file": "tests/e2e/app.spec.ts"
+    },
+    {
+      "id": "infra:site:Web",
+      "kind": "site",
+      "label": "Web",
+      "logicalId": "Web",
+      "line": 25,
+      "buildOutput": "dist"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:src/game.ts",
+      "target": "func:src/game.ts#nextPosition",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.test.ts",
+      "target": "file:src/game.ts",
+      "type": "IMPORTS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/main.ts",
+      "target": "file:src/game.ts",
+      "type": "IMPORTS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.test.ts",
+      "target": "func:src/game.ts#nextPosition",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/main.ts",
+      "target": "func:src/game.ts#nextPosition",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.test.ts",
+      "target": "file:src/game.ts",
+      "type": "TESTS",
+      "confidence": "EXTRACTED"
+    }
+  ],
+  "ambiguous": []
+}

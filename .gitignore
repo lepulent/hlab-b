@@ -6,3 +6,15 @@ dist
 playwright-report
 test-results
 coverage
+.bmad-loop/runs/
+.bmad-loop/cache/
+.bmad-loop/policy.toml
+_bmad/render/
+.harness/
+_bmad/config.user.toml
+
+# --- quality layer additions ---
+# NOTE: .bmad-loop/policy.toml is intentionally NOT ignored; keep it tracked.
+*.local.json
+# NOTE: .claude/settings.json is intentionally NOT ignored; keep it tracked.
+!.claude/settings.json

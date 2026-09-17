@@ -3,6 +3,8 @@ import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import eslintConfigPrettier from 'eslint-config-prettier';
 
+import qualityHarness from './eslint.harness.js';
+
 export default tseslint.config(
   {
     ignores: [
@@ -33,5 +35,6 @@ export default tseslint.config(
       '@typescript-eslint/triple-slash-reference': 'off',
     },
   },
+  ...qualityHarness,
   eslintConfigPrettier,
 );
