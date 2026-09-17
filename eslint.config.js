@@ -27,5 +27,11 @@ export default tseslint.config(
       },
     },
   },
+  {
+    files: ['sst.config.ts'],
+    rules: {
+      '@typescript-eslint/triple-slash-reference': 'off',
+    },
+  },
   eslintConfigPrettier,
 );
