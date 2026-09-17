@@ -155,11 +155,12 @@ writeJson(join(OUT, 'last.json'), record);
 // 5. manifest from state (deploy only), ledger line
 if (status === 'SUCCEEDED' && ACTION === 'deploy' && existsSync(join(OUT, 'state.json'))) {
   try {
-    execFileSync(
-      'node',
-      [join(ROOT, 'scripts', 'harness', 'infra-manifest.mjs'), '--state', join(OUT, 'state.json')],
-      { cwd: ROOT, stdio: 'inherit' },
-    );
+    const gen = join(ROOT, 'scripts', 'harness', 'infra-manifest.mjs');
+    execFileSync('node', [gen, '--reduce', join(OUT, 'state.json'), '--stage', STAGE], {
+      cwd: ROOT,
+      stdio: 'inherit',
+    });
+    execFileSync('node', [gen], { cwd: ROOT, stdio: 'inherit' });
   } catch {
     console.error('deploy: manifest regeneration failed (state export unreadable)');
   }

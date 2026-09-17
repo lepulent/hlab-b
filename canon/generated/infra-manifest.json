@@ -1,9 +1,8 @@
 {
-  "generatedAt": "2026-09-17T18:08:43.434Z",
+  "generatedAt": "2026-09-17T20:33:12.117Z",
   "app": "hlab-b",
   "region": "eu-central-1",
-  "account": null,
-  "source": "declared",
+  "source": "declared+state(dev)",
   "defaultTags": {
     "App": "hlab-b",
     "Owner": "ricardo",
@@ -19,7 +18,7 @@
       "type": "static-site",
       "name": "Web",
       "logicalId": "Web",
-      "arn": null,
+      "arn": "arn:aws:cloudfront::421515025850:function/hlab-b-dev-WebCloudfrontFunctionRequest-chfrzonb",
       "tags": {
         "App": "hlab-b",
         "Owner": "ricardo",
@@ -30,8 +29,116 @@
         "DataClassification": "internal",
         "ManagedBy": "sst"
       },
-      "verification_status": "declared",
+      "verification_status": "verified",
+      "verification": {
+        "dev": "verified"
+      },
       "source": "sst.config.ts"
     }
-  ]
+  ],
+  "deployments": {
+    "dev": {
+      "resources": [
+        {
+          "urn": "urn:pulumi:dev::hlab-b::sst:aws:StaticSite$aws:cloudfront/function:Function::WebCloudfrontFunctionRequest",
+          "pulumiType": "aws:cloudfront/function:Function",
+          "type": "cloudfront-function",
+          "name": "hlab-b-dev-WebCloudfrontFunctionRequest-chfrzonb",
+          "arn": "arn:aws:cloudfront::421515025850:function/hlab-b-dev-WebCloudfrontFunctionRequest-chfrzonb",
+          "component": "Web",
+          "taggable": false,
+          "tags": {},
+          "verification_status": "verified"
+        },
+        {
+          "urn": "urn:pulumi:dev::hlab-b::sst:aws:StaticSite$aws:cloudfront/keyValueStore:KeyValueStore::WebKvStore",
+          "pulumiType": "aws:cloudfront/keyValueStore:KeyValueStore",
+          "type": "cloudfront-key-value-store",
+          "name": "hlab-b-dev-WebKvStore-brtxookh",
+          "arn": "arn:aws:cloudfront::421515025850:key-value-store/9b53745f-4634-4e5a-86ae-53a81303b19b",
+          "component": "Web",
+          "taggable": false,
+          "tags": {},
+          "verification_status": "verified"
+        },
+        {
+          "urn": "urn:pulumi:dev::hlab-b::sst:aws:StaticSite$sst:aws:Bucket$aws:s3/bucketCorsConfigurationV2:BucketCorsConfigurationV2::WebAssetsCors",
+          "pulumiType": "aws:s3/bucketCorsConfigurationV2:BucketCorsConfigurationV2",
+          "type": "s3-bucket-cors-configuration",
+          "name": "hlab-b-dev-webassetsbucket-hhuwmkao",
+          "arn": null,
+          "component": "Web",
+          "taggable": false,
+          "tags": {},
+          "verification_status": "verified"
+        },
+        {
+          "urn": "urn:pulumi:dev::hlab-b::sst:aws:StaticSite$sst:aws:Bucket$aws:s3/bucketPolicy:BucketPolicy::WebAssetsPolicy",
+          "pulumiType": "aws:s3/bucketPolicy:BucketPolicy",
+          "type": "s3-bucket-policy",
+          "name": "hlab-b-dev-webassetsbucket-hhuwmkao",
+          "arn": null,
+          "component": "Web",
+          "taggable": false,
+          "tags": {},
+          "verification_status": "verified"
+        },
+        {
+          "urn": "urn:pulumi:dev::hlab-b::sst:aws:StaticSite$sst:aws:Bucket$aws:s3/bucketPublicAccessBlock:BucketPublicAccessBlock::WebAssetsPublicAccessBlock",
+          "pulumiType": "aws:s3/bucketPublicAccessBlock:BucketPublicAccessBlock",
+          "type": "s3-bucket-public-access-block",
+          "name": "hlab-b-dev-webassetsbucket-hhuwmkao",
+          "arn": null,
+          "component": "Web",
+          "taggable": false,
+          "tags": {},
+          "verification_status": "verified"
+        },
+        {
+          "urn": "urn:pulumi:dev::hlab-b::sst:aws:StaticSite$sst:aws:Bucket$aws:s3/bucketV2:BucketV2::WebAssetsBucket",
+          "pulumiType": "aws:s3/bucketV2:BucketV2",
+          "type": "s3-bucket",
+          "name": "hlab-b-dev-webassetsbucket-hhuwmkao",
+          "arn": "arn:aws:s3:::hlab-b-dev-webassetsbucket-hhuwmkao",
+          "component": "Web",
+          "taggable": true,
+          "tags": {
+            "App": "hlab-b",
+            "Capability": "pacman",
+            "CostCenter": "mycelium-harness",
+            "DataClassification": "internal",
+            "Environment": "dev",
+            "ManagedBy": "sst",
+            "Owner": "ricardo",
+            "Service": "hlab-b",
+            "sst:app": "hlab-b",
+            "sst:stage": "dev"
+          },
+          "verification_status": "verified"
+        },
+        {
+          "urn": "urn:pulumi:dev::hlab-b::sst:aws:StaticSite$sst:aws:CDN$aws:cloudfront/distribution:Distribution::WebCdnDistribution",
+          "pulumiType": "aws:cloudfront/distribution:Distribution",
+          "type": "cloudfront-distribution",
+          "name": "EIM37L76FOOF2",
+          "arn": "arn:aws:cloudfront::421515025850:distribution/EIM37L76FOOF2",
+          "component": "Web",
+          "taggable": true,
+          "tags": {
+            "App": "hlab-b",
+            "Capability": "pacman",
+            "CostCenter": "mycelium-harness",
+            "DataClassification": "internal",
+            "Environment": "dev",
+            "ManagedBy": "sst",
+            "Owner": "ricardo",
+            "Service": "hlab-b",
+            "sst:app": "hlab-b",
+            "sst:stage": "dev"
+          },
+          "verification_status": "verified"
+        }
+      ]
+    }
+  }
 }

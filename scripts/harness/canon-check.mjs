@@ -351,7 +351,13 @@ else {
     });
   else {
     const problems = [];
-    for (const r of manifest.resources || []) {
+    const rows = [
+      ...(manifest.resources || []),
+      ...Object.entries(manifest.deployments || {}).flatMap(([stage, d]) =>
+        (d.resources || []).map((r) => ({ ...r, name: `${stage}:${r.name}` })),
+      ),
+    ].filter((r) => r.taggable !== false);
+    for (const r of rows) {
       const missing = required.filter(
         (k) => !r.tags || r.tags[k] === undefined || r.tags[k] === '',
       );
@@ -361,7 +367,7 @@ else {
       'tags-present',
       problems.length
         ? `${problems.length} resource(s) missing required tags`
-        : `${(manifest.resources || []).length} resource(s) carry ${required.length} required tags (${manifest.source})`,
+        : `${rows.length} taggable resource(s) carry ${required.length} required tags (${manifest.source})`,
       problems,
     );
   }
