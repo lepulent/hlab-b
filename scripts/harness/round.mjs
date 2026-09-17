@@ -8,7 +8,15 @@
 //                                            (a stop writes needs-input.md and ends), one headless Master session with JSON output,
 //                                            stats line, ledger lines; when the Master reports sealed: push, PR, pipeline run
 //   estop [--plan <slug>] [--reason ..]      writes .harness/estop and a ledger line; go refuses to start while it exists
-import { existsSync, readFileSync, writeFileSync, mkdirSync, copyFileSync, rmSync } from 'node:fs';
+import {
+  existsSync,
+  readFileSync,
+  writeFileSync,
+  mkdirSync,
+  copyFileSync,
+  rmSync,
+  readdirSync,
+} from 'node:fs';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { ROOT, readJson, writeJson, git, headSha } from './common.mjs';
@@ -131,6 +139,8 @@ function go() {
 
   for (let i = 0; i < rounds; i++) {
     const n = state.rounds + 1;
+    // 0. Loop escalations become questions before anything else is decided
+    if (relayLoopAttention(dir, state)) writeJson(join(dir, 'STATE.json'), state);
     // 1. decider over open questions; a stop ends the run with needs-input.md
     const dec = script('decider.mjs', '--plan', PLAN);
     const verdicts = safeJson(dec.stdout) || { questions: [] };
@@ -245,6 +255,16 @@ function go() {
     console.log(
       `go: round ${n} ${result.status} · ${result.rung || '-'} · ${minutes} min · $${seat.cost_usd ?? '?'} · ${result.summary}`,
     );
+    if (result.rung === 'build' && route.track !== 'vertical' && result.status === 'continue') {
+      // H-28: stories are the Loop's job; run it now, then the next round reviews what it built
+      const b = spawnSync(
+        'node',
+        [join(ROOT, 'scripts', 'harness', 'round.mjs'), 'build', '--plan', PLAN],
+        { cwd: ROOT, stdio: 'inherit' },
+      );
+      if (b.status !== 0) process.exit(b.status || 4);
+      Object.assign(state, readJson(join(dir, 'STATE.json'), state));
+    }
     if (result.status === 'blocked') {
       writeFileSync(
         join(dir, 'needs-input.md'),
@@ -298,6 +318,75 @@ function clear() {
   rmSync(join(H, 'estop'), { force: true });
   rmSync(join(H, 'breaker.json'), { force: true });
   console.log('estop and breaker cleared');
+}
+
+// ---------------------------------------------------------------- loop (H-28)
+// BMAD Loop drives stories at the build rung on the method and enterprise tracks. Its CRITICAL
+// escalations land as ATTENTION files in .bmad-loop/runs/<id>/; they are relayed into question files
+// with the authorityGap trigger so the decider, not the Loop, stops the round.
+function relayLoopAttention(dir, state) {
+  const seen = new Set(state.loopAttentionSeen || []);
+  const roots = ['runs', 'sweeps'].map((d) => join(ROOT, '.bmad-loop', d)).filter(existsSync);
+  let n = 0;
+  for (const root of roots)
+    for (const run of readdirSync(root)) {
+      const f = join(root, run, 'ATTENTION');
+      if (!existsSync(f) || seen.has(`${run}`)) continue;
+      const qdir = join(dir, 'questions');
+      mkdirSync(qdir, { recursive: true });
+      const idx = readdirSync(qdir).filter((x) => /^Q-\d+\.md$/.test(x)).length + 1;
+      writeFileSync(
+        join(qdir, `Q-${idx}.md`),
+        `---\nkind: ops\nstakes: 0.5\ntriggers: [authorityGap]\nstatus: open\nasked_by: loop:${run}\nalternatives: [resolve with bmad-loop resolve, defer the story, estop]\n---\n# BMAD Loop escalation (${run})\n\n${readFileSync(f, 'utf8').trim()}\n`,
+      );
+      seen.add(run);
+      n++;
+    }
+  state.loopAttentionSeen = [...seen];
+  return n;
+}
+function build() {
+  if (!PLAN) fail('--plan required', 2);
+  const dir = join(ROOT, 'intent', PLAN);
+  const state = readJson(join(dir, 'STATE.json'), { rounds: 0, status: 'planted' });
+  const max = arg('max-stories', '3');
+  const v = sh('bmad-loop', ['validate']);
+  if (!ok(v))
+    fail(`bmad-loop validate failed:\n${(v.stdout + v.stderr).split('\n').slice(-6).join('\n')}`);
+  ledger('seat-start', { seat: 'loop', maxStories: Number(max) }, 'script:round');
+  const t = Date.now();
+  const r = spawnSync('bmad-loop', ['run', '--max-stories', String(max)], {
+    cwd: ROOT,
+    stdio: 'inherit',
+  });
+  const minutes = Math.round((Date.now() - t) / 6000) / 10;
+  const relayed = relayLoopAttention(dir, state);
+  writeJson(join(dir, 'STATE.json'), state);
+  stat({
+    session: `loop:${PLAN}:${state.rounds + 1}`,
+    station: 'build',
+    tool: 'bmad-loop',
+    ok: r.status === 0,
+    minutes,
+    cost_usd: null,
+    tokens: null,
+  });
+  ledger(
+    'seat-end',
+    { seat: 'loop', station: 'build', ok: r.status === 0, minutes, escalations: relayed },
+    'script:round',
+  );
+  sh('git', ['add', '-A']);
+  sh('git', [
+    'commit',
+    '-q',
+    '-m',
+    `chore(round): ${PLAN} build rung by bmad-loop (${r.status === 0 ? 'ok' : 'stopped'}, ${relayed} escalation(s))`,
+  ]);
+  console.log(
+    `build: bmad-loop ${r.status === 0 ? 'finished' : 'stopped'} in ${minutes} min, ${relayed} escalation(s) relayed to questions`,
+  );
+  process.exit(r.status === 0 && !relayed ? 0 : 4);
 }
 
 // ---------------------------------------------------------------- observe
@@ -363,6 +452,6 @@ function observe() {
   );
 }
 
-const commands = { plant, go, estop, clear, observe };
+const commands = { plant, go, build, estop, clear, observe };
 if (commands[cmd]) commands[cmd]();
 else fail(`usage: round.mjs plant|go|estop|clear --plan <slug> (app ${APP})`, 2);

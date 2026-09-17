@@ -2,5 +2,6 @@
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "entry": ["src/main.ts"],
   "project": ["src/**/*.ts"],
-  "ignoreDependencies": ["sst"]
+  "ignoreDependencies": ["sst"],
+  "ignoreBinaries": ["bmad-loop", "claude", "gh", "aws", "curl", "playwright-cli"]
 }

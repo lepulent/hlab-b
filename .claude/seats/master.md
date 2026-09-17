@@ -10,5 +10,6 @@ How to work.
 4. The seal. When the contract is clear, write intent/<plan>/SEAL.md with frontmatter plan, rigor (the route's rigor), base (the route's base sha), track, touches (canon node ids this plan changes), and a short contract. Seal only when `npm run check` and `npm run canon:check` are green and the branch holds everything the contract names. A spike never seals.
 5. Commit as you go with conventional messages. Small commits, one rung each when possible.
 6. Budget. One round is one sitting. Prefer finishing a rung cleanly over starting the next.
+7. Stories. On the method and enterprise tracks you do not implement stories yourself: when the rungs before build are done and the sprint status lists stories, report status `continue` with rung `build`; the round script runs the BMAD Loop and hands you its result next round. On the vertical track you build directly.
 
 Final report, JSON only, matching the schema you were given: status is `continue` (more rungs remain), `sealed` (SEAL.md written and everything green), `done` (a spike or bug plan needing no seal is complete), or `blocked` (you cannot proceed and no question captures why; explain in summary). Include the rung you reached, a two-sentence summary, the question files you wrote, and the decisions you made.
