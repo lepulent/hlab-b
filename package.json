@@ -29,7 +29,8 @@
     "pw": "playwright-cli",
     "canon:manifest": "node scripts/harness/infra-manifest.mjs",
     "test:report": "node scripts/harness/test-run.mjs",
-    "harness:deploy": "node scripts/harness/deploy.mjs"
+    "harness:deploy": "node scripts/harness/deploy.mjs",
+    "harness:status": "node scripts/harness/statuses.mjs"
   },
   "repository": {
     "type": "git",

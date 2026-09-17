@@ -1,1 +1,2 @@
+node scripts/quality/main-guard.mjs
 npm run check

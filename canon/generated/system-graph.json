@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-17T20:33:10.967Z",
+  "generatedAt": "2026-09-17T20:36:19.275Z",
   "root": ".",
   "nodes": [
     {
@@ -45,7 +45,7 @@
       "kind": "arrow",
       "label": "read",
       "file": "tests/policy/manifest.test.ts",
-      "line": 15,
+      "line": 19,
       "exported": false
     },
     {
