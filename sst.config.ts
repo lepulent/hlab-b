@@ -9,7 +9,8 @@ export default $config({
       providers: {
         aws: {
           region: 'eu-central-1',
-          profile: 'FuturatorClaude',
+          // the cloud runner has ambient role credentials; the laptop keeps its named profile for read-only commands
+          ...(process.env.CODEBUILD_BUILD_ID ? {} : { profile: 'FuturatorClaude' }),
           defaultTags: {
             tags: {
               App: 'hlab-b',

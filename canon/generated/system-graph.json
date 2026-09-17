@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-17T17:51:43.706Z",
+  "generatedAt": "2026-09-17T18:08:43.383Z",
   "root": ".",
   "nodes": [
     {
@@ -53,7 +53,7 @@
       "kind": "site",
       "label": "Web",
       "logicalId": "Web",
-      "line": 30,
+      "line": 31,
       "buildOutput": "dist"
     }
   ],

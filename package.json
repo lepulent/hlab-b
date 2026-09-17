@@ -28,7 +28,8 @@
     "check:security": "npm audit --audit-level=high --omit=dev",
     "pw": "playwright-cli",
     "canon:manifest": "node scripts/harness/infra-manifest.mjs",
-    "test:report": "node scripts/harness/test-run.mjs"
+    "test:report": "node scripts/harness/test-run.mjs",
+    "harness:deploy": "node scripts/harness/deploy.mjs"
   },
   "repository": {
     "type": "git",

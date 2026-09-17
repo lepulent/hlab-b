@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-17T17:51:44.419Z",
+  "generatedAt": "2026-09-17T18:08:43.493Z",
   "nodes": [
     {
       "id": "MAP",
@@ -116,7 +116,7 @@
       "kind": "site",
       "label": "Web",
       "logicalId": "Web",
-      "line": 30,
+      "line": 31,
       "buildOutput": "dist"
     }
   ],
