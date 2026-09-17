@@ -35,7 +35,9 @@
     "harness:plant": "node scripts/harness/round.mjs plant",
     "harness:go": "node scripts/harness/round.mjs go",
     "harness:estop": "node scripts/harness/round.mjs estop",
-    "harness:decide": "node scripts/harness/decider.mjs"
+    "harness:decide": "node scripts/harness/decider.mjs",
+    "harness:rubric": "node scripts/harness/rubric.mjs",
+    "harness:observe": "node scripts/harness/round.mjs observe"
   },
   "repository": {
     "type": "git",

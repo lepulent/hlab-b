@@ -300,6 +300,69 @@ function clear() {
   console.log('estop and breaker cleared');
 }
 
-const commands = { plant, go, estop, clear };
+// ---------------------------------------------------------------- observe
+function observe() {
+  if (!PLAN) fail('--plan required', 2);
+  const seatPrompt = join(ROOT, '.claude', 'seats', 'observer.md');
+  if (!existsSync(seatPrompt)) fail('no .claude/seats/observer.md (install the bundle)', 2);
+  const rubric = script('rubric.mjs', '--plan', PLAN, '--json').stdout;
+  const ledgerText = existsSync(join(ROOT, 'ledger', `${PLAN}.jsonl`))
+    ? readFileSync(join(ROOT, 'ledger', `${PLAN}.jsonl`), 'utf8')
+    : '(no ledger)';
+  const log = git(['log', '--oneline', '-30']);
+  const route =
+    readJson(join(ROOT, 'records', PLAN, 'ROUTE.json')) ||
+    readJson(join(ROOT, 'intent', PLAN, 'ROUTE.json'));
+  const landed = readJson(join(H, 'land.json'));
+  const diff = landed?.mergeSha
+    ? git(['diff', '--stat', `${landed.mergeSha}~1..HEAD`, '--', 'canon'])
+    : '(no landing yet)';
+  const statsText = script('stats.mjs').stdout;
+  const context = [
+    readFileSync(seatPrompt, 'utf8'),
+    `\n\n--- APP ---\n${APP} plan ${PLAN}`,
+    `\n\n--- RUBRIC ---\n${rubric.slice(0, 20000)}`,
+    `\n\n--- ROUTE ---\n${JSON.stringify(route)}`,
+    `\n\n--- LEDGER ---\n${ledgerText.slice(0, 60000)}`,
+    `\n\n--- GIT LOG ---\n${log}`,
+    `\n\n--- CANON DIFF ---\n${diff}`,
+    `\n\n--- STATS ---\n${statsText}`,
+  ].join('');
+  const budgetUsd = Number(harness.budgets?.usd_per_seat || 3);
+  const t = Date.now();
+  const r = sh('claude', [
+    '-p',
+    '--bare',
+    '--output-format',
+    'json',
+    '--allowedTools',
+    '',
+    '--max-budget-usd',
+    String(budgetUsd),
+    ...(harness.yolo?.model ? ['--model', harness.yolo.model] : []),
+    context,
+  ]);
+  const out = safeJson(r.stdout);
+  const minutes = Math.round((Date.now() - t) / 6000) / 10;
+  const okSeat = ok(r) && out && !out.is_error && typeof out.result === 'string';
+  stat({
+    session: out?.session_id || `observer:${PLAN}`,
+    station: 'observer',
+    tool: 'claude -p',
+    ok: okSeat,
+    minutes,
+    cost_usd: out?.total_cost_usd ?? null,
+    tokens: out?.usage ?? null,
+  });
+  if (!okSeat) fail(`observer seat failed: ${String(out?.result || r.stderr).slice(0, 300)}`);
+  const runsDir = join(ROOT, '..', 'runs', APP, PLAN);
+  mkdirSync(runsDir, { recursive: true });
+  writeFileSync(join(runsDir, 'observer.md'), out.result.trim() + '\n');
+  console.log(
+    `observe: report written to runs/${APP}/${PLAN}/observer.md (${minutes} min, $${out.total_cost_usd ?? '?'})`,
+  );
+}
+
+const commands = { plant, go, estop, clear, observe };
 if (commands[cmd]) commands[cmd]();
 else fail(`usage: round.mjs plant|go|estop|clear --plan <slug> (app ${APP})`, 2);
