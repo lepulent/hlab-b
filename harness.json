@@ -30,7 +30,7 @@
       "budget_exceeded",
       "breaker_tripped"
     ],
-    "stakes_threshold": 1.0,
+    "stakes_threshold": 1,
     "locked": false
   },
   "departments": {
@@ -79,5 +79,10 @@
       "squash": true,
       "tag": true
     }
+  },
+  "bundle": {
+    "version": "0.1.0-dev",
+    "sha": "37daa30",
+    "installedAt": "2026-09-17"
   }
 }

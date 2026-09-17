@@ -286,9 +286,11 @@ function review() {
       null;
     const mine = (parsed?.findings || []).map((f) => ({ ...f, lens }));
     findings.push(...mine);
+    if (out?.is_error)
+      console.error(`review: lens ${lens} seat error: ${String(out.result).slice(0, 200)}`);
     const seat = {
       lens,
-      ok: ok(r) && !!parsed,
+      ok: ok(r) && !!parsed && !out?.is_error,
       findings: mine.length,
       minutes: Math.round((Date.now() - t) / 6000) / 10,
       cost_usd: out?.total_cost_usd ?? null,

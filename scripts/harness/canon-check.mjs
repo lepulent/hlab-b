@@ -74,6 +74,12 @@ const REGISTRY = [
     describes: 'a branch named spike/* carries no intent/**/SEAL.md',
   },
   {
+    id: 'harness-in-sync',
+    status: 'implemented',
+    describes:
+      'the harness files installed in this app equal the bundle they claim (install-bundle.sh --check); the harness is edited only in the bundle',
+  },
+  {
     id: 'tags-present',
     status: 'implemented',
     describes:
@@ -369,6 +375,38 @@ else {
         ? `${problems.length} resource(s) missing required tags`
         : `${rows.length} taggable resource(s) carry ${required.length} required tags (${manifest.source})`,
       problems,
+    );
+  }
+}
+
+// harness-in-sync
+{
+  const installer = join(ROOT, '..', 'bundle', 'install-bundle.sh');
+  if (!existsSync(installer))
+    results.push({
+      id: 'harness-in-sync',
+      result: 'unmeasured',
+      msg: 'no ../bundle next to this app',
+    });
+  else {
+    const probe = (() => {
+      try {
+        return {
+          synced: true,
+          out: execFileSync('bash', [installer, ROOT, '--check'], { cwd: ROOT, encoding: 'utf8' }),
+        };
+      } catch (e) {
+        return { synced: false, out: String(e.stdout || e.message) };
+      }
+    })();
+    const { synced, out } = probe;
+    const lines = out.split('\n').filter(Boolean);
+    (synced ? pass : fail)(
+      'harness-in-sync',
+      synced
+        ? lines.at(-1)
+        : `${lines.length} harness file(s) differ from the bundle; run the installer, never edit them here`,
+      synced ? [] : lines,
     );
   }
 }
