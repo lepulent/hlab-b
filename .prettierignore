@@ -1,0 +1,6 @@
+node_modules
+dist
+.sst
+playwright-report
+test-results
+coverage
