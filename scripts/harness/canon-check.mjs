@@ -4,7 +4,18 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { ROOT, readJson, walk, rel, layerOf, blobSha, sha, git } from './common.mjs';
+import {
+  ROOT,
+  readJson,
+  walk,
+  rel,
+  layerOf,
+  blobSha,
+  sha,
+  git,
+  headSha,
+  parseFrontmatter,
+} from './common.mjs';
 
 const REGISTRY = [
   {
@@ -30,8 +41,9 @@ const REGISTRY = [
   },
   {
     id: 'layer-direction',
-    status: 'pending',
-    describes: 'imports follow the declared layer direction (needs the system graph IMPORTS edges)',
+    status: 'implemented',
+    describes:
+      'every IMPORTS edge of the system graph crosses layers only along a declared direction pair (tests and harness may import anything)',
   },
   {
     id: 'criteria-bound',
@@ -40,9 +52,9 @@ const REGISTRY = [
   },
   {
     id: 'criteria-bound-passed',
-    status: 'pending',
+    status: 'implemented',
     describes:
-      'every binding passed in a test run at HEAD (needs the vitest and Playwright JSON reporters joined)',
+      'every binding id appears in the title of at least one test that passed in .harness/test-results.json at HEAD (npm run test:report)',
   },
   {
     id: 'generated-not-hand-edited',
@@ -52,9 +64,9 @@ const REGISTRY = [
   },
   {
     id: 'main-nodes-have-valid-from',
-    status: 'pending',
+    status: 'implemented',
     describes:
-      'every canon node on main carries a valid_from that is an ancestor of HEAD (needs the return path)',
+      'every canon node in the main tree (kinds other than map and constitution) carries a valid_from that is an ancestor of main',
   },
   {
     id: 'spike-has-no-seal',
@@ -63,9 +75,9 @@ const REGISTRY = [
   },
   {
     id: 'tags-present',
-    status: 'pending',
+    status: 'implemented',
     describes:
-      'every resource in the infra manifest carries the tag taxonomy (needs the manifest generator)',
+      'every resource in canon/generated/infra-manifest.json carries every required tag (harness.json infra.required_tags)',
   },
 ];
 
@@ -75,18 +87,21 @@ const pass = (id, msg) => results.push({ id, result: 'pass', msg });
 
 // regenerate-empty-diff + generated-not-hand-edited
 try {
-  const before = ['canon/generated/canon-graph.json', 'canon/index/pointers.json'].map((f) =>
-    existsSync(join(ROOT, f))
-      ? sha(readFileSync(join(ROOT, f), 'utf8').replace(/"generatedAt": "[^"]*"/, ''))
-      : null,
+  const GEN = [
+    'canon/generated/canon-graph.json',
+    'canon/index/pointers.json',
+    'canon/generated/infra-manifest.json',
+  ];
+  const strip = (t) => t.replace(/"generatedAt": "[^"]*"/, '');
+  const before = GEN.map((f) =>
+    existsSync(join(ROOT, f)) ? sha(strip(readFileSync(join(ROOT, f), 'utf8'))) : null,
   );
-  execFileSync('node', [join(ROOT, 'scripts', 'harness', 'canon-graph.mjs')], {
-    cwd: ROOT,
-    stdio: 'ignore',
-  });
-  const after = ['canon/generated/canon-graph.json', 'canon/index/pointers.json'].map((f) =>
-    sha(readFileSync(join(ROOT, f), 'utf8').replace(/"generatedAt": "[^"]*"/, '')),
-  );
+  for (const gen of ['canon-graph.mjs', 'infra-manifest.mjs'])
+    execFileSync('node', [join(ROOT, 'scripts', 'harness', gen)], {
+      cwd: ROOT,
+      stdio: 'ignore',
+    });
+  const after = GEN.map((f) => sha(strip(readFileSync(join(ROOT, f), 'utf8'))));
   const same = before.every((b, i) => b === null || b === after[i]);
   (same ? pass : fail)(
     'regenerate-empty-diff',
@@ -99,11 +114,17 @@ try {
     same ? 'no hand edits detected' : 'a generated file was edited by hand or is stale',
   );
 } catch (e) {
-  results.push({ id: 'regenerate-empty-diff', result: 'unmeasured', msg: String(e.message) });
+  results.push({
+    id: 'regenerate-empty-diff',
+    result: 'unmeasured',
+    msg: String(e.message),
+  });
 }
 
 // pointers-resolve
-const idx = readJson(join(ROOT, 'canon', 'index', 'pointers.json'), { byFile: {} });
+const idx = readJson(join(ROOT, 'canon', 'index', 'pointers.json'), {
+  byFile: {},
+});
 let bad = [];
 for (const [file, ptrs] of Object.entries(idx.byFile)) {
   const abs = join(ROOT, file);
@@ -126,7 +147,10 @@ for (const [file, ptrs] of Object.entries(idx.byFile)) {
 );
 
 // edges-resolve
-const g = readJson(join(ROOT, 'canon', 'generated', 'canon-graph.json'), { nodes: [], edges: [] });
+const g = readJson(join(ROOT, 'canon', 'generated', 'canon-graph.json'), {
+  nodes: [],
+  edges: [],
+});
 const ids = new Set(g.nodes.map((n) => n.id));
 const dangling = g.edges
   .filter((e) => !ids.has(e.target) || !ids.has(e.source))
@@ -172,6 +196,176 @@ if (branch.startsWith('spike/')) {
     seals.length ? 'a spike branch carries a seal' : 'spike carries no seal',
   );
 } else pass('spike-has-no-seal', `not a spike branch (${branch})`);
+
+// layer-direction
+const sys = readJson(join(ROOT, 'canon', 'generated', 'system-graph.json'));
+if (!sys)
+  results.push({
+    id: 'layer-direction',
+    result: 'unmeasured',
+    msg: 'no system graph (npm run graph:system)',
+  });
+else {
+  const allowed = new Set((lm.direction || []).map(([a, b]) => `${a}>${b}`));
+  const free = new Set(['tests', 'harness']);
+  const fileOf = new Map(sys.nodes.filter((n) => n.kind === 'file').map((n) => [n.id, n.file]));
+  const violations = [];
+  let crossings = 0;
+  for (const e of sys.edges) {
+    if (e.type !== 'IMPORTS') continue;
+    const a = fileOf.get(e.source);
+    const b = fileOf.get(e.target);
+    if (!a || !b) continue;
+    const la = layerOf(a, lm);
+    const lb = layerOf(b, lm);
+    if (!la || !lb || la === lb || free.has(la)) continue;
+    crossings++;
+    if (!allowed.has(`${la}>${lb}`)) violations.push(`${a} (${la}) → ${b} (${lb})`);
+  }
+  (violations.length ? fail : pass)(
+    'layer-direction',
+    violations.length
+      ? `${violations.length} import(s) against the declared direction`
+      : `${crossings} cross-layer import(s) all along declared pairs`,
+    violations,
+  );
+}
+
+// criteria-bound-passed
+{
+  const bindings = [...new Set(g.edges.filter((e) => e.type === 'tests').map((e) => e.source))];
+  if (!bindings.length) pass('criteria-bound-passed', 'no bindings yet (vacuous)');
+  else {
+    const tr = readJson(join(ROOT, '.harness', 'test-results.json'));
+    const head = headSha();
+    if (!tr)
+      results.push({
+        id: 'criteria-bound-passed',
+        result: 'unmeasured',
+        msg: 'no .harness/test-results.json (npm run test:report -- --e2e)',
+      });
+    else if (tr.commit !== head || tr.dirty)
+      results.push({
+        id: 'criteria-bound-passed',
+        result: 'unmeasured',
+        msg: `test results are from ${String(tr.commit).slice(0, 7)}${tr.dirty ? ' (dirty tree)' : ''}, HEAD is ${head.slice(0, 7)}; rerun npm run test:report`,
+      });
+    else {
+      const problems = [];
+      for (const b of bindings) {
+        const hits = tr.tests.filter((t) => t.title.includes(b));
+        if (!hits.length) problems.push(`${b}: no test cites it`);
+        else if (hits.some((t) => t.status === 'failed'))
+          problems.push(
+            `${b}: failed in ${hits
+              .filter((t) => t.status === 'failed')
+              .map((t) => t.file)
+              .join(', ')}`,
+          );
+        else if (hits.every((t) => t.status === 'skipped'))
+          problems.push(`${b}: only skipped tests cite it`);
+      }
+      (problems.length ? fail : pass)(
+        'criteria-bound-passed',
+        problems.length
+          ? `${problems.length} binding(s) not proven at HEAD`
+          : `${bindings.length} binding(s) passed at ${head.slice(0, 7)}`,
+        problems,
+      );
+    }
+  }
+}
+
+// main-nodes-have-valid-from
+{
+  const mainRef = [process.env.HARNESS_MAIN_REF, 'main', 'origin/main']
+    .filter(Boolean)
+    .find((r) => git(['rev-parse', '--verify', '--quiet', r]));
+  if (!mainRef)
+    results.push({
+      id: 'main-nodes-have-valid-from',
+      result: 'unmeasured',
+      msg: 'no main ref',
+    });
+  else {
+    const files = git(['ls-tree', '-r', '--name-only', mainRef, '--', 'canon/'])
+      .split('\n')
+      .filter((f) => f.endsWith('.md') && !/^canon\/(generated|index)\//.test(f));
+    const problems = [];
+    let counted = 0;
+    for (const f of files) {
+      const { data } = parseFrontmatter(git(['show', `${mainRef}:${f}`]));
+      if (!data.id || ['map', 'constitution'].includes(data.kind)) continue;
+      counted++;
+      if (!data.valid_from) {
+        problems.push(`${data.id} (${f}): valid_from missing`);
+        continue;
+      }
+      const ancestor = (() => {
+        try {
+          execFileSync('git', ['merge-base', '--is-ancestor', String(data.valid_from), mainRef], {
+            cwd: ROOT,
+            stdio: 'ignore',
+          });
+          return true;
+        } catch {
+          return false;
+        }
+      })();
+      if (!ancestor)
+        problems.push(
+          `${data.id} (${f}): valid_from ${data.valid_from} is not an ancestor of ${mainRef}`,
+        );
+    }
+    (problems.length ? fail : pass)(
+      'main-nodes-have-valid-from',
+      problems.length
+        ? `${problems.length} node(s) on ${mainRef} without a valid valid_from`
+        : counted
+          ? `${counted} node(s) on ${mainRef} stamped`
+          : `no canon nodes on ${mainRef} yet (vacuous)`,
+      problems,
+    );
+  }
+}
+
+// tags-present
+{
+  const manifest = readJson(join(ROOT, 'canon', 'generated', 'infra-manifest.json'));
+  const harness = readJson(join(ROOT, 'harness.json'), {});
+  const required = harness.infra?.required_tags || [
+    'App',
+    'Owner',
+    'Capability',
+    'CostCenter',
+    'Service',
+    'Environment',
+    'DataClassification',
+    'ManagedBy',
+  ];
+  if (!manifest)
+    results.push({
+      id: 'tags-present',
+      result: 'unmeasured',
+      msg: 'no infra manifest (npm run canon:manifest)',
+    });
+  else {
+    const problems = [];
+    for (const r of manifest.resources || []) {
+      const missing = required.filter(
+        (k) => !r.tags || r.tags[k] === undefined || r.tags[k] === '',
+      );
+      if (missing.length) problems.push(`${r.type} ${r.name}: missing ${missing.join(', ')}`);
+    }
+    (problems.length ? fail : pass)(
+      'tags-present',
+      problems.length
+        ? `${problems.length} resource(s) missing required tags`
+        : `${(manifest.resources || []).length} resource(s) carry ${required.length} required tags (${manifest.source})`,
+      problems,
+    );
+  }
+}
 
 for (const r of REGISTRY)
   if (r.status === 'pending') results.push({ id: r.id, result: 'pending', msg: r.describes });

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-17T16:25:35.313Z",
+  "generatedAt": "2026-09-17T17:51:44.419Z",
   "nodes": [
     {
       "id": "MAP",
@@ -98,11 +98,25 @@
       "file": "tests/e2e/app.spec.ts"
     },
     {
+      "id": "file:tests/policy/manifest.test.ts",
+      "kind": "file",
+      "label": "tests/policy/manifest.test.ts",
+      "file": "tests/policy/manifest.test.ts"
+    },
+    {
+      "id": "arrow:tests/policy/manifest.test.ts#read",
+      "kind": "arrow",
+      "label": "read",
+      "file": "tests/policy/manifest.test.ts",
+      "line": 15,
+      "exported": false
+    },
+    {
       "id": "infra:site:Web",
       "kind": "site",
       "label": "Web",
       "logicalId": "Web",
-      "line": 25,
+      "line": 30,
       "buildOutput": "dist"
     }
   ],
@@ -150,6 +164,12 @@
       "confidence": "EXTRACTED"
     },
     {
+      "source": "file:tests/policy/manifest.test.ts",
+      "target": "arrow:tests/policy/manifest.test.ts#read",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
       "source": "file:src/game.test.ts",
       "target": "file:src/game.ts",
       "type": "IMPORTS",
@@ -170,6 +190,12 @@
     {
       "source": "file:src/main.ts",
       "target": "func:src/game.ts#nextPosition",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:tests/policy/manifest.test.ts",
+      "target": "arrow:tests/policy/manifest.test.ts#read",
       "type": "CALLS",
       "confidence": "EXTRACTED"
     },

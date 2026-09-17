@@ -1,0 +1,37 @@
+{
+  "generatedAt": "2026-09-17T17:51:44.471Z",
+  "app": "hlab-b",
+  "region": "eu-central-1",
+  "account": null,
+  "source": "declared",
+  "defaultTags": {
+    "App": "hlab-b",
+    "Owner": "ricardo",
+    "Capability": "pacman",
+    "CostCenter": "mycelium-harness",
+    "Service": "hlab-b",
+    "Environment": "<computed>",
+    "DataClassification": "internal",
+    "ManagedBy": "sst"
+  },
+  "resources": [
+    {
+      "type": "static-site",
+      "name": "Web",
+      "logicalId": "Web",
+      "arn": null,
+      "tags": {
+        "App": "hlab-b",
+        "Owner": "ricardo",
+        "Capability": "pacman",
+        "CostCenter": "mycelium-harness",
+        "Service": "hlab-b",
+        "Environment": "<computed>",
+        "DataClassification": "internal",
+        "ManagedBy": "sst"
+      },
+      "verification_status": "declared",
+      "source": "sst.config.ts"
+    }
+  ]
+}

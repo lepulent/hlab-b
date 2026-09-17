@@ -1,6 +1,23 @@
 {
   "$schema": "./scripts/harness/harness.schema.json",
-  "app": { "name": "hlab-b", "status": "prototyping" },
+  "app": {
+    "name": "hlab-b",
+    "status": "prototyping"
+  },
+  "infra": {
+    "region": "eu-central-1",
+    "stages": ["dev", "staging"],
+    "required_tags": [
+      "App",
+      "Owner",
+      "Capability",
+      "CostCenter",
+      "Service",
+      "Environment",
+      "DataClassification",
+      "ManagedBy"
+    ]
+  },
   "yolo": {
     "mode": "full",
     "rounds": 3,
@@ -17,9 +34,17 @@
     "locked": false
   },
   "departments": {
-    "Testing": { "rounds": 3, "escalation": "full", "since": "round-0" }
+    "Testing": {
+      "rounds": 3,
+      "escalation": "full",
+      "since": "round-0"
+    }
   },
-  "budgets": { "tokens_per_seat": 400000, "tokens_per_round": 3000000, "minutes_per_seat": 40 },
+  "budgets": {
+    "tokens_per_seat": 400000,
+    "tokens_per_round": 3000000,
+    "minutes_per_seat": 40
+  },
   "tracks": {
     "vertical": [
       "game",

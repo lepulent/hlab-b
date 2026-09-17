@@ -12,9 +12,14 @@ export default $config({
           profile: 'FuturatorClaude',
           defaultTags: {
             tags: {
-              Project: 'hlab-b',
+              App: 'hlab-b',
+              Owner: 'ricardo',
+              Capability: 'pacman',
+              CostCenter: 'mycelium-harness',
+              Service: 'hlab-b',
+              Environment: input?.stage ?? 'dev',
+              DataClassification: 'internal',
               ManagedBy: 'sst',
-              Stage: input?.stage ?? 'dev',
             },
           },
         },

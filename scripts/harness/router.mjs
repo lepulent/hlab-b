@@ -42,7 +42,9 @@ if (track === 'vertical' && ['alpha', 'beta', 'production'].includes(status)) tr
 // Floor: rigor may not be below the assurance of any shard the intent names.
 const requested = opt('rigor', fm.rigor || (status === 'prototyping' ? 'prototype' : 'mvp'));
 const order = ['prototype', 'mvp', 'production'];
-const quality = readJson(join(ROOT, 'canon', 'quality.json'), { assurance: {} });
+const quality = readJson(join(ROOT, 'canon', 'quality.json'), {
+  assurance: {},
+});
 const touched = Object.keys(quality.assurance || {}).filter((cap) =>
   text.includes(cap.toLowerCase()),
 );

@@ -51,7 +51,13 @@ for (const p of walk(join(ROOT, 'canon'), { skip: ['generated', 'index'] })) {
     const h = /^###\s+([A-Z]+-\d+\.\d+)\s+(.*)$/.exec(line);
     if (h) {
       crit = h[1];
-      addNode({ id: crit, kind: 'criterion', label: h[2].trim(), file: rel(p), parent: data.id });
+      addNode({
+        id: crit,
+        kind: 'criterion',
+        label: h[2].trim(),
+        file: rel(p),
+        parent: data.id,
+      });
       addEdge(data.id, crit, 'contains');
       continue;
     }
@@ -62,7 +68,11 @@ for (const p of walk(join(ROOT, 'canon'), { skip: ['generated', 'index'] })) {
         .split(',')
         .map((s) => s.trim())
         .filter(Boolean)) {
-        addNode({ id: x, kind: x.startsWith('gate:') ? 'check' : 'coverage-row', label: x });
+        addNode({
+          id: x,
+          kind: x.startsWith('gate:') ? 'check' : 'coverage-row',
+          label: x,
+        });
         addEdge(x, crit, 'tests');
       }
       continue;
@@ -78,7 +88,12 @@ for (const p of walk(join(ROOT, 'canon'), { skip: ['generated', 'index'] })) {
         blob: ptr[4] || null,
       });
       addEdge(crit, `file:${ptr[1]}#${ptr[2]}`, 'implements');
-      addNode({ id: `file:${ptr[1]}#${ptr[2]}`, kind: 'symbol', label: ptr[2], file: ptr[1] });
+      addNode({
+        id: `file:${ptr[1]}#${ptr[2]}`,
+        kind: 'symbol',
+        label: ptr[2],
+        file: ptr[1],
+      });
     }
   }
   // principles: ### C-n ... with "- check:" lines
@@ -88,7 +103,12 @@ for (const p of walk(join(ROOT, 'canon'), { skip: ['generated', 'index'] })) {
       const h = /^###\s+(C-\d+)\s+(.*)$/.exec(line);
       if (h) {
         pr = h[1];
-        addNode({ id: pr, kind: 'principle', label: h[2].trim(), file: rel(p) });
+        addNode({
+          id: pr,
+          kind: 'principle',
+          label: h[2].trim(),
+          file: rel(p),
+        });
         addEdge(data.id, pr, 'contains');
         continue;
       }
@@ -142,14 +162,25 @@ for (const p of walk(ROOT, {
       tag: true,
     });
     addNode({ id: m[1], kind: 'criterion', label: m[1] });
-    addNode({ id: `file:${rel(p)}#${sym}`, kind: 'symbol', label: sym, file: rel(p) });
+    addNode({
+      id: `file:${rel(p)}#${sym}`,
+      kind: 'symbol',
+      label: sym,
+      file: rel(p),
+    });
     addEdge(m[1], `file:${rel(p)}#${sym}`, 'implements', { via: 'tag', line });
   }
 }
-const layerMap = readJson(join(ROOT, 'canon', 'layer-map.json'), { layers: {} });
+const layerMap = readJson(join(ROOT, 'canon', 'layer-map.json'), {
+  layers: {},
+});
 for (const n of nodes.values()) if (n.file) n.layer = layerOf(n.file, layerMap);
 
-const canonGraph = { generatedAt: new Date().toISOString(), nodes: [...nodes.values()], edges };
+const canonGraph = {
+  generatedAt: new Date().toISOString(),
+  nodes: [...nodes.values()],
+  edges,
+};
 writeJson(join(ROOT, 'canon', 'generated', 'canon-graph.json'), canonGraph);
 const byFile = {};
 for (const ptr of pointers) (byFile[ptr.file] ||= []).push(ptr);
@@ -190,9 +221,13 @@ if (sys) {
 if (process.argv.includes('--map')) {
   const caps = canonGraph.nodes.filter((n) => n.kind === 'capability');
   const crits = canonGraph.nodes.filter((n) => n.kind === 'criterion');
-  const deps = readJson(join(ROOT, 'canon', 'departments.json'), { departments: [] });
+  const deps = readJson(join(ROOT, 'canon', 'departments.json'), {
+    departments: [],
+  });
   const q = readJson(join(ROOT, 'canon', 'quality.json'), { assurance: {} });
+  // blank lines around the block keep the file prettier-stable
   const gen = [
+    '',
     '',
     `- capabilities: ${caps.length} · criteria: ${crits.length} · pointers: ${pointers.length} · departments: ${deps.departments.map((d) => d.name).join(', ') || 'none'}`,
     ...caps.map(
@@ -200,6 +235,7 @@ if (process.argv.includes('--map')) {
         `- ${c.id} ${c.label} · v${c.version ?? '0'} · ${q.assurance[c.id] || c.assurance || 'draft'}`,
     ),
     `- layers: ${Object.keys(layerMap.layers).join(', ')}`,
+    '',
     '',
   ].join('\n');
   for (const f of [join(ROOT, 'canon', 'MAP.md'), join(ROOT, 'CLAUDE.md')]) {

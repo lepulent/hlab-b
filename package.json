@@ -26,7 +26,9 @@
     "graph:system": "node ../bundle/scripts/system-graph/system-graph.mjs --root . --out canon/generated/system-graph.json",
     "graph:query": "node ../bundle/scripts/system-graph/graph-query.mjs canon/generated/graph.json",
     "check:security": "npm audit --audit-level=high --omit=dev",
-    "pw": "playwright-cli"
+    "pw": "playwright-cli",
+    "canon:manifest": "node scripts/harness/infra-manifest.mjs",
+    "test:report": "node scripts/harness/test-run.mjs"
   },
   "repository": {
     "type": "git",
