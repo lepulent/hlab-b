@@ -397,6 +397,8 @@ function build() {
   const dir = join(ROOT, 'intent', PLAN);
   const state = readJson(join(dir, 'STATE.json'), { rounds: 0, status: 'planted' });
   const max = arg('max-stories', '3');
+  const blocked = loopCannotRunUnattended();
+  if (blocked) fail(blocked, 2);
   handoff(`${PLAN} build rung planned`); // bmad-loop validate refuses a dirty tree too
   if (productDirty())
     fail(
@@ -441,6 +443,32 @@ function build() {
     `build: bmad-loop ${r.status === 0 ? 'finished' : 'stopped'} in ${minutes} min, ${relayed} escalation(s) relayed to questions`,
   );
   process.exit(r.status === 0 && !relayed ? 0 : 4);
+}
+
+// The Loop's claude profile launches its dev sessions with the permission-bypass flags, and bypass mode
+// shows an acceptance dialog until a human has accepted it once on this machine. A headless session
+// cannot answer it, so every dev session dies at the prompt and the Loop defers the stories. The harness
+// reads that precondition instead of spending a seat on it, and never accepts the dialog for the human:
+// which posture the dev sessions run under is their decision, not the harness's.
+function loopCannotRunUnattended() {
+  const policy = join(ROOT, '.bmad-loop', 'policy.toml');
+  if (!existsSync(policy)) return null;
+  const text = readFileSync(policy, 'utf8');
+  if (/^\s*extra_args\s*=/m.test(text)) return null; // the profile's bypass flags are replaced
+  const accepted = [
+    join(process.env.HOME || '', '.claude', 'settings.json'),
+    join(ROOT, '.claude', 'settings.json'),
+    join(ROOT, '.claude', 'settings.local.json'),
+  ].some((f) => readJson(f, {})?.skipDangerousModePermissionPrompt === true);
+  if (accepted) return null;
+  return [
+    'the BMAD Loop would launch its dev sessions in bypass permissions mode, which asks for acceptance',
+    'once per machine and cannot be answered by a headless session; every story would be deferred.',
+    'Either accept it once yourself (run `claude --dangerously-skip-permissions` and confirm), or give',
+    'the Loop a posture that needs no dialog by setting, under [adapter] in .bmad-loop/policy.toml:',
+    '  extra_args = ["--permission-mode", "acceptEdits"]',
+    'The harness does not choose this for you.',
+  ].join('\n  ');
 }
 
 // ---------------------------------------------------------------- observe
