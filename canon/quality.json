@@ -1,5 +1,16 @@
 {
-  "assurance": {},
+  "assurance": {
+    "CAP-1": "prototype",
+    "CAP-1.1": "prototype",
+    "CAP-1.2": "prototype",
+    "CAP-1.3": "prototype",
+    "CAP-1.4": "prototype",
+    "CAP-1.5": "prototype",
+    "CAP-1.6": "prototype",
+    "CAP-1.7": "prototype",
+    "CAP-1.8": "prototype",
+    "CAP-1.9": "prototype"
+  },
   "bindings": {
     "criteria": 0,
     "bound": 0

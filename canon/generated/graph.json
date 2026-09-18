@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-18T08:37:40.521Z",
+  "generatedAt": "2026-09-18T08:37:50.712Z",
   "nodes": [
     {
       "id": "MAP",
@@ -19,7 +19,7 @@
       "file": "canon/capabilities/CAP-1.md",
       "assurance": "draft",
       "version": 1,
-      "valid_from": null,
+      "valid_from": "b64b12b7901e256cb8c40c606f513a8f0fdce690",
       "valid_to": null,
       "layer": "harness"
     },

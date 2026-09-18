@@ -4,7 +4,7 @@ kind: capability
 title: Pacman gameplay
 version: 1
 assurance: draft
-valid_from: null
+valid_from: b64b12b7901e256cb8c40c606f513a8f0fdce690
 ---
 
 ## Why
