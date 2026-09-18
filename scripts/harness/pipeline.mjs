@@ -21,7 +21,15 @@ import {
 } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { ROOT, readJson, writeJson, git, headSha, parseFrontmatter } from './common.mjs';
+import {
+  ROOT,
+  readJson,
+  writeJson,
+  git,
+  headSha,
+  parseFrontmatter,
+  BOOKKEEPING,
+} from './common.mjs';
 
 const argv = process.argv.slice(2);
 const cmd = argv[0];
@@ -385,9 +393,24 @@ function merge() {
   breakerOpen();
   const sha = headSha();
   const pr = safeJson(
-    sh('gh', ['pr', 'view', '--json', 'number,mergeable,headRefOid,baseRefName,state,url'])
-      .stdout || '',
+    sh('gh', [
+      'pr',
+      'view',
+      '--json',
+      'number,mergeable,headRefOid,baseRefName,state,url,mergeCommit',
+    ]).stdout || '',
   );
+  // `gh pr merge` merges on GitHub and only then touches this clone. A local failure after that is not
+  // a failed merge, and neither is a re-run: the remote state decides, never the exit code, because the
+  // merge is the irreversible half and the tag, the pull and the ledger line are the recoverable one.
+  if (pr?.state === 'MERGED')
+    return finishMerge(
+      pr,
+      sha,
+      readSeal(),
+      { plan: PLAN, sha, pr: pr.number },
+      'already merged on GitHub',
+    );
   const reasons = [];
   if (!pr || pr.state !== 'OPEN') reasons.push('no open PR for this branch');
   else {
@@ -426,27 +449,71 @@ function merge() {
   }
   const r = sh('gh', ['pr', 'merge', String(pr.number), '--squash', '--delete-branch']);
   if (!ok(r)) {
-    ledger(
-      'decision',
-      { station: 'merge', decision: 'merge-failed', tail: (r.stderr || r.stdout).slice(-400) },
-      'script:merge',
+    const after = safeJson(
+      sh('gh', ['pr', 'view', String(pr.number), '--json', 'state,mergeCommit']).stdout || '',
     );
-    trip('merge:gh');
-    fail(`gh pr merge failed: ${(r.stderr || r.stdout).slice(-400)}`);
+    if (after?.state !== 'MERGED') {
+      ledger(
+        'decision',
+        { station: 'merge', decision: 'merge-failed', tail: (r.stderr || r.stdout).slice(-400) },
+        'script:merge',
+      );
+      trip('merge:gh');
+      fail(`gh pr merge failed: ${(r.stderr || r.stdout).slice(-400)}`);
+    }
+    // merged on GitHub, gh stumbled in this clone: a finding about the local half, not a failed merge
+    ledger('finding', {
+      station: 'merge',
+      kind: 'local-step-failed',
+      tail: (r.stderr || r.stdout).slice(-400),
+    });
+    pr.mergeCommit = after.mergeCommit || pr.mergeCommit;
   }
-  sh('git', ['checkout', '-q', 'main']);
-  sh('git', ['pull', '-q', '--ff-only', 'origin', 'main']);
-  const mergeSha = headSha();
+  return finishMerge(pr, sha, seal, decision, ok(r) ? null : 'gh failed after merging');
+}
+
+// The local half of a merge: pull what GitHub squashed, tag it, record it. Idempotent, so a merge
+// station re-run after any local failure completes the round instead of refusing.
+function finishMerge(pr, sha, seal, decision, note) {
+  carryBookkeeping(() => {
+    sh('git', ['checkout', '-q', 'main']);
+    sh('git', ['pull', '-q', '--ff-only', 'origin', 'main']);
+  });
+  const mergeSha = pr.mergeCommit?.oid || headSha();
   const tag = `plan/${PLAN}@${mergeSha.slice(0, 7)}`;
   sh('git', ['tag', '-f', tag]);
   sh('git', ['push', '-q', '-f', 'origin', tag]);
-  writeJson(join(H, 'merge.json'), { ...decision, mergeSha, tag });
+  writeJson(join(H, 'merge.json'), { ...decision, ok: true, mergeSha, tag, note });
   ledger(
     'merge',
-    { pr: pr.number, sha, mergeSha, tag, rigor: seal.rigor, track: seal.track },
+    { pr: pr.number, sha, mergeSha, tag, rigor: seal.rigor, track: seal.track, note },
     'script:merge',
   );
-  console.log(`merge: PR #${pr.number} squashed as ${mergeSha.slice(0, 7)}, tag ${tag}`);
+  console.log(
+    `merge: PR #${pr.number} squashed as ${mergeSha.slice(0, 7)}, tag ${tag}${note ? ` (${note})` : ''}`,
+  );
+}
+
+// The ledger lines a station writes belong to the run, not to the branch: they are evidence of what
+// ci, review and merge did, and `land` commits them on main. A branch change in between must not lose
+// them, and git refuses to switch while they sit uncommitted beside regenerated canon. So the ledger is
+// carried across in memory and the derived files are dropped — `land` regenerates those anyway.
+function carryBookkeeping(fn) {
+  const file = join(ROOT, 'ledger', `${PLAN}.jsonl`);
+  const carried = existsSync(file) ? readFileSync(file, 'utf8') : '';
+  for (const p of BOOKKEEPING) if (p !== '.harness') sh('git', ['checkout', '-q', '--', p]);
+  const out = fn();
+  const now = existsSync(file) ? readFileSync(file, 'utf8') : '';
+  const seen = new Set(now.split('\n').filter(Boolean));
+  const missing = carried.split('\n').filter((l) => l && !seen.has(l));
+  if (missing.length) {
+    mkdirSync(dirname(file), { recursive: true });
+    writeFileSync(
+      file,
+      (now && !now.endsWith('\n') ? now + '\n' : now) + missing.join('\n') + '\n',
+    );
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------- station 6b

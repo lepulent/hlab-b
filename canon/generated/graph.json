@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-18T08:16:15.664Z",
+  "generatedAt": "2026-09-18T08:23:27.112Z",
   "nodes": [
     {
       "id": "MAP",
@@ -298,7 +298,7 @@
       "kind": "function",
       "label": "moveGhost",
       "file": "src/game.ts",
-      "line": 143,
+      "line": 144,
       "exported": false
     },
     {
@@ -306,7 +306,7 @@
       "kind": "arrow",
       "label": "distance",
       "file": "src/game.ts",
-      "line": 151,
+      "line": 152,
       "exported": false
     },
     {
@@ -314,7 +314,7 @@
       "kind": "function",
       "label": "moveGhosts",
       "file": "src/game.ts",
-      "line": 160,
+      "line": 162,
       "exported": false
     },
     {
@@ -322,7 +322,7 @@
       "kind": "function",
       "label": "tick",
       "file": "src/game.ts",
-      "line": 164,
+      "line": 166,
       "exported": true
     },
     {
@@ -510,7 +510,7 @@
       "kind": "function",
       "label": "drawFrame",
       "file": "src/render.ts",
-      "line": 34,
+      "line": 35,
       "exported": true
     },
     {
@@ -1175,6 +1175,12 @@
     },
     {
       "source": "file:src/game.test.ts",
+      "target": "func:src/game.ts#tick",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.test.ts",
       "target": "func:src/game.ts#checkWin",
       "type": "CALLS",
       "confidence": "EXTRACTED"
@@ -1188,12 +1194,6 @@
     {
       "source": "file:src/game.test.ts",
       "target": "func:src/game.ts#createGameState",
-      "type": "CALLS",
-      "confidence": "EXTRACTED"
-    },
-    {
-      "source": "file:src/game.test.ts",
-      "target": "func:src/game.ts#tick",
       "type": "CALLS",
       "confidence": "EXTRACTED"
     },
@@ -1283,13 +1283,13 @@
     },
     {
       "source": "func:src/game.ts#tick",
-      "target": "func:src/game.ts#moveGhosts",
+      "target": "func:src/game.ts#resolveGhostCollisions",
       "type": "CALLS",
       "confidence": "EXTRACTED"
     },
     {
       "source": "func:src/game.ts#tick",
-      "target": "func:src/game.ts#resolveGhostCollisions",
+      "target": "func:src/game.ts#moveGhosts",
       "type": "CALLS",
       "confidence": "EXTRACTED"
     },
