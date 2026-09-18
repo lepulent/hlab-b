@@ -1,1 +1,8 @@
-{ "assurance": {}, "bindings": { "criteria": 0, "bound": 0 }, "debt": [] }
+{
+  "assurance": {},
+  "bindings": {
+    "criteria": 0,
+    "bound": 0
+  },
+  "debt": []
+}
