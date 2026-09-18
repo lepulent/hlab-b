@@ -597,9 +597,20 @@ function land() {
   }
   for (const n of seal.touches || []) {
     const before = q.assurance[n] || 'draft';
-    if (RANK[seal.rigor] > (RANK[before] || 0)) q.assurance[n] = seal.rigor;
+    if (RANK[seal.rigor] > (RANK[before] || 0)) {
+      q.assurance[n] = seal.rigor;
+      deltas.push({
+        file: 'canon/quality.json',
+        node: n,
+        op: 'ASSURANCE',
+        assurance: { before, after: seal.rigor },
+      });
+    }
   }
-  writeJson(join(ROOT, 'canon', 'quality.json'), q);
+  // write only when something changed: an unchanged rewrite gets reformatted by the pre-commit hook and shows up as a phantom delta (rm1, both apps)
+  const qBefore = readJson(join(ROOT, 'canon', 'quality.json'), null);
+  if (JSON.stringify(qBefore) !== JSON.stringify(q))
+    writeJson(join(ROOT, 'canon', 'quality.json'), q);
   // 6. regenerate, re-check
   sh('npm', ['run', '--silent', 'graph:system']);
   script('infra-manifest.mjs');
@@ -637,7 +648,7 @@ function land() {
     plan: PLAN,
     mergeSha,
     deltas: deltas.length,
-    departments: deps.departments?.map((x) => x.name) || [],
+    departments_configured: deps.departments?.map((x) => x.name) || [],
   });
   sh('git', ['add', '-A']);
   const c = sh('git', [

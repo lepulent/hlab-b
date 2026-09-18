@@ -419,6 +419,8 @@ function observe() {
     `\n\n--- GIT LOG ---\n${log}`,
     `\n\n--- CANON DIFF ---\n${diff}`,
     `\n\n--- STATS ---\n${statsText}`,
+    `\n\n--- HARNESS ---\nbundle ${JSON.stringify(harness.bundle || null)}; lenses ${(harness.pipeline?.review?.lenses || []).join(', ')}`,
+    `\n\n--- MASTER SEAT PROMPT (.claude/seats/master.md) ---\n${existsSync(join(ROOT, '.claude', 'seats', 'master.md')) ? readFileSync(join(ROOT, '.claude', 'seats', 'master.md'), 'utf8') : '(none)'}`,
   ].join('');
   const budgetUsd = Number(harness.budgets?.usd_per_seat || 3);
   const t = Date.now();
