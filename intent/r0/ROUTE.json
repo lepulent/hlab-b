@@ -1,0 +1,21 @@
+{
+  "plan": "r0",
+  "kind": "feature",
+  "appStatus": "prototyping",
+  "track": "vertical",
+  "matchedSignals": {
+    "vertical": ["game", "pacman", "no accounts"],
+    "method": [],
+    "enterprise": []
+  },
+  "requestedRigor": "prototype",
+  "floor": "prototype",
+  "rigor": "prototype",
+  "touchedShards": [],
+  "rungs": ["tech-spec", "ux-if-screen", "build", "test"],
+  "seal": "required",
+  "hasCanon": false,
+  "base": "3be626e35f8d3a3ef5a3fe3366fa08d64bc2f650",
+  "branch": "plan/r0",
+  "plantedAt": "2026-09-18T01:07:42.943Z"
+}
