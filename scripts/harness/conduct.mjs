@@ -38,6 +38,7 @@ import {
   authoredPaths,
   overlapSeconds,
   chosenKey,
+  rejectionOptions,
 } from './activation.mjs';
 import {
   KINDS,
@@ -217,21 +218,28 @@ const schema = JSON.stringify({
       maxItems: MAX_WAVE,
       items: {
         type: 'object',
-        properties: { agent: { type: 'string' }, task: { type: 'string' } },
+        properties: {
+          agent: { type: 'string', enum: roster.agents.map((a) => a.id) },
+          task: { type: 'string' },
+        },
         required: ['agent', 'task'],
       },
     },
     reason: { type: 'string' },
+    wave_reason: { type: 'string' },
     rejected: {
       type: 'array',
       items: {
         type: 'object',
-        properties: { option: { type: 'string' }, why: { type: 'string' } },
+        properties: {
+          option: { type: 'string', enum: rejectionOptions(roster) },
+          why: { type: 'string' },
+        },
         required: ['option', 'why'],
       },
     },
   },
-  required: ['decision', 'activations', 'reason', 'rejected'],
+  required: ['decision', 'activations', 'reason', 'wave_reason', 'rejected'],
 });
 const masterSession = randomUUID();
 ledger('seat-start', { seat: 'master', session: masterSession, station: 'conduct' });
@@ -278,6 +286,7 @@ ledger(
     decision: act.decision,
     activations: wave.map((a) => ({ agent: a.agent, task: a.task, owns: a.owned })),
     reason: act.reason,
+    wave_reason: act.wave_reason ?? null,
     rejected: act.rejected || [],
     max_wave: MAX_WAVE,
     valid: valid.ok,

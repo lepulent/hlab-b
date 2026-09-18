@@ -2,12 +2,7 @@
 // an agent's jurisdiction is resolved and checked, and transcripts are read for tool use. No I/O here,
 // so every rule is a unit test.
 
-const MIN_WORDS = { task: 4, reason: 4, rejection: 3 };
-// an option names an agent when its id appears as a whole token ("spec-writer", "spec-writer (tech spec)")
-const names = (option, id) =>
-  new RegExp(`(^|[^a-z0-9-])${id.replace(/[-]/g, '\\-')}($|[^a-z0-9-])`, 'i').test(
-    String(option || ''),
-  );
+const MIN_WORDS = { task: 4, reason: 4, rejection: 3, wave: 4 };
 const words = (s) =>
   String(s || '')
     .trim()
@@ -56,14 +51,22 @@ export function validateActivation(act, roster, { plan = 'plan', maxWave = 1 } =
   if (act.decision === 'no-move' && wave.length) refusals.push('no-move activates an agent');
   if (words(act.reason) < MIN_WORDS.reason)
     refusals.push(`reason has fewer than ${MIN_WORDS.reason} words`);
-  for (const r of act.rejected || [])
+  // why these agents run together, or why the others wait: the shape of the wave is a decision too,
+  // kept in its own field so options stay a closed set (step 4, both apps: rejected combinations such as
+  // "brief-writer alone, then spec-writer later" were read as rejecting the chosen agents)
+  if (act.decision === 'activate' && agents.size > 1 && words(act.wave_reason) < MIN_WORDS.wave)
+    refusals.push(`wave_reason has fewer than ${MIN_WORDS.wave} words`);
+  // an option is a roster agent id or no-move, never free text to be parsed
+  const options = rejectionOptions(roster);
+  for (const r of act.rejected || []) {
+    if (!options.includes(r?.option))
+      refusals.push(`rejected option "${r?.option}" is not a roster agent or no-move`);
     if (words(r?.why) < MIN_WORDS.rejection)
       refusals.push(`rejection of "${r?.option}" has fewer than ${MIN_WORDS.rejection} words`);
+  }
   // a decision records what else was possible: every roster agent is either chosen or rejected with a
   // reason, and never both (step 1, hlab-b: "brief-writer — Chosen, not rejected." passed the gate)
-  const rejectedIds = new Set(
-    (act.rejected || []).flatMap((r) => [...agents.keys()].filter((id) => names(r?.option, id))),
-  );
+  const rejectedIds = new Set((act.rejected || []).map((r) => r?.option));
   const chosen = new Set(act.decision === 'activate' ? wave.map((a) => a?.agent) : []);
   for (const id of chosen)
     if (rejectedIds.has(id)) refusals.push(`the chosen agent "${id}" is also listed as rejected`);
@@ -71,6 +74,11 @@ export function validateActivation(act, roster, { plan = 'plan', maxWave = 1 } =
     if (!chosen.has(id) && !rejectedIds.has(id))
       refusals.push(`roster agent "${id}" was neither chosen nor rejected`);
   return { ok: !refusals.length, refusals };
+}
+
+// the closed set a rejection names: every roster agent, and doing nothing
+export function rejectionOptions(roster) {
+  return [...rosterById(roster).keys(), 'no-move'];
 }
 
 // what a decision chose, in one comparable word: "no-move", or the activated agents sorted and joined
