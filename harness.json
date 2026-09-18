@@ -22,6 +22,7 @@
     "mode": "full",
     "rounds": 3,
     "stop_on": [
+      "cost",
       "irreversible",
       "constitutional",
       "crossDeptConflict",
@@ -32,7 +33,8 @@
     ],
     "stakes_threshold": 1,
     "locked": false,
-    "model": "sonnet"
+    "model": "sonnet",
+    "floor": ["cost"]
   },
   "departments": {
     "Testing": {
@@ -84,7 +86,7 @@
   },
   "bundle": {
     "version": "0.1.0-dev",
-    "sha": "6323b28",
+    "sha": "e9c03d2",
     "installedAt": "2026-09-18"
   }
 }

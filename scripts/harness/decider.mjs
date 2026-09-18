@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // The decider (docs/08): a script run over every question before the Master answers. Mycelium's rule,
 // ported to files: a question is a human-MUST when any floor trigger fires (irreversible, constitutional,
-// crossDeptConflict, authorityGap, reserved, external) or stakes reach the threshold. Yolo raises the
-// stakes threshold (full → 1.0) and never lowers the floor. Under H-20 a fired trigger listed in
+// crossDeptConflict, authorityGap, reserved, external, cost; narrowed by yolo.floor) or stakes reach the
+// threshold. Yolo raises the
+// stakes threshold (full → 1.0) and never lowers the floor, which an app configures as yolo.floor. Under H-20 a fired trigger listed in
 // yolo.stop_on ends the round: the verdict is written on the question file and needs-input.md is produced by round.mjs.
 //
 // Question file: intent/<plan>/questions/Q-<n>.md with frontmatter
@@ -12,6 +13,7 @@
 import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { ROOT, readJson, parseFrontmatter } from './common.mjs';
+import { firedTriggers } from './question.mjs';
 
 const argv = process.argv.slice(2);
 const arg = (name, def) => {
@@ -26,20 +28,12 @@ if (!PLAN) {
 const harness = readJson(join(ROOT, 'harness.json'), {});
 const yolo = harness.yolo || {};
 const MODE = yolo.mode || 'manual';
-const FLOOR = [
-  'irreversible',
-  'constitutional',
-  'crossDeptConflict',
-  'authorityGap',
-  'reserved',
-  'external',
-];
 const threshold =
   MODE === 'full' ? 1.0 : MODE === 'critical-only' ? 0.9 : (yolo.stakes_threshold ?? 0.7);
 const stopOn = new Set(yolo.stop_on || []);
 
 export function decide(q) {
-  const fired = FLOOR.filter((t) => (q.triggers || []).includes(t));
+  const fired = firedTriggers(q.triggers, yolo.floor);
   const stakes = Number(q.stakes ?? 0);
   if (yolo.locked)
     return { verdict: 'escalate', reason: 'department hold (yolo.locked)', fired, stakes };

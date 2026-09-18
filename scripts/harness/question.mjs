@@ -2,7 +2,8 @@
 // reads, and the Master's answer is validated against the alternatives the agent listed. No I/O here.
 
 export const KINDS = ['decision', 'requirement', 'risk', 'ops', 'secret', 'scope', 'other'];
-// the decider's floor (docs/08); an agent declares which apply, the decider alone decides what follows
+// the decider's floor (docs/08) plus cost; an agent declares which apply, the decider alone decides what
+// follows
 export const TRIGGERS = [
   'irreversible',
   'constitutional',
@@ -10,7 +11,17 @@ export const TRIGGERS = [
   'authorityGap',
   'reserved',
   'external',
+  'cost',
 ];
+
+// The triggers that escalate are the declared ones inside the configured floor. With no floor configured
+// every trigger escalates (Mycelium's rule). An app may narrow it (yolo.floor): the lab keeps only cost,
+// owner decision 2026-09-19 ("ok the master take whatever decision, as long as it does not mean real
+// costs"). A declared trigger outside the floor is recorded, never acted on.
+export function firedTriggers(declared, floor) {
+  const f = Array.isArray(floor) && floor.length ? floor : TRIGGERS;
+  return (declared || []).filter((t) => f.includes(t));
+}
 const MIN_WORDS = { question: 6, why: 4, reason: 4, rejection: 3 };
 const words = (s) =>
   String(s || '')

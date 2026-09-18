@@ -15,6 +15,7 @@ For each question give:
   - crossDeptConflict: two departments would want different answers;
   - authorityGap: no one in the roster is entitled to decide it;
   - reserved: the owner has kept this kind of decision for themselves;
-  - external: it involves a third party, a paid service, or data leaving the app.
+  - external: it involves a third party, a service outside the app, or data leaving the app;
+  - cost: acting on the answer would spend real money (a paid service or plan, billable cloud resources).
 
 You do not decide what happens to a question; a script and the Master do. Ask only what you cannot settle yourself, at most three.
