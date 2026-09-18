@@ -19,7 +19,16 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { ROOT, readJson, writeJson, git, headSha } from './common.mjs';
+import {
+  ROOT,
+  readJson,
+  writeJson,
+  git,
+  headSha,
+  BOOKKEEPING,
+  productDirty,
+  bookkeepingDirty,
+} from './common.mjs';
 
 const argv = process.argv.slice(2);
 const cmd = argv[0];
@@ -64,6 +73,15 @@ const stat = (row) => {
     /* advisory */
   }
 };
+// Before the tree is handed to anything that refuses a dirty one (bmad-loop, a push, the pipeline),
+// the harness's own bookkeeping is committed. Ordering each write by hand is a per-call-site rule and
+// it was already broken three times; this is the one place that holds the invariant.
+function handoff(label) {
+  if (!bookkeepingDirty()) return;
+  sh('git', ['add', ...BOOKKEEPING.filter((p) => p !== '.harness')]);
+  sh('git', ['commit', '-q', '-m', `chore(ledger): ${label}`]);
+}
+
 function safeJson(s) {
   try {
     return JSON.parse(String(s).replace(/^```json\s*|```$/g, ''));
@@ -167,6 +185,7 @@ function go() {
       existsSync(join(dir, 'SEAL.md'))
         ? `\n\n--- SEAL (already written) ---\n${readFileSync(join(dir, 'SEAL.md'), 'utf8')}`
         : '',
+      blockingReview(),
       `\n\n--- ROUND ---\nThis is round ${n} of at most ${rounds}. Plan ${PLAN} on branch ${branch}. Decided questions: ${JSON.stringify(verdicts.questions)}.`,
     ].join('');
     const schema = JSON.stringify({
@@ -287,6 +306,7 @@ function go() {
   if (!existsSync(join(dir, 'SEAL.md')))
     fail('Master reported sealed but intent/<plan>/SEAL.md is missing', 1);
   // 3. deliver: push, PR, pipeline
+  handoff(`${PLAN} sealed`);
   const push = sh('git', ['push', '-q', '-u', 'origin', branch]);
   if (!ok(push)) fail(`push failed: ${push.stderr.slice(-300)}`);
   const existing = safeJson(sh('gh', ['pr', 'view', '--json', 'number,state']).stdout || '');
@@ -309,6 +329,27 @@ function go() {
     { cwd: ROOT, stdio: 'inherit' },
   );
   process.exit(pipe.status ?? 1);
+}
+
+// H-20: a station that blocks must hand its reason back into the run, not to a human. The review
+// station writes .harness/review.json and exits; the next Master round reads the blocking findings
+// from here. A passing review overwrites the file, so a fixed plan carries nothing forward.
+function blockingReview() {
+  const r = readJson(join(H, 'review.json'));
+  if (!r || r.verdict === 'pass' || !Array.isArray(r.findings) || !r.findings.length) return '';
+  const rank = { low: 1, medium: 2, high: 3, critical: 4 };
+  const at = rank[r.block_at] || 3;
+  const blocking = r.findings.filter((f) => (rank[f.severity] || 0) >= at);
+  const rest = r.findings.filter((f) => !blocking.includes(f));
+  const row = (f) =>
+    `- [${f.severity}] ${f.lens ? f.lens + ' · ' : ''}${f.file || '(no file)'}${f.line ? ':' + f.line : ''}\n  ${f.summary}\n  ${f.why || ''}`.trim();
+  return [
+    `\n\n--- REVIEW (${r.verdict}, blocked at ${r.sha ? String(r.sha).slice(0, 7) : '?'}) ---`,
+    `The pipeline refused this plan at the review station. Answer every blocking finding in the code or`,
+    ` in the canon before you seal again; if you believe one is wrong, write a question file saying why.`,
+    `\n\nBLOCKING (${blocking.length}):\n${blocking.map(row).join('\n')}`,
+    rest.length ? `\n\nOTHER (${rest.length}, not blocking):\n${rest.map(row).join('\n')}` : '',
+  ].join('');
 }
 
 // ---------------------------------------------------------------- estop
@@ -356,10 +397,17 @@ function build() {
   const dir = join(ROOT, 'intent', PLAN);
   const state = readJson(join(dir, 'STATE.json'), { rounds: 0, status: 'planted' });
   const max = arg('max-stories', '3');
+  handoff(`${PLAN} build rung planned`); // bmad-loop validate refuses a dirty tree too
+  if (productDirty())
+    fail(
+      'uncommitted product changes on the branch; the build station starts from a whole branch',
+      2,
+    );
   const v = sh('bmad-loop', ['validate']);
   if (!ok(v))
     fail(`bmad-loop validate failed:\n${(v.stdout + v.stderr).split('\n').slice(-6).join('\n')}`);
   ledger('seat-start', { seat: 'loop', maxStories: Number(max) }, 'script:round');
+  handoff(`${PLAN} build rung starts`); // bmad-loop run refuses a dirty tree
   const t = Date.now();
   const r = spawnSync('bmad-loop', ['run', '--max-stories', String(max)], {
     cwd: ROOT,

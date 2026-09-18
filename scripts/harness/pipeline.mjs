@@ -129,11 +129,15 @@ function readSeal() {
     return { ok: false, reason: `seal rigor "${data.rigor}" is not prototype|mvp|production` };
   if (!data.base || !git(['rev-parse', '--verify', '--quiet', String(data.base)]))
     return { ok: false, reason: 'seal base is not a known commit' };
+  // touches drive the ratchet and land's deltas; an empty list would pass both vacuously
+  const touches = Array.isArray(data.touches) ? data.touches : data.touches ? [data.touches] : [];
+  if (!touches.length)
+    return { ok: false, reason: 'seal names no touches (canon node ids this plan changes)' };
   return {
     ok: true,
     rigor: data.rigor,
     base: String(data.base),
-    touches: data.touches || [],
+    touches,
     track: data.track || null,
     data,
   };

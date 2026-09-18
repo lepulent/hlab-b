@@ -5,7 +5,7 @@
 import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { ROOT, headSha, git, readJson, writeJson } from './common.mjs';
+import { ROOT, headSha, readJson, writeJson, productDirty, bookkeepingDirty } from './common.mjs';
 
 const e2e = process.argv.includes('--e2e');
 const unit = !process.argv.includes('--e2e-only');
@@ -86,10 +86,13 @@ if (e2e || process.argv.includes('--e2e-only')) {
   }
 }
 
-const dirty = git(['status', '--porcelain', '--', ':!.harness']) !== '';
+// Only product changes make a result unmeasurable; the harness's own bookkeeping does not (canon:check
+// regenerates canon/generated while it reads this very file).
+const dirty = productDirty();
 const result = {
   commit: headSha(),
   dirty,
+  bookkeepingDirty: bookkeepingDirty(),
   ranAt: new Date().toISOString(),
   runners,
   tests,
