@@ -251,11 +251,11 @@ else {
         result: 'unmeasured',
         msg: 'no .harness/test-results.json (npm run test:report -- --e2e)',
       });
-    else if (!resultsDescribe(tr, head) || tr.dirty)
+    else if (productDiff(tr, head).length || tr.dirty)
       results.push({
         id: 'criteria-bound-passed',
         result: 'unmeasured',
-        msg: `test results are from ${String(tr.commit).slice(0, 7)}${tr.dirty ? ' (dirty tree)' : ''}, HEAD is ${head.slice(0, 7)}; rerun npm run test:report`,
+        msg: `test results are from ${String(tr.commit).slice(0, 7)}${tr.dirty ? ' (dirty tree)' : ''}, HEAD is ${head.slice(0, 7)}; product changed since: ${productDiff(tr, head).slice(0, 5).join(', ') || '(nothing)'}; rerun npm run test:report`,
       });
     else {
       const problems = [];
@@ -288,21 +288,22 @@ else {
 // canon, moves intent to records and appends to the ledger, and a harness sync reaches main on its own
 // lineage. Re-proving identical product code against a different sha would only say the same twice. Bindings are read from the canon at HEAD either
 // way, so a criterion added since the run is still caught by the rows below.
-function resultsDescribe(tr, head) {
-  if (!tr.commit) return false;
-  if (tr.commit === head) return true;
-  if (!git(['rev-parse', '--verify', '--quiet', `${tr.commit}^{commit}`])) return false;
-  return (
-    git([
-      'diff',
-      '--name-only',
-      tr.commit,
-      head,
-      '--',
-      '.',
-      ...NOT_PRODUCT.map((p) => `:!${p}`),
-    ]) === ''
-  );
+function productDiff(tr, head) {
+  if (!tr.commit) return ['(results carry no commit)'];
+  if (tr.commit === head) return [];
+  if (!git(['rev-parse', '--verify', '--quiet', `${tr.commit}^{commit}`]))
+    return [`(${String(tr.commit).slice(0, 7)} is not a commit in this clone)`];
+  return git([
+    'diff',
+    '--name-only',
+    tr.commit,
+    head,
+    '--',
+    '.',
+    ...NOT_PRODUCT.map((p) => `:!${p}`),
+  ])
+    .split('\n')
+    .filter(Boolean);
 }
 
 // main-nodes-have-valid-from

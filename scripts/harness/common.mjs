@@ -100,10 +100,13 @@ export function bookkeepingDirty(cwd = ROOT) {
   return git(['status', '--porcelain', '--', ...BOOKKEEPING], cwd) !== '';
 }
 // The app and the harness installed in it are two lineages (PLAN §1b): the tests bind to the product,
-// never to the scripts that run them, so a harness sync cannot change what a test proves. These are the
-// paths a proof about the product may ignore.
+// never to the scripts that run them, so a harness sync cannot change what a test proves. Neither can
+// the canon, which describes the code rather than being it — whether it still matches is what the other
+// canon rows ask. These are the paths a proof about the product may ignore.
 export const NOT_PRODUCT = [
   ...BOOKKEEPING,
+  'canon',
+  'CLAUDE.md',
   'records',
   'intent',
   'scripts/harness',

@@ -718,9 +718,14 @@ function land() {
   // 9. the canon check reads main as committed, so it can only judge a landing that has been committed:
   // main-nodes-have-valid-from asks about the tree at a ref, never the working tree. Verified here, and
   // the commit is undone when it is red — nothing has left this clone yet, and the code stays merged.
-  const chk = script('canon-check.mjs');
+  const chk = script('canon-check.mjs', '--json');
   if (!ok(chk)) {
-    const tail = chk.stdout.split('\n').slice(-6);
+    // the rows that blocked, named: a tail of the table cuts off the one that matters
+    const rows = safeJson(chk.stdout)?.results || [];
+    const blocking = rows.filter((r) => r.result !== 'pass');
+    const tail = blocking.length
+      ? blocking.map((r) => `${r.result} ${r.id}: ${r.msg || ''}`.trim())
+      : chk.stdout.split('\n').slice(-6);
     if (ok(c)) carryBookkeeping(() => sh('git', ['reset', '-q', '--hard', 'HEAD~1']));
     else sh('git', ['checkout', '--', 'canon']);
     ledger('decision', {
