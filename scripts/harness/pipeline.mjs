@@ -35,8 +35,34 @@ const PIPE = harness.pipeline || {};
 const RANK = { draft: 0, prototype: 1, mvp: 2, production: 3 };
 const H = join(ROOT, '.harness');
 mkdirSync(H, { recursive: true });
-const branch = git(['rev-parse', '--abbrev-ref', 'HEAD']);
-const PLAN = arg('plan', branch.replace(/^(plan|spike|fix)\//, ''));
+const PLAN = arg(
+  'plan',
+  git(['rev-parse', '--abbrev-ref', 'HEAD']).replace(/^(plan|spike|fix)\//, ''),
+);
+// Stations 3–5 run on the plan branch, station 7 on main. Being elsewhere is switched (clean tree) or refused,
+// never silently graded: a seal file lives on the branch, so grading main would always be RED.
+const branch = (() => {
+  const cur = git(['rev-parse', '--abbrev-ref', 'HEAD']);
+  const want = ['ci', 'review', 'merge', 'run'].includes(cmd)
+    ? [`plan/${PLAN}`, `spike/${PLAN}`].find((b) => git(['rev-parse', '--verify', '--quiet', b]))
+    : cmd === 'land'
+      ? 'main'
+      : null;
+  if (!want || cur === want) return cur;
+  if (git(['status', '--porcelain', '--', ':!.harness']) !== '') {
+    console.error(
+      `pipeline ${cmd}: on ${cur}, needs ${want}, and the tree is not clean; switch branches first`,
+    );
+    process.exit(2);
+  }
+  const r = spawnSync('git', ['checkout', '-q', want], { cwd: ROOT, encoding: 'utf8' });
+  if (r.status !== 0) {
+    console.error(`pipeline ${cmd}: cannot switch to ${want}: ${r.stderr}`);
+    process.exit(2);
+  }
+  console.log(`pipeline ${cmd}: switched from ${cur} to ${want}`);
+  return want;
+})();
 const t0 = Date.now();
 const minutes = () => Math.round((Date.now() - t0) / 6000) / 10;
 
