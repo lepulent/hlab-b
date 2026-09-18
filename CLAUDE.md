@@ -18,6 +18,7 @@ A browser pacman with pixel art and keyboard control. This repo is one of two la
 4. No new dependency without a line in the plan's decisions. `npm run check` must stay green: prettier, eslint (no `any`), tsc strict, knip, vitest, security audit.
 5. Never edit `canon/generated/**`, `records/**` or `ledger/**` directly.
 6. Commits follow conventional commits. The changelog is a projection of the ledger.
+7. A fix answers the cause, never the instance. When something fails, name the mechanism that let it fail, change that mechanism, and prove the change on a second case. Refuse to special-case one input, one file, one branch name or one plan to make a symptom disappear, and refuse to patch behaviour with added prompt text where a script, a check or a design change belongs. When the cause is not yet known, say so and record the finding instead of covering it.
 
 ## Commands
 
