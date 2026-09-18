@@ -103,19 +103,20 @@ function plant() {
   });
   mkdirSync(join(dir, 'questions'), { recursive: true });
   writeFileSync(join(dir, 'questions', '.gitkeep'), '');
-  sh('git', ['add', 'intent']);
-  const c = sh('git', [
-    'commit',
-    '-q',
-    '-m',
-    `chore(intent): plant ${PLAN} (${route.track}, ${route.rigor}, ${route.kind})`,
-  ]);
+  // a station's ledger lines belong to that station's commit: written first, added with it
   ledger('decision', {
     station: 'plant',
     route: { track: route.track, rigor: route.rigor, kind: route.kind, rungs: route.rungs },
     base,
     branch,
   });
+  sh('git', ['add', 'intent', 'ledger']);
+  const c = sh('git', [
+    'commit',
+    '-q',
+    '-m',
+    `chore(intent): plant ${PLAN} (${route.track}, ${route.rigor}, ${route.kind})`,
+  ]);
   console.log(
     `plant: ${branch} from ${base.slice(0, 7)} · track ${route.track} · rigor ${route.rigor} · rungs ${route.rungs.join(' → ')}${ok(c) ? '' : ' (nothing to commit)'}`,
   );
@@ -153,7 +154,7 @@ function go() {
       state.status = 'needs-input';
       writeJson(join(dir, 'STATE.json'), state);
       ledger('question', { round: n, stop: q });
-      sh('git', ['add', 'intent']);
+      sh('git', ['add', 'intent', 'ledger']);
       sh('git', ['commit', '-q', '-m', `chore(intent): ${PLAN} needs input (${q.file})`]);
       console.log(`go: stopped at round ${n}, needs-input.md written (${q.reason})`);
       process.exit(4);
@@ -240,14 +241,6 @@ function go() {
     state.status = result.status;
     state.last = { rung: result.rung, summary: result.summary, at: new Date().toISOString() };
     writeJson(join(dir, 'STATE.json'), state);
-    // the seat commits its own work; anything left over is committed here so the branch is always whole
-    sh('git', ['add', '-A']);
-    sh('git', [
-      'commit',
-      '-q',
-      '-m',
-      `chore(round): ${PLAN} round ${n} (${result.status}: ${result.rung || '-'})`,
-    ]);
     ledger('round', {
       round: n,
       status: result.status,
@@ -255,6 +248,16 @@ function go() {
       minutes,
       cost_usd: seat.cost_usd,
     });
+    // the seat commits its own work; anything left over, the round line included, is committed here so
+    // the branch is whole and the tree is clean for whatever runs next (the Loop refuses a dirty tree,
+    // test-run marks results from one as unmeasurable)
+    sh('git', ['add', '-A']);
+    sh('git', [
+      'commit',
+      '-q',
+      '-m',
+      `chore(round): ${PLAN} round ${n} (${result.status}: ${result.rung || '-'})`,
+    ]);
     console.log(
       `go: round ${n} ${result.status} · ${result.rung || '-'} · ${minutes} min · $${seat.cost_usd ?? '?'} · ${result.summary}`,
     );
