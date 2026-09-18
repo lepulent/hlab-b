@@ -250,7 +250,7 @@ else {
         result: 'unmeasured',
         msg: 'no .harness/test-results.json (npm run test:report -- --e2e)',
       });
-    else if (tr.commit !== head || tr.dirty)
+    else if (!resultsDescribe(tr, head) || tr.dirty)
       results.push({
         id: 'criteria-bound-passed',
         result: 'unmeasured',
@@ -280,6 +280,30 @@ else {
       );
     }
   }
+}
+
+// Results describe HEAD when they were taken at it, or at an ancestor with the same code: a landing
+// commit stamps canon, moves intent to records and appends to the ledger, and re-proving unchanged code
+// against it would only say the same thing twice. Bindings are read from the canon at HEAD either way,
+// so a criterion added since the run is still caught by the rows below.
+function resultsDescribe(tr, head) {
+  if (!tr.commit) return false;
+  if (tr.commit === head) return true;
+  if (git(['merge-base', tr.commit, head]) !== tr.commit) return false;
+  return (
+    git([
+      'diff',
+      '--name-only',
+      `${tr.commit}..${head}`,
+      '--',
+      '.',
+      ':!ledger',
+      ':!canon',
+      ':!records',
+      ':!intent',
+      ':!.harness',
+    ]) === ''
+  );
 }
 
 // main-nodes-have-valid-from
