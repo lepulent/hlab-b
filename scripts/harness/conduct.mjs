@@ -1,18 +1,20 @@
 #!/usr/bin/env node
-// One conducted wave (H-32, H-33 steps 1 to 4). The Master decides, this script spawns:
+// One conducted plan (H-32, H-33 steps 1 to 5). The Master decides, this script spawns, in a loop:
 //   1. the Master is a tool-less claude -p call that returns {decision, activations[{agent, task}],
-//      reason, rejected};
+//      reason, wave_reason, rejected}, given the intent, the roster and a capped digest of earlier waves;
 //   2. the decision is validated against the roster (a wave holds at most conduct.max_wave agents with
 //      disjoint owned paths) and recorded as an `activation` ledger line;
-//   3. every activated agent runs as its own claude -p session at the same time, with its own prompt,
-//      tools and budget;
-//   4. what each session did is read from its transcript and from git, never from what it says;
-//   5. each agent's owned files are committed under its own name;
-//   6. each question an agent raised becomes a file, the decider gives its verdict, and the Master
-//      answers only what the decider allowed; a floor trigger stops the step with needs-input.md.
-// Checks decide pass or fail.
+//   3. every activated agent runs as its own claude -p session at the same time; from wave 2 on, each
+//      gets the relay: the digest and the documents to build on, at their commits;
+//   4. what each session did, wrote and read is taken from its transcript and from git, never from what
+//      it says; each agent's owned files are committed under its own name;
+//   5. each question an agent raised becomes a file, the decider gives its verdict, and the Master
+//      answers only what the decider allowed; a floor trigger stops the plan with needs-input.md;
+//   6. the loop ends when the Master decides no-move (goal closed), at a floor stop, at a refusal, or at
+//      conduct.max_waves. Checks over the whole plan decide pass or fail.
 // Usage: node scripts/harness/conduct.mjs --plan <slug> [--expect <agent[+agent]|no-move>]
-//        [--expect-question none|answered|needs-input]
+//        [--expect-question none|answered|needs-input] [--expect-agents a,b]
+//        [--expect-ending goal-closed|needs-input]
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
@@ -40,6 +42,7 @@ import {
   chosenKey,
   rejectionOptions,
 } from './activation.mjs';
+import { buildDigest, toolPaths, relayConsumed } from './relay.mjs';
 import {
   KINDS,
   TRIGGERS,
@@ -61,12 +64,18 @@ const PLAN = arg('plan');
 const EXPECT = arg('expect', null)?.split('+').sort().join('+') ?? null;
 // the same kind of oracle for what the agent's questions should come to
 const EXPECT_Q = arg('expect-question', null);
+// every agent that should have run at some wave, and how the plan should end
+const EXPECT_RAN = arg('expect-agents', null)?.split(',').sort() ?? null;
+const EXPECT_END = arg('expect-ending', null);
 const H = join(ROOT, '.harness');
 mkdirSync(H, { recursive: true });
 const harness = readJson(join(ROOT, 'harness.json'), {});
 const MODEL = harness.yolo?.model || null;
 // sessions at once; the laptop's limit (H-18: parallelism 2)
 const MAX_WAVE = harness.conduct?.max_wave || 2;
+// Master decisions per plan, and the size of what one wave relays to the next (H-33 step 5)
+const MAX_WAVES = harness.conduct?.max_waves || 4;
+const DIGEST_CHARS = harness.conduct?.digest_chars || 4000;
 const sh = (file, args, opts = {}) =>
   spawnSync(file, args, { cwd: ROOT, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, ...opts });
 const ok = (r) => r.status === 0;
@@ -202,14 +211,15 @@ handoff(`${PLAN} conduct starts`);
 if (productDirty() || porcelain().length)
   fail('the tree is not clean; a conducted step starts from a whole branch', 2);
 
-// ---------------------------------------------------------------- 1. the Master decides
+// ---------------------------------------------------------------- the loop: decide, run, relay, until the Master closes
 const intent = readFileSync(intentFile, 'utf8');
+const byId = rosterById(roster);
 const rosterView = roster.agents.map((a) => ({
   id: a.id,
   purpose: a.purpose,
   owns: resolveOwns(a.owns, PLAN),
 }));
-const schema = JSON.stringify({
+const decisionSchema = JSON.stringify({
   type: 'object',
   properties: {
     decision: { type: 'string', enum: ['activate', 'no-move'] },
@@ -241,114 +251,6 @@ const schema = JSON.stringify({
   },
   required: ['decision', 'activations', 'reason', 'wave_reason', 'rejected'],
 });
-const masterSession = randomUUID();
-ledger('seat-start', { seat: 'master', session: masterSession, station: 'conduct' });
-const master = await seat({
-  session: masterSession,
-  prompt: [
-    readFileSync(conductorPrompt, 'utf8'),
-    `\n\n--- PLAN ---\n${PLAN} on ${branch}, track ${route.track}, rigor ${route.rigor}; at most ${MAX_WAVE} agent(s) at once`,
-    `\n\n--- INTENT ---\n${intent}`,
-    `\n\n--- ROSTER ---\n${JSON.stringify(rosterView, null, 2)}`,
-  ].join(''),
-  budget: harness.budgets?.usd_per_master_call || 0.5,
-  schema,
-  tools: [],
-});
-const masterRow = row('master', 'conduct', masterSession, master, {
-  changed: porcelain().filter((p) => !p.startsWith('ledger/')),
-});
-const act = master.out?.structured_output ?? null;
-ledger('seat-end', masterRow);
-stat({ tool: 'claude -p', ...masterRow });
-if (!master.ok || !act) {
-  ledger('decision', {
-    station: 'conduct',
-    decision: 'master-failed',
-    stderr: master.stderr?.slice(-400),
-  });
-  handoff(`${PLAN} master seat failed`);
-  fail(`master seat failed: ${String(master.out?.result || master.stderr).slice(0, 300)}`);
-}
-
-// ---------------------------------------------------------------- 2. the decision is validated and recorded
-const valid = validateActivation(act, roster, { plan: PLAN, maxWave: MAX_WAVE });
-const byId = rosterById(roster);
-const wave = (act.decision === 'activate' ? act.activations || [] : []).map((a) => ({
-  ...a,
-  def: byId.get(a.agent),
-  owned: resolveOwns(byId.get(a.agent)?.owns, PLAN),
-}));
-ledger(
-  'activation',
-  {
-    wave: 1,
-    decision: act.decision,
-    activations: wave.map((a) => ({ agent: a.agent, task: a.task, owns: a.owned })),
-    reason: act.reason,
-    wave_reason: act.wave_reason ?? null,
-    rejected: act.rejected || [],
-    max_wave: MAX_WAVE,
-    valid: valid.ok,
-    refusals: valid.refusals,
-    master_session: masterRow.session,
-  },
-  'agent:master',
-);
-handoff(`${PLAN} activation recorded`);
-const chose = chosenKey(act);
-const masterChecks = () => ({
-  'master-authored-nothing': {
-    ok: authoringCalls(masterRow.tools) === 0 && !masterRow.changed.length,
-    msg: `master tool calls ${JSON.stringify(masterRow.tools)}, files changed during its call: ${masterRow.changed.length}`,
-  },
-  'activation-recorded': {
-    ok: valid.ok,
-    msg: valid.ok
-      ? `agent:master chose ${chose} because "${act.reason}"; rejected ${(act.rejected || []).length} option(s)`
-      : `refused: ${valid.refusals.join('; ')}`,
-  },
-  ...(EXPECT
-    ? {
-        'chose-expected': {
-          ok: chose === EXPECT,
-          msg: `expected ${EXPECT}, the Master chose ${chose}`,
-        },
-      }
-    : {}),
-});
-// every ending writes the same record, ledger line and summary: a refusal or a no-move is a verdict,
-// never a silent exit
-function finish(checks, extra = {}) {
-  const pass = Object.values(checks).every((c) => c.ok);
-  writeJson(join(H, `conduct-${PLAN}.json`), {
-    plan: PLAN,
-    expect: EXPECT,
-    expect_question: EXPECT_Q,
-    decision: act.decision,
-    chose,
-    pass,
-    checks,
-    master: masterRow,
-    ...extra,
-  });
-  ledger('decision', {
-    station: 'conduct',
-    decision: pass ? 'pass' : 'fail',
-    chose,
-    expect: EXPECT,
-    checks: Object.fromEntries(Object.entries(checks).map(([k, v]) => [k, v.ok])),
-  });
-  handoff(`${PLAN} conduct ${pass ? 'passed' : 'failed'}`);
-  for (const [k, v] of Object.entries(checks))
-    console.log(`${v.ok ? 'pass' : 'FAIL'}  ${k.padEnd(24)} ${v.msg}`);
-  console.log(`conduct: ${pass ? 'PASSED' : 'FAILED'} · chose ${chose}`);
-  process.exit(pass ? 0 : 1);
-}
-if (!valid.ok || act.decision === 'no-move') finish(masterChecks());
-
-// ---------------------------------------------------------------- 3. the script spawns the wave
-const askingFile = join(ROOT, '.claude', 'roster', 'asking.md');
 const agentSchema = JSON.stringify({
   type: 'object',
   properties: {
@@ -373,92 +275,216 @@ const agentSchema = JSON.stringify({
   },
   required: ['summary', 'questions'],
 });
-for (const a of wave) {
-  const promptFile = join(ROOT, '.claude', 'roster', a.def.prompt);
-  if (!existsSync(promptFile)) fail(`no ${promptFile}`, 2);
-  a.session = randomUUID();
-  a.prompt = [
-    readFileSync(promptFile, 'utf8'),
-    `\n\n--- OWNS ---\n${a.owned.join('\n')}`,
-    `\n\n--- TASK (from the Master) ---\n${a.task}`,
-    `\n\n--- INTENT ---\n${intent}`,
-    existsSync(askingFile) ? `\n\n${readFileSync(askingFile, 'utf8')}` : '',
-  ].join('');
-  ledger('seat-start', { seat: a.agent, session: a.session, station: 'conduct', owns: a.owned });
-}
-handoff(`${PLAN} ${wave.map((a) => a.agent).join(' + ')} start`);
-const results = await Promise.all(
-  wave.map((a) =>
-    seat({
-      session: a.session,
-      prompt: a.prompt,
-      budget: a.def.budget_usd || 1,
-      schema: agentSchema,
-      tools: a.def.tools || ['Read', 'Write', 'Edit', 'Glob', 'Grep'],
-      permissionMode: 'acceptEdits',
-    }),
-  ),
-);
+const askingFile = join(ROOT, '.claude', 'roster', 'asking.md');
+const answerer = join(ROOT, '.claude', 'seats', 'answerer.md');
+const qdir = join(dir, 'questions');
 
-// ---------------------------------------------------------------- 4. witnesses: transcripts and git
-// git sees the wave's changes together; each transcript says which session wrote what
-const changed = porcelain().filter((p) => !p.startsWith('ledger/'));
-const waveOwned = wave.flatMap((a) => a.owned);
-const outsideWave = outsideJurisdiction(changed, waveOwned);
-wave.forEach((a, i) => {
-  const r = results[i];
-  a.result = r;
-  a.authored = authoredPaths(transcript(a.session), ROOT);
-  a.written = a.owned.filter(
-    (p) => existsSync(join(ROOT, p)) && readFileSync(join(ROOT, p), 'utf8').trim(),
-  );
-  a.asked = r.out?.structured_output?.questions || [];
-  a.row = row(a.agent, 'conduct', a.session, r, {
-    authored: a.authored,
-    outside: outsideJurisdiction(a.authored, a.owned),
-    summary: String(r.out?.structured_output?.summary || r.out?.result || '').slice(0, 600),
-    questions: a.asked.length,
+const decisions = []; // one per Master call: { n, act, valid, row, digest }
+const waves = []; // the relay's input: { n, activations: [...], questions: [...] }
+const agents = []; // every agent session of every wave, with its witnesses
+const qResults = [];
+const answerRows = [];
+let ending = null; // goal-closed | needs-input | refused | wave-cap
+
+// 1. the Master decides the next wave from the intent and a capped digest of what earlier waves did
+async function decide(n) {
+  const digest = buildDigest(waves, DIGEST_CHARS);
+  const session = randomUUID();
+  ledger('seat-start', { seat: 'master', session, station: 'conduct', wave: n });
+  const r = await seat({
+    session,
+    prompt: [
+      readFileSync(conductorPrompt, 'utf8'),
+      `\n\n--- PLAN ---\n${PLAN} on ${branch}, track ${route.track}, rigor ${route.rigor}; at most ${MAX_WAVE} agent(s) at once; this is decision ${n} of at most ${MAX_WAVES}`,
+      `\n\n--- INTENT ---\n${intent}`,
+      `\n\n--- ROSTER ---\n${JSON.stringify(rosterView, null, 2)}`,
+      `\n\n--- SO FAR ---\n${digest.text || 'Nothing has been done on this plan yet.'}`,
+    ].join(''),
+    budget: harness.budgets?.usd_per_master_call || 0.5,
+    schema: decisionSchema,
+    tools: [],
   });
-  ledger('seat-end', a.row);
-  stat({ tool: 'claude -p', ...a.row });
-});
+  const mRow = row('master', 'conduct', session, r, {
+    wave: n,
+    changed: porcelain().filter((p) => !p.startsWith('ledger/')),
+  });
+  ledger('seat-end', mRow);
+  stat({ tool: 'claude -p', ...mRow });
+  const act = r.out?.structured_output ?? null;
+  if (!r.ok || !act) {
+    ledger('decision', {
+      station: 'conduct',
+      wave: n,
+      decision: 'master-failed',
+      stderr: r.stderr?.slice(-400),
+    });
+    handoff(`${PLAN} master seat failed`);
+    fail(`master seat failed: ${String(r.out?.result || r.stderr).slice(0, 300)}`);
+  }
+  const valid = validateActivation(act, roster, { plan: PLAN, maxWave: MAX_WAVE });
+  ledger(
+    'activation',
+    {
+      wave: n,
+      decision: act.decision,
+      activations: (act.decision === 'activate' ? act.activations || [] : []).map((a) => ({
+        agent: a.agent,
+        task: a.task,
+        owns: resolveOwns(byId.get(a.agent)?.owns, PLAN),
+      })),
+      reason: act.reason,
+      wave_reason: act.wave_reason ?? null,
+      rejected: act.rejected || [],
+      max_wave: MAX_WAVE,
+      valid: valid.ok,
+      refusals: valid.refusals,
+      digest: { chars: digest.chars, truncated: digest.truncated },
+      master_session: mRow.session,
+    },
+    'agent:master',
+  );
+  handoff(`${PLAN} wave ${n} decision recorded`);
+  const d = { n, act, valid, row: mRow, digest };
+  decisions.push(d);
+  return d;
+}
 
-// ---------------------------------------------------------------- 5. commit what each agent owns, under its name
-for (const a of wave)
-  if (a.written.length && !a.row.outside.length && !outsideWave.length) {
+// 2. the script spawns the wave; each agent after wave 1 gets the relay: what exists and what was decided
+async function runWave(n, act) {
+  const relay = buildDigest(waves, DIGEST_CHARS);
+  const wave = act.activations.map((a) => ({
+    ...a,
+    n,
+    def: byId.get(a.agent),
+    owned: resolveOwns(byId.get(a.agent)?.owns, PLAN),
+    relayed: relay.sources.map((s) => s.path),
+  }));
+  for (const a of wave) {
+    const promptFile = join(ROOT, '.claude', 'roster', a.def.prompt);
+    if (!existsSync(promptFile)) fail(`no ${promptFile}`, 2);
+    a.session = randomUUID();
+    a.prompt = [
+      readFileSync(promptFile, 'utf8'),
+      `\n\n--- OWNS ---\n${a.owned.join('\n')}`,
+      `\n\n--- TASK (from the Master) ---\n${a.task}`,
+      `\n\n--- INTENT ---\n${intent}`,
+      relay.sources.length
+        ? `\n\n--- RELAY (what earlier waves of this plan produced and decided) ---\n${relay.text}\n\nDocuments to build on, open them before you write:\n${relay.sources.map((s) => `- ${s.path} (by ${s.agent}${s.commit ? `, ${s.commit.slice(0, 7)}` : ''})`).join('\n')}`
+        : '',
+      existsSync(askingFile) ? `\n\n${readFileSync(askingFile, 'utf8')}` : '',
+    ].join('');
+    ledger('seat-start', {
+      seat: a.agent,
+      session: a.session,
+      station: 'conduct',
+      wave: n,
+      owns: a.owned,
+    });
+  }
+  if (relay.sources.length)
+    ledger('decision', {
+      station: 'relay',
+      wave: n,
+      to: wave.map((a) => a.agent),
+      chars: relay.chars,
+      truncated: relay.truncated,
+      sources: relay.sources,
+    });
+  handoff(`${PLAN} wave ${n}: ${wave.map((a) => a.agent).join(' + ')} start`);
+  const results = await Promise.all(
+    wave.map((a) =>
+      seat({
+        session: a.session,
+        prompt: a.prompt,
+        budget: a.def.budget_usd || 1,
+        schema: agentSchema,
+        tools: a.def.tools || ['Read', 'Write', 'Edit', 'Glob', 'Grep'],
+        permissionMode: 'acceptEdits',
+      }),
+    ),
+  );
+
+  // witnesses: git sees the wave's changes together; each transcript says which session wrote and read what
+  const changed = porcelain().filter((p) => !p.startsWith('ledger/'));
+  const outsideWave = outsideJurisdiction(
+    changed,
+    wave.flatMap((a) => a.owned),
+  );
+  wave.forEach((a, i) => {
+    const r = results[i];
+    const t = transcript(a.session);
+    a.result = r;
+    a.outsideWave = outsideWave;
+    a.authored = authoredPaths(t, ROOT);
+    a.read = toolPaths(t, ROOT, ['Read']);
+    a.relay = relayConsumed(a.relayed, a.owned, a.read);
+    a.written = a.owned.filter(
+      (p) => existsSync(join(ROOT, p)) && readFileSync(join(ROOT, p), 'utf8').trim(),
+    );
+    a.asked = r.out?.structured_output?.questions || [];
+    a.row = row(a.agent, 'conduct', a.session, r, {
+      wave: n,
+      authored: a.authored,
+      outside: outsideJurisdiction(a.authored, a.owned),
+      relay: a.relay,
+      summary: String(r.out?.structured_output?.summary || r.out?.result || '').slice(0, 600),
+      questions: a.asked.length,
+    });
+    ledger('seat-end', a.row);
+    stat({ tool: 'claude -p', ...a.row });
+  });
+  for (const a of wave) {
+    if (!a.written.length || a.row.outside.length || outsideWave.length) continue;
     const c = commitAs(
       `seat:${a.agent}`,
       a.written,
-      `docs(intent): ${PLAN} ${a.written.join(', ')} by seat:${a.agent}`,
+      `docs(intent): ${PLAN} ${a.written.join(', ')} by seat:${a.agent} (wave ${n})`,
     );
     if (ok(c)) a.commit = git(['rev-parse', 'HEAD']);
   }
+  handoff(`${PLAN} wave ${n} witnessed`);
+  agents.push(...wave);
+  const record = {
+    n,
+    overlap: overlapSeconds(results.map((r) => ({ start: r.start, end: r.end }))),
+    activations: wave.map((a) => ({
+      agent: a.agent,
+      task: a.task,
+      written: a.written,
+      commit: a.commit || null,
+      summary: a.row.summary,
+    })),
+    questions: [],
+  };
+  waves.push(record);
+  return { wave, record };
+}
 
-// ---------------------------------------------------------------- 6. questions: decider first, the Master only if allowed
-const qdir = join(dir, 'questions');
-const qResults = [];
-const answerRows = [];
-const asked = wave.flatMap((a) => a.asked.map((q) => ({ a, q })));
-if (asked.length) {
+// 3. questions: decider first, the Master only if allowed; returns true when the floor stops the plan
+async function questions(n, wave, record) {
+  const asked = wave.flatMap((a) => a.asked.map((q) => ({ a, q })));
+  if (!asked.length) return false;
   mkdirSync(qdir, { recursive: true });
-  let n = readdirSync(qdir).filter((f) => /^Q-\d+\.md$/.test(f)).length;
+  let k = readdirSync(qdir).filter((f) => /^Q-\d+\.md$/.test(f)).length;
+  const mine = [];
   for (const { a, q } of asked) {
     const v = validateQuestion(q);
-    const file = v.ok ? `Q-${++n}.md` : null;
+    const file = v.ok ? `Q-${++k}.md` : null;
     if (file)
       writeFileSync(
         join(qdir, file),
-        renderQuestion(q, { asked_by: `seat:${a.agent}`, phase: 'conduct' }),
+        renderQuestion(q, { asked_by: `seat:${a.agent}`, phase: `conduct wave ${n}` }),
       );
     ledger(
       'question',
-      { file, valid: v.ok, refusals: v.refusals, ...q, agent_session: a.row.session },
+      { wave: n, file, valid: v.ok, refusals: v.refusals, ...q, agent_session: a.row.session },
       `agent:${a.agent}`,
     );
-    qResults.push({ file, agent: a.agent, valid: v.ok, refusals: v.refusals, q, a });
+    mine.push({ n, file, agent: a.agent, valid: v.ok, refusals: v.refusals, q, a });
   }
+  qResults.push(...mine);
   for (const a of wave) {
-    const files = qResults
+    const files = mine
       .filter((r) => r.a === a && r.file)
       .map((r) => `intent/${PLAN}/questions/${r.file}`);
     if (files.length)
@@ -468,7 +494,7 @@ if (asked.length) {
         `docs(intent): ${PLAN} ${files.map((f) => f.split('/').pop()).join(', ')} raised by seat:${a.agent}`,
       );
   }
-  handoff(`${PLAN} questions raised`);
+  handoff(`${PLAN} wave ${n} questions raised`);
 
   // the decider is the rule; it writes its verdict on each open question file
   const d = sh('node', [join(ROOT, 'scripts', 'harness', 'decider.mjs'), '--plan', PLAN]);
@@ -478,8 +504,8 @@ if (asked.length) {
   } catch {
     /* no verdicts is a failed decider, recorded below */
   }
-  const files = qResults.filter((r) => r.file).map((r) => `intent/${PLAN}/questions/${r.file}`);
-  for (const r of qResults.filter((x) => x.file)) {
+  const files = mine.filter((r) => r.file).map((r) => `intent/${PLAN}/questions/${r.file}`);
+  for (const r of mine.filter((x) => x.file)) {
     const vq = verdicts?.questions?.find((x) => x.file === r.file) || {};
     Object.assign(r, {
       verdict: vq.verdict ?? null,
@@ -491,6 +517,7 @@ if (asked.length) {
       'decision',
       {
         station: 'decider',
+        wave: n,
         file: r.file,
         verdict: r.verdict,
         reason: r.reason,
@@ -507,214 +534,316 @@ if (asked.length) {
       files,
       `chore(intent): ${PLAN} decider verdicts on ${files.length} question(s)`,
     );
-  handoff(`${PLAN} decider verdicts`);
+  handoff(`${PLAN} wave ${n} decider verdicts`);
 
   if (verdicts?.stop) {
-    // a floor trigger is a human-MUST: the Master is not asked, the step ends here
+    // a floor trigger is a human-MUST: the Master is not asked, the plan stops here
     const s = verdicts.stop;
     writeFileSync(
       join(dir, 'needs-input.md'),
-      `# Needs input\n\n${PLAN} stopped: ${s.reason}\n\nQuestion: intent/${PLAN}/questions/${s.file}\n\nAlternatives:\n${(s.alternatives || []).map((x) => `- ${x}`).join('\n') || '- (none listed)'}\n\nAnswer by setting \`status: answered\` and \`answer: ...\` on the question file and commit.\n`,
+      `# Needs input\n\n${PLAN} stopped at wave ${n}: ${s.reason}\n\nQuestion: intent/${PLAN}/questions/${s.file}\n\nAlternatives:\n${(s.alternatives || []).map((x) => `- ${x}`).join('\n') || '- (none listed)'}\n\nAnswer by setting \`status: answered\` and \`answer: ...\` on the question file and commit.\n`,
     );
-    ledger('question', { stop: s, needs_input: `intent/${PLAN}/needs-input.md` }, 'script:decider');
+    ledger(
+      'question',
+      { wave: n, stop: s, needs_input: `intent/${PLAN}/needs-input.md` },
+      'script:decider',
+    );
     commitAs(
       'script:decider',
       [`intent/${PLAN}/needs-input.md`],
       `chore(intent): ${PLAN} needs input (${s.file})`,
     );
     handoff(`${PLAN} needs input`);
-  } else {
-    const answerer = join(ROOT, '.claude', 'seats', 'answerer.md');
-    for (const r of qResults.filter((x) => x.verdict === 'allow')) {
-      const qPath = join(qdir, r.file);
-      const alts = r.q.alternatives;
-      const document = r.a.owned
-        .filter((p) => existsSync(join(ROOT, p)))
-        .map((p) => `### ${p}\n${readFileSync(join(ROOT, p), 'utf8')}`)
-        .join('\n\n');
-      const session = randomUUID();
-      ledger('seat-start', { seat: 'master', session, station: 'answer', file: r.file });
-      const m = await seat({
-        session,
-        prompt: [
-          readFileSync(answerer, 'utf8'),
-          `\n\n--- PLAN ---\n${PLAN} on ${branch}, track ${route.track}, rigor ${route.rigor}`,
-          `\n\n--- INTENT ---\n${intent}`,
-          `\n\n--- QUESTION (intent/${PLAN}/questions/${r.file}, raised by ${r.agent}) ---\n${readFileSync(qPath, 'utf8')}`,
-          `\n\n--- DOCUMENT ---\n${document}`,
-        ].join(''),
-        budget: harness.budgets?.usd_per_master_call || 0.5,
-        schema: JSON.stringify({
-          type: 'object',
-          properties: {
-            answer: { type: 'string', enum: alts },
-            reason: { type: 'string' },
-            rejected: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: { option: { type: 'string', enum: alts }, why: { type: 'string' } },
-                required: ['option', 'why'],
-              },
+    record.questions = mine
+      .filter((r) => r.file)
+      .map((r) => ({ file: r.file, agent: r.agent, question: r.q.question, verdict: r.verdict }));
+    return true;
+  }
+  for (const r of mine.filter((x) => x.verdict === 'allow')) {
+    const qPath = join(qdir, r.file);
+    const alts = r.q.alternatives;
+    const document = r.a.owned
+      .filter((p) => existsSync(join(ROOT, p)))
+      .map((p) => `### ${p}\n${readFileSync(join(ROOT, p), 'utf8')}`)
+      .join('\n\n');
+    const session = randomUUID();
+    ledger('seat-start', { seat: 'master', session, station: 'answer', wave: n, file: r.file });
+    const m = await seat({
+      session,
+      prompt: [
+        readFileSync(answerer, 'utf8'),
+        `\n\n--- PLAN ---\n${PLAN} on ${branch}, track ${route.track}, rigor ${route.rigor}`,
+        `\n\n--- INTENT ---\n${intent}`,
+        `\n\n--- QUESTION (intent/${PLAN}/questions/${r.file}, raised by ${r.agent}) ---\n${readFileSync(qPath, 'utf8')}`,
+        `\n\n--- DOCUMENT ---\n${document}`,
+      ].join(''),
+      budget: harness.budgets?.usd_per_master_call || 0.5,
+      schema: JSON.stringify({
+        type: 'object',
+        properties: {
+          answer: { type: 'string', enum: alts },
+          reason: { type: 'string' },
+          rejected: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: { option: { type: 'string', enum: alts }, why: { type: 'string' } },
+              required: ['option', 'why'],
             },
           },
-          required: ['answer', 'reason', 'rejected'],
-        }),
-        tools: [],
-      });
-      const ans = m.out?.structured_output ?? null;
-      const va = validateAnswer(ans, r.q);
-      const aRow = row('master', 'answer', session, m, {
-        file: r.file,
-        changed: porcelain().filter((p) => !p.startsWith('ledger/')),
-      });
-      ledger('seat-end', aRow);
-      stat({ tool: 'claude -p', ...aRow });
-      ledger(
-        'answer',
-        {
-          file: r.file,
-          answer: ans?.answer ?? null,
-          reason: ans?.reason ?? null,
-          rejected: ans?.rejected || [],
-          valid: m.ok && va.ok,
-          refusals: va.refusals,
-          master_session: aRow.session,
         },
-        'agent:master',
+        required: ['answer', 'reason', 'rejected'],
+      }),
+      tools: [],
+    });
+    const ans = m.out?.structured_output ?? null;
+    const va = validateAnswer(ans, r.q);
+    const aRow = row('master', 'answer', session, m, {
+      wave: n,
+      file: r.file,
+      changed: porcelain().filter((p) => !p.startsWith('ledger/')),
+    });
+    ledger('seat-end', aRow);
+    stat({ tool: 'claude -p', ...aRow });
+    ledger(
+      'answer',
+      {
+        wave: n,
+        file: r.file,
+        answer: ans?.answer ?? null,
+        reason: ans?.reason ?? null,
+        rejected: ans?.rejected || [],
+        valid: m.ok && va.ok,
+        refusals: va.refusals,
+        master_session: aRow.session,
+      },
+      'agent:master',
+    );
+    answerRows.push(aRow);
+    r.answered = m.ok && va.ok && authoringCalls(aRow.tools) === 0 && !aRow.changed.length;
+    r.answer = ans?.answer ?? null;
+    r.answerRefusals = va.refusals;
+    if (r.answered) {
+      const text = setFields(readFileSync(qPath, 'utf8'), {
+        status: 'answered',
+        answer: ans.answer,
+        answered_by: 'agent:master',
+      });
+      writeFileSync(
+        qPath,
+        `${text.trimEnd()}\n\n## Answer (agent:master)\n\n${ans.answer}\n\n${ans.reason}\n\nRejected:\n${ans.rejected.map((x) => `- ${x.option}: ${x.why}`).join('\n')}\n`,
       );
-      answerRows.push(aRow);
-      r.answered = m.ok && va.ok && authoringCalls(aRow.tools) === 0 && !aRow.changed.length;
-      r.answer = ans?.answer ?? null;
-      r.answerRefusals = va.refusals;
-      if (r.answered) {
-        const text = setFields(readFileSync(qPath, 'utf8'), {
-          status: 'answered',
-          answer: ans.answer,
-          answered_by: 'agent:master',
-        });
-        writeFileSync(
-          qPath,
-          `${text.trimEnd()}\n\n## Answer (agent:master)\n\n${ans.answer}\n\n${ans.reason}\n\nRejected:\n${ans.rejected.map((x) => `- ${x.option}: ${x.why}`).join('\n')}\n`,
-        );
-        commitAs(
-          'seat:master',
-          [`intent/${PLAN}/questions/${r.file}`],
-          `docs(intent): ${PLAN} ${r.file} answered by agent:master`,
-        );
-      }
-      handoff(`${PLAN} ${r.file} answer recorded`);
+      commitAs(
+        'seat:master',
+        [`intent/${PLAN}/questions/${r.file}`],
+        `docs(intent): ${PLAN} ${r.file} answered by agent:master`,
+      );
     }
+    handoff(`${PLAN} ${r.file} answer recorded`);
+  }
+  record.questions = mine
+    .filter((r) => r.file)
+    .map((r) => ({
+      file: r.file,
+      agent: r.agent,
+      question: r.q.question,
+      verdict: r.verdict,
+      answer: r.answered ? r.answer : null,
+    }));
+  return false;
+}
+
+for (let n = 1; ; n++) {
+  if (n > MAX_WAVES) {
+    ending = 'wave-cap';
+    break;
+  }
+  const d = await decide(n);
+  if (!d.valid.ok) {
+    ending = 'refused';
+    break;
+  }
+  if (d.act.decision === 'no-move') {
+    ending = 'goal-closed';
+    break;
+  }
+  const { wave, record } = await runWave(n, d.act);
+  if (await questions(n, wave, record)) {
+    ending = 'needs-input';
+    break;
   }
 }
+
+// ---------------------------------------------------------------- checks over the whole plan
+const sequence = decisions.map((d) => chosenKey(d.act));
+const chose = sequence[0];
 const outcome = questionOutcome(qResults.filter((r) => r.file));
-const qChecks =
-  EXPECT_Q || asked.length
+const masterCalls = [...decisions.map((d) => d.row), ...answerRows];
+const agentCost = agents.reduce((s, a) => s + (a.row.cost_usd || 0), 0);
+const masterCost = decisions.reduce((s, d) => s + (d.row.cost_usd || 0), 0);
+const answerCost = answerRows.reduce((s, r) => s + (r.cost_usd || 0), 0);
+const ranAgents = [...new Set(agents.map((a) => a.agent))].sort();
+const relayWaves = agents.filter((a) => a.relay.needed);
+const multi = waves.filter((w) => w.activations.length > 1);
+const expectedEnding = EXPECT_END || (EXPECT_Q === 'needs-input' ? 'needs-input' : 'goal-closed');
+const checks = {
+  'sessions-distinct': {
+    ok: (() => {
+      const all = [...decisions.map((d) => d.row.session), ...agents.map((a) => a.row.session)];
+      return new Set(all).size === all.length && all.every((s) => !!transcript(s));
+    })(),
+    msg: `${decisions.length} Master decision session(s), ${agents.length} agent session(s), ${answerRows.length} answer session(s); every transcript on disk`,
+  },
+  'master-authored-nothing': {
+    ok: masterCalls.every((r) => authoringCalls(r.tools) === 0 && !r.changed.length),
+    msg: masterCalls
+      .map((r) => `${r.station}${r.file ? ` ${r.file}` : ` w${r.wave}`} ${JSON.stringify(r.tools)}`)
+      .join(', '),
+  },
+  'activation-recorded': {
+    ok: decisions.every((d) => d.valid.ok),
+    msg: decisions
+      .map((d) =>
+        d.valid.ok
+          ? `w${d.n} ${chosenKey(d.act)}: "${d.act.reason}"`
+          : `w${d.n} refused: ${d.valid.refusals.join('; ')}`,
+      )
+      .join(' · '),
+  },
+  ...(EXPECT
+    ? {
+        'chose-expected': {
+          ok: chose === EXPECT,
+          msg: `expected ${EXPECT} first, the Master chose ${chose}`,
+        },
+      }
+    : {}),
+  ...(EXPECT_RAN
+    ? {
+        'agents-expected': {
+          ok: EXPECT_RAN.every((id) => ranAgents.includes(id)),
+          msg: `expected ${EXPECT_RAN.join(', ')} to run; ran ${ranAgents.join(', ') || 'none'}`,
+        },
+      }
+    : {}),
+  ...(agents.length
+    ? {
+        'agents-in-jurisdiction': {
+          ok: agents.every(
+            (a) =>
+              a.result.ok &&
+              a.written.length === a.owned.length &&
+              !a.row.outside.length &&
+              !a.outsideWave.length,
+          ),
+          msg: agents
+            .map(
+              (a) =>
+                `w${a.n} ${a.agent} wrote ${a.written.join(', ') || 'nothing'}, authored ${a.authored.join(', ') || 'nothing'}${a.row.outside.length ? ` (outside: ${a.row.outside.join(', ')})` : ''}${a.outsideWave.length ? ` (tree outside the wave: ${a.outsideWave.join(', ')})` : ''}`,
+            )
+            .join(' · '),
+        },
+      }
+    : {}),
+  ...(multi.length
+    ? {
+        'ran-in-parallel': {
+          ok: multi.every((w) => w.overlap > 0),
+          msg: multi.map((w) => `w${w.n} overlap ${w.overlap}s`).join(', '),
+        },
+      }
+    : {}),
+  ...(relayWaves.length
+    ? {
+        'relay-consumed': {
+          ok: relayWaves.every((a) => a.relay.ok),
+          msg: relayWaves
+            .map(
+              (a) =>
+                `w${a.n} ${a.agent} was relayed ${a.relay.upstream.join(', ')}; opened ${a.relay.opened.join(', ') || 'none'}`,
+            )
+            .join(' · '),
+        },
+      }
+    : {}),
+  'plan-ended': {
+    ok: ending === expectedEnding,
+    msg: `expected ${expectedEnding}, ended ${ending} after ${decisions.length} decision(s): ${sequence.join(' → ')}`,
+  },
+  ...(EXPECT_Q || qResults.length
     ? {
         'question-raised': {
           ok:
             EXPECT_Q === 'none'
-              ? !asked.length
-              : asked.length > 0 && qResults.every((r) => r.valid),
-          msg: asked.length
+              ? !qResults.length
+              : qResults.length > 0 && qResults.every((r) => r.valid),
+          msg: qResults.length
             ? qResults
                 .map((r) =>
                   r.valid
-                    ? `${r.file} by ${r.agent} (${r.q.kind}, stakes ${r.q.stakes}, triggers ${JSON.stringify(r.q.triggers)})`
-                    : `${r.agent} refused: ${r.refusals.join('; ')}`,
+                    ? `w${r.n} ${r.file} by ${r.agent} (${r.q.kind}, stakes ${r.q.stakes}, triggers ${JSON.stringify(r.q.triggers)})`
+                    : `w${r.n} ${r.agent} refused: ${r.refusals.join('; ')}`,
                 )
                 .join(' · ')
             : 'no question raised',
         },
-        ...(asked.length
-          ? {
-              'decider-verdict-recorded': {
-                ok: qResults
-                  .filter((r) => r.file)
-                  .every(
-                    (r) =>
-                      r.verdict &&
-                      /decided_by: script:decider/.test(readFileSync(join(qdir, r.file), 'utf8')),
-                  ),
-                msg: qResults
-                  .filter((r) => r.file)
-                  .map((r) => `${r.file} ${r.verdict}: ${r.reason}`)
-                  .join(' · '),
-              },
-            }
-          : {}),
         'question-outcome': {
           ok: EXPECT_Q ? outcome === EXPECT_Q : outcome !== 'parked',
-          msg: `${EXPECT_Q ? `expected ${EXPECT_Q}, ` : ''}got ${outcome}`,
+          msg: `${EXPECT_Q ? `expected ${EXPECT_Q}, ` : ''}got ${outcome}; ${qResults
+            .filter((r) => r.file)
+            .map((r) => `${r.file} ${r.verdict}${r.answered ? ` → "${r.answer}"` : ''}`)
+            .join(' · ')}`,
         },
-        ...(outcome === 'needs-input'
-          ? {
-              'master-did-not-answer': {
-                ok:
-                  !answerRows.length &&
-                  existsSync(join(dir, 'needs-input.md')) &&
-                  qResults.every((r) => !r.answered),
-                msg: `answer seats run: ${answerRows.length}; needs-input.md written`,
-              },
-            }
-          : {}),
         ...(answerRows.length
           ? {
               'answers-valid': {
-                ok: qResults.filter((r) => r.verdict === 'allow').every((r) => r.answered),
-                msg: qResults
-                  .filter((r) => r.verdict === 'allow')
-                  .map((r) =>
-                    r.answered
-                      ? `${r.file} → "${r.answer}"`
-                      : `${r.file} refused: ${(r.answerRefusals || []).join('; ') || 'seat failed or authored'}`,
-                  )
-                  .join(' · '),
+                ok: qResults
+                  .filter((r) => r.verdict === 'allow' && r.n)
+                  .every((r) =>
+                    // an allowed question in the wave that stopped is never answered, by design
+                    ending === 'needs-input' && r.n === waves.length ? true : r.answered,
+                  ),
+                msg: `${answerRows.length} answer(s) recorded`,
               },
             }
           : {}),
       }
-    : {};
-
-const sessions = [masterRow.session, ...wave.map((a) => a.row.session)];
-const overlap = overlapSeconds(results.map((r) => ({ start: r.start, end: r.end })));
-const checks = {
-  'sessions-distinct': {
-    ok:
-      new Set(sessions).size === sessions.length &&
-      [masterSession, ...wave.map((a) => a.session)].every((s) => !!transcript(s)),
-    msg: `master ${masterRow.session.slice(0, 8)}, ${wave.map((a) => `${a.agent} ${a.row.session.slice(0, 8)}`).join(', ')}; every transcript on disk`,
-  },
-  ...masterChecks(),
-  'agents-in-jurisdiction': {
-    ok:
-      !outsideWave.length &&
-      wave.every(
-        (a) => a.result.ok && a.written.length === a.owned.length && !a.row.outside.length,
-      ),
-    msg: `${wave.map((a) => `${a.agent} owns ${a.owned.join(', ')}, wrote ${a.written.join(', ') || 'nothing'}, its transcript authored ${a.authored.join(', ') || 'nothing'}${a.row.outside.length ? ` (outside: ${a.row.outside.join(', ')})` : ''}`).join(' · ')}; tree changes outside the wave: ${outsideWave.join(', ') || 'none'}`,
-  },
-  ...(wave.length > 1
-    ? {
-        'ran-in-parallel': {
-          ok: overlap > 0,
-          msg: `${wave.map((a) => `${a.agent} ${a.row.started.slice(11, 19)}–${a.row.ended.slice(11, 19)}`).join(', ')}; overlap ${overlap}s`,
-        },
-      }
     : {}),
-  ...qChecks,
   'cost-per-session': {
-    ok: [masterRow, ...wave.map((a) => a.row), ...answerRows].every(
-      (r) => typeof r.cost_usd === 'number',
-    ),
-    msg: `master $${masterRow.cost_usd}${wave.map((a) => `, ${a.agent} $${a.row.cost_usd}`).join('')}${answerRows.map((r) => `, answer ${r.file} $${r.cost_usd}`).join('')}`,
+    ok: [...masterCalls, ...agents.map((a) => a.row)].every((r) => typeof r.cost_usd === 'number'),
+    msg: `Master decisions $${masterCost.toFixed(3)} + answers $${answerCost.toFixed(3)}, agents $${agentCost.toFixed(3)}; Master share of agent spend ${agentCost ? Math.round(((masterCost + answerCost) / agentCost) * 100) : 0}%`,
   },
 };
-finish(checks, {
-  agents: wave.map((a) => ({ ...a.row, commit: a.commit ?? null })),
-  overlap_seconds: overlap,
+const pass = Object.values(checks).every((c) => c.ok);
+writeJson(join(H, `conduct-${PLAN}.json`), {
+  plan: PLAN,
+  expect: EXPECT,
+  expect_question: EXPECT_Q,
+  expect_ending: expectedEnding,
+  ending,
+  sequence,
+  chose,
+  pass,
+  checks,
+  decisions: decisions.map((d) => ({
+    n: d.n,
+    decision: d.act.decision,
+    chose: chosenKey(d.act),
+    activations: d.act.activations,
+    reason: d.act.reason,
+    wave_reason: d.act.wave_reason ?? null,
+    rejected: d.act.rejected,
+    valid: d.valid.ok,
+    refusals: d.valid.refusals,
+    digest_chars: d.digest.chars,
+    digest_truncated: d.digest.truncated,
+    master: d.row,
+  })),
+  waves,
+  agents: agents.map((a) => ({ ...a.row, commit: a.commit ?? null })),
   outcome,
   questions: qResults.map((r) => ({
+    wave: r.n,
     file: r.file,
     agent: r.agent,
     valid: r.valid,
@@ -730,3 +859,16 @@ finish(checks, {
   })),
   answers: answerRows,
 });
+ledger('decision', {
+  station: 'conduct',
+  decision: pass ? 'pass' : 'fail',
+  ending,
+  sequence,
+  expect: EXPECT,
+  checks: Object.fromEntries(Object.entries(checks).map(([k, v]) => [k, v.ok])),
+});
+handoff(`${PLAN} conduct ${pass ? 'passed' : 'failed'}`);
+for (const [k, v] of Object.entries(checks))
+  console.log(`${v.ok ? 'pass' : 'FAIL'}  ${k.padEnd(24)} ${v.msg}`);
+console.log(`conduct: ${pass ? 'PASSED' : 'FAILED'} · ${sequence.join(' → ')} · ended ${ending}`);
+process.exit(pass ? 0 : 1);
