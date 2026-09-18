@@ -3,6 +3,11 @@
 // so every rule is a unit test.
 
 const MIN_WORDS = { task: 4, reason: 4, rejection: 3 };
+// an option names an agent when its id appears as a whole token ("spec-writer", "spec-writer (tech spec)")
+const names = (option, id) =>
+  new RegExp(`(^|[^a-z0-9-])${id.replace(/[-]/g, '\\-')}($|[^a-z0-9-])`, 'i').test(
+    String(option || ''),
+  );
 const words = (s) =>
   String(s || '')
     .trim()
@@ -36,6 +41,17 @@ export function validateActivation(act, roster) {
   for (const r of act.rejected || [])
     if (words(r?.why) < MIN_WORDS.rejection)
       refusals.push(`rejection of "${r?.option}" has fewer than ${MIN_WORDS.rejection} words`);
+  // a decision records what else was possible: every roster agent is either chosen or rejected with a
+  // reason, and never both (step 1, hlab-b: "brief-writer — Chosen, not rejected." passed the gate)
+  const rejectedIds = new Set(
+    (act.rejected || []).flatMap((r) => [...agents.keys()].filter((id) => names(r?.option, id))),
+  );
+  const chosen = act.decision === 'activate' ? act.agent : null;
+  if (chosen && rejectedIds.has(chosen))
+    refusals.push(`the chosen agent "${chosen}" is also listed as rejected`);
+  for (const id of agents.keys())
+    if (id !== chosen && !rejectedIds.has(id))
+      refusals.push(`roster agent "${id}" was neither chosen nor rejected`);
   return { ok: !refusals.length, refusals };
 }
 

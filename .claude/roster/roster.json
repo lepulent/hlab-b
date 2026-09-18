@@ -7,6 +7,14 @@
       "owns": ["intent/{plan}/brief.md"],
       "tools": ["Read", "Write", "Edit", "Glob", "Grep"],
       "budget_usd": 1
+    },
+    {
+      "id": "spec-writer",
+      "prompt": "spec-writer.md",
+      "purpose": "Writes the plan's technical spec: how the product will be built \u2014 the approach and stack, the parts of the program and how they fit, the state it keeps, the main flows, and how it will be tested.",
+      "owns": ["intent/{plan}/tech-spec.md"],
+      "tools": ["Read", "Write", "Edit", "Glob", "Grep"],
+      "budget_usd": 1
     }
   ]
 }

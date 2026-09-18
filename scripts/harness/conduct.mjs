@@ -36,6 +36,8 @@ const arg = (name, def) => {
   return i >= 0 && argv[i + 1] ? argv[i + 1] : def;
 };
 const PLAN = arg('plan');
+// a test oracle for the lab: the agent the intent should lead to (or no-move); never shown to the Master
+const EXPECT = arg('expect', null);
 const H = join(ROOT, '.harness');
 mkdirSync(H, { recursive: true });
 const harness = readJson(join(ROOT, 'harness.json'), {});
@@ -222,11 +224,58 @@ ledger(
   'agent:master',
 );
 handoff(`${PLAN} activation recorded`);
-if (!valid.ok) fail(`activation refused: ${valid.refusals.join('; ')}`, 3);
-if (act.decision === 'no-move') {
-  console.log(`conduct: the Master chose no-move — ${act.reason}`);
-  process.exit(0);
+const chose = act.decision === 'no-move' ? 'no-move' : act.agent;
+const masterChecks = () => ({
+  'master-authored-nothing': {
+    ok: authoringCalls(masterTools) === 0 && !masterChanged.length,
+    msg: `master tool calls ${JSON.stringify(masterTools)}, files changed during its call: ${masterChanged.length}`,
+  },
+  'activation-recorded': {
+    ok: valid.ok,
+    msg: valid.ok
+      ? `agent:master chose ${chose} because "${act.reason}"; rejected ${(act.rejected || []).length} option(s)`
+      : `refused: ${valid.refusals.join('; ')}`,
+  },
+  ...(EXPECT
+    ? {
+        'chose-expected': {
+          ok: chose === EXPECT,
+          msg: `expected ${EXPECT}, the Master chose ${chose}`,
+        },
+      }
+    : {}),
+});
+// every ending writes the same record, ledger line and summary: a refusal or a no-move is a verdict,
+// never a silent exit
+function finish(checks, extra = {}) {
+  const pass = Object.values(checks).every((c) => c.ok);
+  writeJson(join(H, `conduct-${PLAN}.json`), {
+    plan: PLAN,
+    expect: EXPECT,
+    decision: act.decision,
+    chose,
+    pass,
+    checks,
+    master: masterRow,
+    ...extra,
+  });
+  ledger('decision', {
+    station: 'conduct',
+    decision: pass ? 'pass' : 'fail',
+    chose,
+    expect: EXPECT,
+    checks: Object.fromEntries(Object.entries(checks).map(([k, v]) => [k, v.ok])),
+  });
+  handoff(`${PLAN} conduct ${pass ? 'passed' : 'failed'}`);
+  for (const [k, v] of Object.entries(checks))
+    console.log(`${v.ok ? 'pass' : 'FAIL'}  ${k.padEnd(24)} ${v.msg}`);
+  console.log(
+    `conduct: ${pass ? 'PASSED' : 'FAILED'} · chose ${chose}${extra.agentCommit ? ` · commit ${extra.agentCommit.slice(0, 7)}` : ''}`,
+  );
+  process.exit(pass ? 0 : 1);
 }
+if (!valid.ok) finish(masterChecks());
+if (act.decision === 'no-move') finish(masterChecks());
 
 // ---------------------------------------------------------------- 3. the script spawns the agent
 const agentPromptFile = join(ROOT, '.claude', 'roster', agentDef.prompt);
@@ -296,44 +345,14 @@ const checks = {
       !!transcript(agentSession),
     msg: `master ${masterRow.session.slice(0, 8)}, agent ${agentRow.session.slice(0, 8)}, both transcripts on disk`,
   },
-  'master-authored-nothing': {
-    ok: authoringCalls(masterTools) === 0 && !masterChanged.length,
-    msg: `master tool calls ${JSON.stringify(masterTools)}, files changed during its call: ${masterChanged.length}`,
-  },
+  ...masterChecks(),
   'agent-in-jurisdiction': {
     ok: agent.ok && written.length === owned.length && !outside.length,
     msg: `owns ${owned.join(', ')}; wrote ${written.join(', ') || 'nothing'}; outside: ${outside.join(', ') || 'none'}`,
-  },
-  'activation-recorded': {
-    ok: valid.ok,
-    msg: `agent:master chose ${act.agent} because "${act.reason}"; rejected ${(act.rejected || []).length} option(s)`,
   },
   'cost-per-session': {
     ok: typeof masterRow.cost_usd === 'number' && typeof agentRow.cost_usd === 'number',
     msg: `master $${masterRow.cost_usd}, ${act.agent} $${agentRow.cost_usd}`,
   },
 };
-const pass = Object.values(checks).every((c) => c.ok);
-const record = {
-  plan: PLAN,
-  step: 1,
-  pass,
-  checks,
-  master: masterRow,
-  agent: agentRow,
-  agentCommit,
-};
-writeJson(join(H, `conduct-${PLAN}.json`), record);
-ledger('decision', {
-  station: 'conduct',
-  decision: pass ? 'pass' : 'fail',
-  checks: Object.fromEntries(Object.entries(checks).map(([k, v]) => [k, v.ok])),
-});
-handoff(`${PLAN} conduct ${pass ? 'passed' : 'failed'}`);
-
-for (const [k, v] of Object.entries(checks))
-  console.log(`${v.ok ? 'pass' : 'FAIL'}  ${k.padEnd(24)} ${v.msg}`);
-console.log(
-  `conduct: step 1 ${pass ? 'PASSED' : 'FAILED'} · ${act.agent} commit ${agentCommit?.slice(0, 7) || '—'}`,
-);
-process.exit(pass ? 0 : 1);
+finish(checks, { agent: agentRow, agentCommit });
