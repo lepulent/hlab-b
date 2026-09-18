@@ -66,7 +66,9 @@ const stat = (row) =>
     JSON.stringify({ ts: new Date().toISOString(), ...row }) + '\n',
     { flag: 'a' },
   );
-const porcelain = () => parsePorcelain(git(['status', '--porcelain', '--untracked-files=all']));
+// raw stdout: common.mjs git() trims, and a trimmed first porcelain line loses its status column
+const porcelain = () =>
+  parsePorcelain(sh('git', ['status', '--porcelain', '--untracked-files=all']).stdout);
 const handoff = (label) => {
   if (!bookkeepingDirty()) return;
   sh('git', ['add', ...BOOKKEEPING.filter((p) => p !== '.harness')]);
