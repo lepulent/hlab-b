@@ -1,10 +1,10 @@
 {
-  "rounds": 1,
+  "rounds": 2,
   "status": "sealed",
   "loopAttentionSeen": [],
   "last": {
     "rung": "test",
-    "summary": "Built and sealed a playable round-0 pacman: one BFS-verified maze, four ghosts with a shared chase/flee AI, dots/pellets/lives/score, win/lose, WASD+arrow control, and a canvas that rescales to the viewport keeping aspect ratio — domain logic pure and unit-tested (29 vitest cases), DOM/loop covered by Playwright (3 cases incl. a11y and responsive scaling), all 8 CAP-1 criteria bound and proven at HEAD (32/32 tests), npm run check and canon:check green aside from one unmeasured check caused by an out-of-jurisdiction untracked ledger file. Three commits on plan/r0: tech-spec+ux docs, the build+tests+canon, and SEAL.md.</summary>\n",
-    "at": "2026-09-18T01:22:29.118Z"
+    "summary": "Fixed the blocking same-tick ghost-collision bug in src/game.ts#tick and answered both canon-sync findings (new CAP-1.9 for ghost movement, render.ts pointer added to CAP-1.8), with regression tests for both; npm run check and npm run canon:check are fully green (12/12) with all 9 criteria bindings proven at HEAD d96ce4a via npm run test:report, and intent/r0/SEAL.md is rewritten and resealed to match.",
+    "at": "2026-09-18T08:16:43.099Z"
   }
 }
