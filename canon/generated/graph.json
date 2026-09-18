@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-18T00:48:17.162Z",
+  "generatedAt": "2026-09-18T01:20:38.889Z",
   "nodes": [
     {
       "id": "MAP",
@@ -11,6 +11,121 @@
       "valid_from": null,
       "valid_to": null,
       "layer": "harness"
+    },
+    {
+      "id": "CAP-1",
+      "kind": "capability",
+      "label": "Pacman gameplay",
+      "file": "canon/capabilities/CAP-1.md",
+      "assurance": "draft",
+      "version": 1,
+      "valid_from": null,
+      "valid_to": null,
+      "layer": "harness"
+    },
+    {
+      "id": "CAP-1.1",
+      "kind": "criterion",
+      "label": "Pacman moves one tile per step in the requested direction",
+      "file": "canon/capabilities/CAP-1.md",
+      "parent": "CAP-1",
+      "layer": "harness"
+    },
+    {
+      "id": "P0-GAME-001",
+      "kind": "coverage-row",
+      "label": "P0-GAME-001"
+    },
+    {
+      "id": "CAP-1.2",
+      "kind": "criterion",
+      "label": "A move into a wall tile is refused and pacman stays put",
+      "file": "canon/capabilities/CAP-1.md",
+      "parent": "CAP-1",
+      "layer": "harness"
+    },
+    {
+      "id": "P0-GAME-002",
+      "kind": "coverage-row",
+      "label": "P0-GAME-002"
+    },
+    {
+      "id": "CAP-1.3",
+      "kind": "criterion",
+      "label": "Moving onto a dot or power pellet eats it and adds to the score; a pellet also frightens every ghost",
+      "file": "canon/capabilities/CAP-1.md",
+      "parent": "CAP-1",
+      "layer": "harness"
+    },
+    {
+      "id": "P0-GAME-003",
+      "kind": "coverage-row",
+      "label": "P0-GAME-003"
+    },
+    {
+      "id": "CAP-1.4",
+      "kind": "criterion",
+      "label": "Touching a ghost costs a life, unless the ghost is frightened, in which case it is eaten for points",
+      "file": "canon/capabilities/CAP-1.md",
+      "parent": "CAP-1",
+      "layer": "harness"
+    },
+    {
+      "id": "P0-GAME-004",
+      "kind": "coverage-row",
+      "label": "P0-GAME-004"
+    },
+    {
+      "id": "CAP-1.5",
+      "kind": "criterion",
+      "label": "The game is won once every dot and pellet is eaten",
+      "file": "canon/capabilities/CAP-1.md",
+      "parent": "CAP-1",
+      "layer": "harness"
+    },
+    {
+      "id": "P0-GAME-005",
+      "kind": "coverage-row",
+      "label": "P0-GAME-005"
+    },
+    {
+      "id": "CAP-1.6",
+      "kind": "criterion",
+      "label": "The game is lost once the last life is spent; otherwise pacman and the ghosts respawn",
+      "file": "canon/capabilities/CAP-1.md",
+      "parent": "CAP-1",
+      "layer": "harness"
+    },
+    {
+      "id": "P0-GAME-006",
+      "kind": "coverage-row",
+      "label": "P0-GAME-006"
+    },
+    {
+      "id": "CAP-1.7",
+      "kind": "criterion",
+      "label": "WASD and the arrow keys both drive the same four directions",
+      "file": "canon/capabilities/CAP-1.md",
+      "parent": "CAP-1",
+      "layer": "harness"
+    },
+    {
+      "id": "P0-GAME-007",
+      "kind": "coverage-row",
+      "label": "P0-GAME-007"
+    },
+    {
+      "id": "CAP-1.8",
+      "kind": "criterion",
+      "label": "The canvas rescales to the viewport, keeping the maze's aspect ratio and pixel-art sharpness",
+      "file": "canon/capabilities/CAP-1.md",
+      "parent": "CAP-1",
+      "layer": "harness"
+    },
+    {
+      "id": "P0-UI-001",
+      "kind": "coverage-row",
+      "label": "P0-UI-001"
     },
     {
       "id": "CONSTITUTION",
@@ -72,6 +187,30 @@
       "file": "src/game.test.ts"
     },
     {
+      "id": "func:src/game.test.ts#buildMaze",
+      "kind": "function",
+      "label": "buildMaze",
+      "file": "src/game.test.ts",
+      "line": 17,
+      "exported": false
+    },
+    {
+      "id": "func:src/game.test.ts#buildGhost",
+      "kind": "function",
+      "label": "buildGhost",
+      "file": "src/game.test.ts",
+      "line": 29,
+      "exported": false
+    },
+    {
+      "id": "func:src/game.test.ts#buildState",
+      "kind": "function",
+      "label": "buildState",
+      "file": "src/game.test.ts",
+      "line": 40,
+      "exported": false
+    },
+    {
       "id": "file:src/game.ts",
       "kind": "file",
       "label": "src/game.ts",
@@ -82,7 +221,115 @@
       "kind": "function",
       "label": "nextPosition",
       "file": "src/game.ts",
-      "line": 18,
+      "line": 44,
+      "exported": true
+    },
+    {
+      "id": "func:src/game.ts#createGameState",
+      "kind": "function",
+      "label": "createGameState",
+      "file": "src/game.ts",
+      "line": 57,
+      "exported": true
+    },
+    {
+      "id": "func:src/game.ts#attemptMove",
+      "kind": "function",
+      "label": "attemptMove",
+      "file": "src/game.ts",
+      "line": 78,
+      "exported": true
+    },
+    {
+      "id": "func:src/game.ts#eatDot",
+      "kind": "function",
+      "label": "eatDot",
+      "file": "src/game.ts",
+      "line": 84,
+      "exported": true
+    },
+    {
+      "id": "func:src/game.ts#checkWin",
+      "kind": "function",
+      "label": "checkWin",
+      "file": "src/game.ts",
+      "line": 105,
+      "exported": true
+    },
+    {
+      "id": "func:src/game.ts#loseLife",
+      "kind": "function",
+      "label": "loseLife",
+      "file": "src/game.ts",
+      "line": 111,
+      "exported": true
+    },
+    {
+      "id": "func:src/game.ts#resolveGhostCollisions",
+      "kind": "function",
+      "label": "resolveGhostCollisions",
+      "file": "src/game.ts",
+      "line": 123,
+      "exported": true
+    },
+    {
+      "id": "func:src/game.ts#movePacman",
+      "kind": "function",
+      "label": "movePacman",
+      "file": "src/game.ts",
+      "line": 137,
+      "exported": false
+    },
+    {
+      "id": "func:src/game.ts#moveGhost",
+      "kind": "function",
+      "label": "moveGhost",
+      "file": "src/game.ts",
+      "line": 143,
+      "exported": false
+    },
+    {
+      "id": "arrow:src/game.ts#distance",
+      "kind": "arrow",
+      "label": "distance",
+      "file": "src/game.ts",
+      "line": 151,
+      "exported": false
+    },
+    {
+      "id": "func:src/game.ts#moveGhosts",
+      "kind": "function",
+      "label": "moveGhosts",
+      "file": "src/game.ts",
+      "line": 160,
+      "exported": false
+    },
+    {
+      "id": "func:src/game.ts#tick",
+      "kind": "function",
+      "label": "tick",
+      "file": "src/game.ts",
+      "line": 164,
+      "exported": true
+    },
+    {
+      "id": "file:src/input.test.ts",
+      "kind": "file",
+      "label": "src/input.test.ts",
+      "file": "src/input.test.ts"
+    },
+    {
+      "id": "file:src/input.ts",
+      "kind": "file",
+      "label": "src/input.ts",
+      "file": "src/input.ts"
+    },
+    {
+      "id": "func:src/input.ts#keyToDirection",
+      "kind": "function",
+      "label": "keyToDirection",
+      "file": "src/input.ts",
+      "line": 20,
       "exported": true
     },
     {
@@ -92,10 +339,180 @@
       "file": "src/main.ts"
     },
     {
+      "id": "func:src/main.ts#required",
+      "kind": "function",
+      "label": "required",
+      "file": "src/main.ts",
+      "line": 6,
+      "exported": false
+    },
+    {
+      "id": "func:src/main.ts#applyScale",
+      "kind": "function",
+      "label": "applyScale",
+      "file": "src/main.ts",
+      "line": 36,
+      "exported": false
+    },
+    {
+      "id": "func:src/main.ts#render",
+      "kind": "function",
+      "label": "render",
+      "file": "src/main.ts",
+      "line": 55,
+      "exported": false
+    },
+    {
+      "id": "func:src/main.ts#frame",
+      "kind": "function",
+      "label": "frame",
+      "file": "src/main.ts",
+      "line": 64,
+      "exported": false
+    },
+    {
+      "id": "file:src/maze.test.ts",
+      "kind": "file",
+      "label": "src/maze.test.ts",
+      "file": "src/maze.test.ts"
+    },
+    {
+      "id": "arrow:src/maze.test.ts#key",
+      "kind": "arrow",
+      "label": "key",
+      "file": "src/maze.test.ts",
+      "line": 20,
+      "exported": false
+    },
+    {
+      "id": "file:src/maze.ts",
+      "kind": "file",
+      "label": "src/maze.ts",
+      "file": "src/maze.ts"
+    },
+    {
+      "id": "arrow:src/maze.ts#isBorder",
+      "kind": "arrow",
+      "label": "isBorder",
+      "file": "src/maze.ts",
+      "line": 26,
+      "exported": false
+    },
+    {
+      "id": "arrow:src/maze.ts#isGhostHouse",
+      "kind": "arrow",
+      "label": "isGhostHouse",
+      "file": "src/maze.ts",
+      "line": 29,
+      "exported": false
+    },
+    {
+      "id": "arrow:src/maze.ts#isPillar",
+      "kind": "arrow",
+      "label": "isPillar",
+      "file": "src/maze.ts",
+      "line": 34,
+      "exported": false
+    },
+    {
+      "id": "arrow:src/maze.ts#isGhostHouseWall",
+      "kind": "arrow",
+      "label": "isGhostHouseWall",
+      "file": "src/maze.ts",
+      "line": 43,
+      "exported": false
+    },
+    {
+      "id": "arrow:src/maze.ts#isPelletCorner",
+      "kind": "arrow",
+      "label": "isPelletCorner",
+      "file": "src/maze.ts",
+      "line": 50,
+      "exported": false
+    },
+    {
+      "id": "arrow:src/maze.ts#setCell",
+      "kind": "arrow",
+      "label": "setCell",
+      "file": "src/maze.ts",
+      "line": 53,
+      "exported": false
+    },
+    {
+      "id": "func:src/maze.ts#createMaze",
+      "kind": "function",
+      "label": "createMaze",
+      "file": "src/maze.ts",
+      "line": 58,
+      "exported": true
+    },
+    {
+      "id": "func:src/maze.ts#cellAt",
+      "kind": "function",
+      "label": "cellAt",
+      "file": "src/maze.ts",
+      "line": 78,
+      "exported": true
+    },
+    {
+      "id": "func:src/maze.ts#isWalkable",
+      "kind": "function",
+      "label": "isWalkable",
+      "file": "src/maze.ts",
+      "line": 82,
+      "exported": true
+    },
+    {
+      "id": "func:src/maze.ts#countRemaining",
+      "kind": "function",
+      "label": "countRemaining",
+      "file": "src/maze.ts",
+      "line": 86,
+      "exported": true
+    },
+    {
+      "id": "file:src/render.ts",
+      "kind": "file",
+      "label": "src/render.ts",
+      "file": "src/render.ts"
+    },
+    {
+      "id": "func:src/render.ts#drawPacman",
+      "kind": "function",
+      "label": "drawPacman",
+      "file": "src/render.ts",
+      "line": 11,
+      "exported": false
+    },
+    {
+      "id": "func:src/render.ts#drawGhost",
+      "kind": "function",
+      "label": "drawGhost",
+      "file": "src/render.ts",
+      "line": 26,
+      "exported": false
+    },
+    {
+      "id": "func:src/render.ts#drawFrame",
+      "kind": "function",
+      "label": "drawFrame",
+      "file": "src/render.ts",
+      "line": 34,
+      "exported": true
+    },
+    {
       "id": "file:tests/e2e/app.spec.ts",
       "kind": "file",
       "label": "tests/e2e/app.spec.ts",
       "file": "tests/e2e/app.spec.ts"
+    },
+    {
+      "id": "arrow:tests/e2e/app.spec.ts#ratio",
+      "kind": "arrow",
+      "label": "ratio",
+      "file": "tests/e2e/app.spec.ts",
+      "line": 23,
+      "exported": false
     },
     {
       "id": "file:tests/policy/manifest.test.ts",
@@ -121,6 +538,150 @@
     }
   ],
   "edges": [
+    {
+      "source": "CAP-1",
+      "target": "CAP-1.1",
+      "type": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "P0-GAME-001",
+      "target": "CAP-1.1",
+      "type": "tests",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-1.1",
+      "target": "func:src/game.ts#nextPosition",
+      "type": "implements",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-1",
+      "target": "CAP-1.2",
+      "type": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "P0-GAME-002",
+      "target": "CAP-1.2",
+      "type": "tests",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-1.2",
+      "target": "func:src/game.ts#attemptMove",
+      "type": "implements",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-1",
+      "target": "CAP-1.3",
+      "type": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "P0-GAME-003",
+      "target": "CAP-1.3",
+      "type": "tests",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-1.3",
+      "target": "func:src/game.ts#eatDot",
+      "type": "implements",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-1",
+      "target": "CAP-1.4",
+      "type": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "P0-GAME-004",
+      "target": "CAP-1.4",
+      "type": "tests",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-1.4",
+      "target": "func:src/game.ts#resolveGhostCollisions",
+      "type": "implements",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-1",
+      "target": "CAP-1.5",
+      "type": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "P0-GAME-005",
+      "target": "CAP-1.5",
+      "type": "tests",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-1.5",
+      "target": "func:src/game.ts#checkWin",
+      "type": "implements",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-1",
+      "target": "CAP-1.6",
+      "type": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "P0-GAME-006",
+      "target": "CAP-1.6",
+      "type": "tests",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-1.6",
+      "target": "func:src/game.ts#loseLife",
+      "type": "implements",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-1",
+      "target": "CAP-1.7",
+      "type": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "P0-GAME-007",
+      "target": "CAP-1.7",
+      "type": "tests",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-1.7",
+      "target": "func:src/input.ts#keyToDirection",
+      "type": "implements",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-1",
+      "target": "CAP-1.8",
+      "type": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "P0-UI-001",
+      "target": "CAP-1.8",
+      "type": "tests",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-1.8",
+      "target": "func:src/main.ts#applyScale",
+      "type": "implements",
+      "confidence": "EXTRACTED"
+    },
     {
       "source": "CONSTITUTION",
       "target": "C-1",
@@ -158,12 +719,280 @@
       "confidence": "EXTRACTED"
     },
     {
+      "source": "CAP-1.1",
+      "target": "func:src/game.ts#nextPosition",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 43
+    },
+    {
+      "source": "CAP-1.2",
+      "target": "func:src/game.ts#attemptMove",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 77
+    },
+    {
+      "source": "CAP-1.3",
+      "target": "func:src/game.ts#eatDot",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 83
+    },
+    {
+      "source": "CAP-1.5",
+      "target": "func:src/game.ts#checkWin",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 104
+    },
+    {
+      "source": "CAP-1.6",
+      "target": "func:src/game.ts#loseLife",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 110
+    },
+    {
+      "source": "CAP-1.4",
+      "target": "func:src/game.ts#resolveGhostCollisions",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 122
+    },
+    {
+      "source": "CAP-1.7",
+      "target": "func:src/input.ts#keyToDirection",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 19
+    },
+    {
+      "source": "CAP-1.8",
+      "target": "func:src/main.ts#applyScale",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 35
+    },
+    {
+      "source": "file:src/game.test.ts",
+      "target": "func:src/game.test.ts#buildMaze",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.test.ts",
+      "target": "func:src/game.test.ts#buildGhost",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.test.ts",
+      "target": "func:src/game.test.ts#buildState",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
       "source": "file:src/game.ts",
       "target": "func:src/game.ts#nextPosition",
       "type": "DEFINES",
       "confidence": "EXTRACTED"
     },
     {
+      "source": "file:src/game.ts",
+      "target": "func:src/game.ts#createGameState",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.ts",
+      "target": "func:src/game.ts#attemptMove",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.ts",
+      "target": "func:src/game.ts#eatDot",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.ts",
+      "target": "func:src/game.ts#checkWin",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.ts",
+      "target": "func:src/game.ts#loseLife",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.ts",
+      "target": "func:src/game.ts#resolveGhostCollisions",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.ts",
+      "target": "func:src/game.ts#movePacman",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.ts",
+      "target": "func:src/game.ts#moveGhost",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.ts",
+      "target": "arrow:src/game.ts#distance",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.ts",
+      "target": "func:src/game.ts#moveGhosts",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.ts",
+      "target": "func:src/game.ts#tick",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/input.ts",
+      "target": "func:src/input.ts#keyToDirection",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/main.ts",
+      "target": "func:src/main.ts#required",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/main.ts",
+      "target": "func:src/main.ts#applyScale",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/main.ts",
+      "target": "func:src/main.ts#render",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/main.ts",
+      "target": "func:src/main.ts#frame",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/maze.test.ts",
+      "target": "arrow:src/maze.test.ts#key",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/maze.ts",
+      "target": "arrow:src/maze.ts#isBorder",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/maze.ts",
+      "target": "arrow:src/maze.ts#isGhostHouse",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/maze.ts",
+      "target": "arrow:src/maze.ts#isPillar",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/maze.ts",
+      "target": "arrow:src/maze.ts#isGhostHouseWall",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/maze.ts",
+      "target": "arrow:src/maze.ts#isPelletCorner",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/maze.ts",
+      "target": "arrow:src/maze.ts#setCell",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/maze.ts",
+      "target": "func:src/maze.ts#createMaze",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/maze.ts",
+      "target": "func:src/maze.ts#cellAt",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/maze.ts",
+      "target": "func:src/maze.ts#isWalkable",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/maze.ts",
+      "target": "func:src/maze.ts#countRemaining",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/render.ts",
+      "target": "func:src/render.ts#drawPacman",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/render.ts",
+      "target": "func:src/render.ts#drawGhost",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/render.ts",
+      "target": "func:src/render.ts#drawFrame",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:tests/e2e/app.spec.ts",
+      "target": "arrow:tests/e2e/app.spec.ts#ratio",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
       "source": "file:tests/policy/manifest.test.ts",
       "target": "arrow:tests/policy/manifest.test.ts#read",
       "type": "DEFINES",
@@ -171,6 +1000,30 @@
     },
     {
       "source": "file:src/game.test.ts",
+      "target": "file:src/maze.ts",
+      "type": "IMPORTS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.test.ts",
+      "target": "file:src/game.ts",
+      "type": "IMPORTS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.ts",
+      "target": "file:src/maze.ts",
+      "type": "IMPORTS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/input.test.ts",
+      "target": "file:src/input.ts",
+      "type": "IMPORTS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/input.ts",
       "target": "file:src/game.ts",
       "type": "IMPORTS",
       "confidence": "EXTRACTED"
@@ -179,6 +1032,36 @@
       "source": "file:src/main.ts",
       "target": "file:src/game.ts",
       "type": "IMPORTS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/main.ts",
+      "target": "file:src/input.ts",
+      "type": "IMPORTS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/main.ts",
+      "target": "file:src/render.ts",
+      "type": "IMPORTS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/maze.test.ts",
+      "target": "file:src/maze.ts",
+      "type": "IMPORTS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/render.ts",
+      "target": "file:src/game.ts",
+      "type": "IMPORTS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/game.test.ts#buildState",
+      "target": "func:src/game.test.ts#buildMaze",
+      "type": "CALLS",
       "confidence": "EXTRACTED"
     },
     {
@@ -188,8 +1071,302 @@
       "confidence": "EXTRACTED"
     },
     {
-      "source": "file:src/main.ts",
+      "source": "file:src/game.test.ts",
+      "target": "func:src/game.test.ts#buildMaze",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.test.ts",
+      "target": "func:src/game.ts#attemptMove",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.test.ts",
+      "target": "func:src/game.test.ts#buildState",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.test.ts",
+      "target": "func:src/game.ts#eatDot",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.test.ts",
+      "target": "func:src/game.test.ts#buildGhost",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.test.ts",
+      "target": "func:src/game.ts#resolveGhostCollisions",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.test.ts",
+      "target": "func:src/game.ts#checkWin",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.test.ts",
+      "target": "func:src/game.ts#loseLife",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.test.ts",
+      "target": "func:src/game.ts#createGameState",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.test.ts",
+      "target": "func:src/game.ts#tick",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/game.ts#createGameState",
+      "target": "func:src/maze.ts#createMaze",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/game.ts#createGameState",
+      "target": "func:src/maze.ts#countRemaining",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/game.ts#attemptMove",
       "target": "func:src/game.ts#nextPosition",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/game.ts#attemptMove",
+      "target": "func:src/maze.ts#isWalkable",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/game.ts#eatDot",
+      "target": "func:src/maze.ts#cellAt",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/game.ts#resolveGhostCollisions",
+      "target": "func:src/game.ts#loseLife",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/game.ts#movePacman",
+      "target": "func:src/game.ts#attemptMove",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/game.ts#movePacman",
+      "target": "func:src/game.ts#checkWin",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/game.ts#movePacman",
+      "target": "func:src/game.ts#eatDot",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.ts",
+      "target": "func:src/game.ts#nextPosition",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.ts",
+      "target": "func:src/maze.ts#isWalkable",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.ts",
+      "target": "arrow:src/game.ts#distance",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.ts",
+      "target": "func:src/game.ts#moveGhost",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/game.ts#tick",
+      "target": "func:src/game.ts#movePacman",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/game.ts#tick",
+      "target": "func:src/game.ts#moveGhosts",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/game.ts#tick",
+      "target": "func:src/game.ts#resolveGhostCollisions",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/input.test.ts",
+      "target": "func:src/input.ts#keyToDirection",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/main.ts",
+      "target": "func:src/main.ts#required",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/main.ts",
+      "target": "func:src/game.ts#createGameState",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/main.ts",
+      "target": "func:src/input.ts#keyToDirection",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/main.ts#render",
+      "target": "func:src/render.ts#drawFrame",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/main.ts#frame",
+      "target": "func:src/game.ts#tick",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/main.ts#frame",
+      "target": "func:src/main.ts#render",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/main.ts",
+      "target": "func:src/main.ts#applyScale",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/main.ts",
+      "target": "func:src/main.ts#render",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/maze.test.ts",
+      "target": "func:src/maze.ts#createMaze",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/maze.test.ts",
+      "target": "func:src/maze.ts#cellAt",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/maze.test.ts",
+      "target": "arrow:src/maze.test.ts#key",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/maze.test.ts",
+      "target": "func:src/maze.ts#isWalkable",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "arrow:src/maze.ts#isPillar",
+      "target": "arrow:src/maze.ts#isGhostHouse",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/maze.ts#createMaze",
+      "target": "arrow:src/maze.ts#isBorder",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/maze.ts#createMaze",
+      "target": "arrow:src/maze.ts#isPillar",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/maze.ts#createMaze",
+      "target": "arrow:src/maze.ts#isGhostHouseWall",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/maze.ts#createMaze",
+      "target": "arrow:src/maze.ts#isGhostHouse",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/maze.ts#createMaze",
+      "target": "arrow:src/maze.ts#isPelletCorner",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/maze.ts#createMaze",
+      "target": "arrow:src/maze.ts#setCell",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/maze.ts#isWalkable",
+      "target": "func:src/maze.ts#cellAt",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/render.ts#drawFrame",
+      "target": "func:src/render.ts#drawPacman",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/render.ts#drawFrame",
+      "target": "func:src/render.ts#drawGhost",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:tests/e2e/app.spec.ts",
+      "target": "arrow:tests/e2e/app.spec.ts#ratio",
       "type": "CALLS",
       "confidence": "EXTRACTED"
     },
@@ -202,6 +1379,24 @@
     {
       "source": "file:src/game.test.ts",
       "target": "file:src/game.ts",
+      "type": "TESTS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.test.ts",
+      "target": "file:src/maze.ts",
+      "type": "TESTS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/input.test.ts",
+      "target": "file:src/input.ts",
+      "type": "TESTS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/maze.test.ts",
+      "target": "file:src/maze.ts",
       "type": "TESTS",
       "confidence": "EXTRACTED"
     }
