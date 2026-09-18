@@ -1,18 +1,21 @@
 #!/usr/bin/env node
-// One conducted activation (H-32, H-33 step 1). The Master decides, this script spawns:
-//   1. the Master is a tool-less claude -p call that returns {decision, agent, task, reason, rejected};
-//   2. the decision is validated against the roster and recorded as an `activation` ledger line;
-//   3. the chosen agent runs as its own claude -p session, with its own prompt, tools and budget;
+// One conducted wave (H-32, H-33 steps 1 to 4). The Master decides, this script spawns:
+//   1. the Master is a tool-less claude -p call that returns {decision, activations[{agent, task}],
+//      reason, rejected};
+//   2. the decision is validated against the roster (a wave holds at most conduct.max_wave agents with
+//      disjoint owned paths) and recorded as an `activation` ledger line;
+//   3. every activated agent runs as its own claude -p session at the same time, with its own prompt,
+//      tools and budget;
 //   4. what each session did is read from its transcript and from git, never from what it says;
-//   5. the agent's owned files are committed under its own name;
-//   6. (step 3) each question the agent raised becomes a file, the decider gives its verdict, and the
-//      Master answers only what the decider allowed; a floor trigger stops the step with needs-input.md.
+//   5. each agent's owned files are committed under its own name;
+//   6. each question an agent raised becomes a file, the decider gives its verdict, and the Master
+//      answers only what the decider allowed; a floor trigger stops the step with needs-input.md.
 // Checks decide pass or fail.
-// Usage: node scripts/harness/conduct.mjs --plan <slug> [--expect <agent|no-move>]
+// Usage: node scripts/harness/conduct.mjs --plan <slug> [--expect <agent[+agent]|no-move>]
 //        [--expect-question none|answered|needs-input]
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import {
   ROOT,
@@ -32,6 +35,9 @@ import {
   transcriptDir,
   toolUses,
   authoringCalls,
+  authoredPaths,
+  overlapSeconds,
+  chosenKey,
 } from './activation.mjs';
 import {
   KINDS,
@@ -49,14 +55,17 @@ const arg = (name, def) => {
   return i >= 0 && argv[i + 1] ? argv[i + 1] : def;
 };
 const PLAN = arg('plan');
-// a test oracle for the lab: the agent the intent should lead to (or no-move); never shown to the Master
-const EXPECT = arg('expect', null);
+// a test oracle for the lab: the agents the intent should lead to, joined by "+" in any order, or
+// no-move; never shown to the Master
+const EXPECT = arg('expect', null)?.split('+').sort().join('+') ?? null;
 // the same kind of oracle for what the agent's questions should come to
 const EXPECT_Q = arg('expect-question', null);
 const H = join(ROOT, '.harness');
 mkdirSync(H, { recursive: true });
 const harness = readJson(join(ROOT, 'harness.json'), {});
 const MODEL = harness.yolo?.model || null;
+// sessions at once; the laptop's limit (H-18: parallelism 2)
+const MAX_WAVE = harness.conduct?.max_wave || 2;
 const sh = (file, args, opts = {}) =>
   spawnSync(file, args, { cwd: ROOT, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, ...opts });
 const ok = (r) => r.status === 0;
@@ -96,10 +105,11 @@ const transcript = (session) => {
   return existsSync(f) ? readFileSync(f, 'utf8') : null;
 };
 
-// one headless session; tools last because --tools is variadic
+// one headless session, asynchronous so a wave's sessions run at the same time; tools last because
+// --tools is variadic
 function seat({ session, prompt, budget, schema, tools, permissionMode }) {
-  const t = Date.now();
-  const r = sh(
+  const start = Date.now();
+  const child = spawn(
     'claude',
     [
       '-p',
@@ -119,21 +129,60 @@ function seat({ session, prompt, budget, schema, tools, permissionMode }) {
       '--tools',
       tools.join(','),
     ],
-    { input: prompt },
+    { cwd: ROOT, stdio: ['pipe', 'pipe', 'pipe'] },
   );
-  let out = null;
-  try {
-    out = JSON.parse(r.stdout);
-  } catch {
-    /* unparsable output is a failed seat */
-  }
-  return {
-    ok: ok(r) && !!out && !out.is_error,
-    out,
-    stderr: r.stderr,
-    minutes: Math.round((Date.now() - t) / 6000) / 10,
-  };
+  let stdout = '';
+  let stderr = '';
+  child.stdout.on('data', (d) => (stdout += d));
+  child.stderr.on('data', (d) => (stderr += d));
+  child.stdin.end(prompt);
+  return new Promise((resolve) =>
+    child.on('close', (code) => {
+      let out = null;
+      try {
+        out = JSON.parse(stdout);
+      } catch {
+        /* unparsable output is a failed seat */
+      }
+      const end = Date.now();
+      resolve({
+        ok: code === 0 && !!out && !out.is_error,
+        out,
+        stderr,
+        start,
+        end,
+        minutes: Math.round((end - start) / 6000) / 10,
+      });
+    }),
+  );
 }
+const row = (name, station, session, r, extra = {}) => ({
+  seat: name,
+  station,
+  session: r.out?.session_id || session,
+  ok: r.ok,
+  started: new Date(r.start).toISOString(),
+  ended: new Date(r.end).toISOString(),
+  minutes: r.minutes,
+  cost_usd: r.out?.total_cost_usd ?? null,
+  turns: r.out?.num_turns ?? null,
+  tokens: r.out?.usage ?? null,
+  tools: toolUses(transcript(session)),
+  ...extra,
+});
+const commitAs = (who, paths, msg) => {
+  sh('git', ['add', '--', ...paths]);
+  return sh('git', [
+    '-c',
+    `user.name=${who}`,
+    '-c',
+    'user.email=seat@harness.local',
+    'commit',
+    '-q',
+    '-m',
+    msg,
+  ]);
+};
 
 // ---------------------------------------------------------------- preconditions
 if (!PLAN) fail('--plan required', 2);
@@ -163,8 +212,15 @@ const schema = JSON.stringify({
   type: 'object',
   properties: {
     decision: { type: 'string', enum: ['activate', 'no-move'] },
-    agent: { type: 'string' },
-    task: { type: 'string' },
+    activations: {
+      type: 'array',
+      maxItems: MAX_WAVE,
+      items: {
+        type: 'object',
+        properties: { agent: { type: 'string' }, task: { type: 'string' } },
+        required: ['agent', 'task'],
+      },
+    },
     reason: { type: 'string' },
     rejected: {
       type: 'array',
@@ -175,15 +231,15 @@ const schema = JSON.stringify({
       },
     },
   },
-  required: ['decision', 'reason', 'rejected'],
+  required: ['decision', 'activations', 'reason', 'rejected'],
 });
 const masterSession = randomUUID();
 ledger('seat-start', { seat: 'master', session: masterSession, station: 'conduct' });
-const master = seat({
+const master = await seat({
   session: masterSession,
   prompt: [
     readFileSync(conductorPrompt, 'utf8'),
-    `\n\n--- PLAN ---\n${PLAN} on ${branch}, track ${route.track}, rigor ${route.rigor}`,
+    `\n\n--- PLAN ---\n${PLAN} on ${branch}, track ${route.track}, rigor ${route.rigor}; at most ${MAX_WAVE} agent(s) at once`,
     `\n\n--- INTENT ---\n${intent}`,
     `\n\n--- ROSTER ---\n${JSON.stringify(rosterView, null, 2)}`,
   ].join(''),
@@ -191,21 +247,10 @@ const master = seat({
   schema,
   tools: [],
 });
-const masterTools = toolUses(transcript(masterSession));
-const masterChanged = porcelain().filter((p) => !p.startsWith('ledger/'));
+const masterRow = row('master', 'conduct', masterSession, master, {
+  changed: porcelain().filter((p) => !p.startsWith('ledger/')),
+});
 const act = master.out?.structured_output ?? null;
-const masterRow = {
-  seat: 'master',
-  station: 'conduct',
-  session: master.out?.session_id || masterSession,
-  ok: master.ok,
-  minutes: master.minutes,
-  cost_usd: master.out?.total_cost_usd ?? null,
-  turns: master.out?.num_turns ?? null,
-  tokens: master.out?.usage ?? null,
-  tools: masterTools,
-  changed: masterChanged,
-};
 ledger('seat-end', masterRow);
 stat({ tool: 'claude -p', ...masterRow });
 if (!master.ok || !act) {
@@ -219,19 +264,22 @@ if (!master.ok || !act) {
 }
 
 // ---------------------------------------------------------------- 2. the decision is validated and recorded
-const valid = validateActivation(act, roster);
-const agentDef = rosterById(roster).get(act.agent);
-const owned = agentDef ? resolveOwns(agentDef.owns, PLAN) : [];
+const valid = validateActivation(act, roster, { plan: PLAN, maxWave: MAX_WAVE });
+const byId = rosterById(roster);
+const wave = (act.decision === 'activate' ? act.activations || [] : []).map((a) => ({
+  ...a,
+  def: byId.get(a.agent),
+  owned: resolveOwns(byId.get(a.agent)?.owns, PLAN),
+}));
 ledger(
   'activation',
   {
     wave: 1,
     decision: act.decision,
-    agent: act.agent ?? null,
-    task: act.task ?? null,
+    activations: wave.map((a) => ({ agent: a.agent, task: a.task, owns: a.owned })),
     reason: act.reason,
     rejected: act.rejected || [],
-    owns: owned,
+    max_wave: MAX_WAVE,
     valid: valid.ok,
     refusals: valid.refusals,
     master_session: masterRow.session,
@@ -239,11 +287,11 @@ ledger(
   'agent:master',
 );
 handoff(`${PLAN} activation recorded`);
-const chose = act.decision === 'no-move' ? 'no-move' : act.agent;
+const chose = chosenKey(act);
 const masterChecks = () => ({
   'master-authored-nothing': {
-    ok: authoringCalls(masterTools) === 0 && !masterChanged.length,
-    msg: `master tool calls ${JSON.stringify(masterTools)}, files changed during its call: ${masterChanged.length}`,
+    ok: authoringCalls(masterRow.tools) === 0 && !masterRow.changed.length,
+    msg: `master tool calls ${JSON.stringify(masterRow.tools)}, files changed during its call: ${masterRow.changed.length}`,
   },
   'activation-recorded': {
     ok: valid.ok,
@@ -267,6 +315,7 @@ function finish(checks, extra = {}) {
   writeJson(join(H, `conduct-${PLAN}.json`), {
     plan: PLAN,
     expect: EXPECT,
+    expect_question: EXPECT_Q,
     decision: act.decision,
     chose,
     pass,
@@ -284,17 +333,12 @@ function finish(checks, extra = {}) {
   handoff(`${PLAN} conduct ${pass ? 'passed' : 'failed'}`);
   for (const [k, v] of Object.entries(checks))
     console.log(`${v.ok ? 'pass' : 'FAIL'}  ${k.padEnd(24)} ${v.msg}`);
-  console.log(
-    `conduct: ${pass ? 'PASSED' : 'FAILED'} · chose ${chose}${extra.agentCommit ? ` · commit ${extra.agentCommit.slice(0, 7)}` : ''}`,
-  );
+  console.log(`conduct: ${pass ? 'PASSED' : 'FAILED'} · chose ${chose}`);
   process.exit(pass ? 0 : 1);
 }
-if (!valid.ok) finish(masterChecks());
-if (act.decision === 'no-move') finish(masterChecks());
+if (!valid.ok || act.decision === 'no-move') finish(masterChecks());
 
-// ---------------------------------------------------------------- 3. the script spawns the agent
-const agentPromptFile = join(ROOT, '.claude', 'roster', agentDef.prompt);
-if (!existsSync(agentPromptFile)) fail(`no ${agentPromptFile}`, 2);
+// ---------------------------------------------------------------- 3. the script spawns the wave
 const askingFile = join(ROOT, '.claude', 'roster', 'asking.md');
 const agentSchema = JSON.stringify({
   type: 'object',
@@ -320,112 +364,101 @@ const agentSchema = JSON.stringify({
   },
   required: ['summary', 'questions'],
 });
-const agentSession = randomUUID();
-ledger('seat-start', { seat: act.agent, session: agentSession, station: 'conduct', owns: owned });
-handoff(`${PLAN} ${act.agent} starts`);
-const agent = seat({
-  session: agentSession,
-  prompt: [
-    readFileSync(agentPromptFile, 'utf8'),
-    `\n\n--- OWNS ---\n${owned.join('\n')}`,
-    `\n\n--- TASK (from the Master) ---\n${act.task}`,
+for (const a of wave) {
+  const promptFile = join(ROOT, '.claude', 'roster', a.def.prompt);
+  if (!existsSync(promptFile)) fail(`no ${promptFile}`, 2);
+  a.session = randomUUID();
+  a.prompt = [
+    readFileSync(promptFile, 'utf8'),
+    `\n\n--- OWNS ---\n${a.owned.join('\n')}`,
+    `\n\n--- TASK (from the Master) ---\n${a.task}`,
     `\n\n--- INTENT ---\n${intent}`,
     existsSync(askingFile) ? `\n\n${readFileSync(askingFile, 'utf8')}` : '',
-  ].join(''),
-  budget: agentDef.budget_usd || 1,
-  schema: agentSchema,
-  tools: agentDef.tools || ['Read', 'Write', 'Edit', 'Glob', 'Grep'],
-  permissionMode: 'acceptEdits',
+  ].join('');
+  ledger('seat-start', { seat: a.agent, session: a.session, station: 'conduct', owns: a.owned });
+}
+handoff(`${PLAN} ${wave.map((a) => a.agent).join(' + ')} start`);
+const results = await Promise.all(
+  wave.map((a) =>
+    seat({
+      session: a.session,
+      prompt: a.prompt,
+      budget: a.def.budget_usd || 1,
+      schema: agentSchema,
+      tools: a.def.tools || ['Read', 'Write', 'Edit', 'Glob', 'Grep'],
+      permissionMode: 'acceptEdits',
+    }),
+  ),
+);
+
+// ---------------------------------------------------------------- 4. witnesses: transcripts and git
+// git sees the wave's changes together; each transcript says which session wrote what
+const changed = porcelain().filter((p) => !p.startsWith('ledger/'));
+const waveOwned = wave.flatMap((a) => a.owned);
+const outsideWave = outsideJurisdiction(changed, waveOwned);
+wave.forEach((a, i) => {
+  const r = results[i];
+  a.result = r;
+  a.authored = authoredPaths(transcript(a.session), ROOT);
+  a.written = a.owned.filter(
+    (p) => existsSync(join(ROOT, p)) && readFileSync(join(ROOT, p), 'utf8').trim(),
+  );
+  a.asked = r.out?.structured_output?.questions || [];
+  a.row = row(a.agent, 'conduct', a.session, r, {
+    authored: a.authored,
+    outside: outsideJurisdiction(a.authored, a.owned),
+    summary: String(r.out?.structured_output?.summary || r.out?.result || '').slice(0, 600),
+    questions: a.asked.length,
+  });
+  ledger('seat-end', a.row);
+  stat({ tool: 'claude -p', ...a.row });
 });
 
-// ---------------------------------------------------------------- 4. witnesses: transcript and git
-const agentTools = toolUses(transcript(agentSession));
-const changed = porcelain().filter((p) => !p.startsWith('ledger/'));
-const outside = outsideJurisdiction(changed, owned);
-const written = owned.filter(
-  (p) => existsSync(join(ROOT, p)) && readFileSync(join(ROOT, p), 'utf8').trim(),
-);
-const agentRow = {
-  seat: act.agent,
-  station: 'conduct',
-  session: agent.out?.session_id || agentSession,
-  ok: agent.ok,
-  minutes: agent.minutes,
-  cost_usd: agent.out?.total_cost_usd ?? null,
-  turns: agent.out?.num_turns ?? null,
-  tokens: agent.out?.usage ?? null,
-  tools: agentTools,
-  changed,
-  outside,
-  summary: String(agent.out?.structured_output?.summary || agent.out?.result || '').slice(0, 600),
-  questions: (agent.out?.structured_output?.questions || []).length,
-};
-ledger('seat-end', agentRow);
-stat({ tool: 'claude -p', ...agentRow });
-
-// ---------------------------------------------------------------- 5. commit what the agent owns, under its name
-let agentCommit = null;
-if (written.length && !outside.length) {
-  sh('git', ['add', '--', ...written]);
-  const c = sh('git', [
-    '-c',
-    `user.name=seat:${act.agent}`,
-    '-c',
-    'user.email=seat@harness.local',
-    'commit',
-    '-q',
-    '-m',
-    `docs(intent): ${PLAN} ${written.join(', ')} by seat:${act.agent}`,
-  ]);
-  if (ok(c)) agentCommit = git(['rev-parse', 'HEAD']);
-}
+// ---------------------------------------------------------------- 5. commit what each agent owns, under its name
+for (const a of wave)
+  if (a.written.length && !a.row.outside.length && !outsideWave.length) {
+    const c = commitAs(
+      `seat:${a.agent}`,
+      a.written,
+      `docs(intent): ${PLAN} ${a.written.join(', ')} by seat:${a.agent}`,
+    );
+    if (ok(c)) a.commit = git(['rev-parse', 'HEAD']);
+  }
 
 // ---------------------------------------------------------------- 6. questions: decider first, the Master only if allowed
-const asked = agent.out?.structured_output?.questions || [];
 const qdir = join(dir, 'questions');
 const qResults = [];
 const answerRows = [];
-const commitAs = (who, paths, msg) => {
-  sh('git', ['add', '--', ...paths]);
-  return sh('git', [
-    '-c',
-    `user.name=${who}`,
-    '-c',
-    'user.email=seat@harness.local',
-    'commit',
-    '-q',
-    '-m',
-    msg,
-  ]);
-};
+const asked = wave.flatMap((a) => a.asked.map((q) => ({ a, q })));
 if (asked.length) {
   mkdirSync(qdir, { recursive: true });
   let n = readdirSync(qdir).filter((f) => /^Q-\d+\.md$/.test(f)).length;
-  for (const q of asked) {
+  for (const { a, q } of asked) {
     const v = validateQuestion(q);
     const file = v.ok ? `Q-${++n}.md` : null;
     if (file)
       writeFileSync(
         join(qdir, file),
-        renderQuestion(q, { asked_by: `seat:${act.agent}`, phase: 'conduct' }),
+        renderQuestion(q, { asked_by: `seat:${a.agent}`, phase: 'conduct' }),
       );
     ledger(
       'question',
-      { file, valid: v.ok, refusals: v.refusals, ...q, agent_session: agentRow.session },
-      `agent:${act.agent}`,
+      { file, valid: v.ok, refusals: v.refusals, ...q, agent_session: a.row.session },
+      `agent:${a.agent}`,
     );
-    qResults.push({ file, valid: v.ok, refusals: v.refusals, question: q.question, q });
+    qResults.push({ file, agent: a.agent, valid: v.ok, refusals: v.refusals, q, a });
   }
-  const files = qResults.filter((r) => r.file).map((r) => `intent/${PLAN}/questions/${r.file}`);
-  if (files.length)
-    commitAs(
-      `seat:${act.agent}`,
-      files,
-      `docs(intent): ${PLAN} ${qResults
-        .map((r) => r.file)
-        .filter(Boolean)
-        .join(', ')} raised by seat:${act.agent}`,
-    );
+  for (const a of wave) {
+    const files = qResults
+      .filter((r) => r.a === a && r.file)
+      .map((r) => `intent/${PLAN}/questions/${r.file}`);
+    if (files.length)
+      commitAs(
+        `seat:${a.agent}`,
+        files,
+        `docs(intent): ${PLAN} ${files.map((f) => f.split('/').pop()).join(', ')} raised by seat:${a.agent}`,
+      );
+  }
   handoff(`${PLAN} questions raised`);
 
   // the decider is the rule; it writes its verdict on each open question file
@@ -436,6 +469,7 @@ if (asked.length) {
   } catch {
     /* no verdicts is a failed decider, recorded below */
   }
+  const files = qResults.filter((r) => r.file).map((r) => `intent/${PLAN}/questions/${r.file}`);
   for (const r of qResults.filter((x) => x.file)) {
     const vq = verdicts?.questions?.find((x) => x.file === r.file) || {};
     Object.assign(r, {
@@ -471,7 +505,7 @@ if (asked.length) {
     const s = verdicts.stop;
     writeFileSync(
       join(dir, 'needs-input.md'),
-      `# Needs input\n\n${PLAN} stopped: ${s.reason}\n\nQuestion: intent/${PLAN}/questions/${s.file}\n\nAlternatives:\n${(s.alternatives || []).map((a) => `- ${a}`).join('\n') || '- (none listed)'}\n\nAnswer by setting \`status: answered\` and \`answer: ...\` on the question file and commit.\n`,
+      `# Needs input\n\n${PLAN} stopped: ${s.reason}\n\nQuestion: intent/${PLAN}/questions/${s.file}\n\nAlternatives:\n${(s.alternatives || []).map((x) => `- ${x}`).join('\n') || '- (none listed)'}\n\nAnswer by setting \`status: answered\` and \`answer: ...\` on the question file and commit.\n`,
     );
     ledger('question', { stop: s, needs_input: `intent/${PLAN}/needs-input.md` }, 'script:decider');
     commitAs(
@@ -482,22 +516,22 @@ if (asked.length) {
     handoff(`${PLAN} needs input`);
   } else {
     const answerer = join(ROOT, '.claude', 'seats', 'answerer.md');
-    const document = owned
-      .filter((p) => existsSync(join(ROOT, p)))
-      .map((p) => `### ${p}\n${readFileSync(join(ROOT, p), 'utf8')}`)
-      .join('\n\n');
     for (const r of qResults.filter((x) => x.verdict === 'allow')) {
       const qPath = join(qdir, r.file);
       const alts = r.q.alternatives;
+      const document = r.a.owned
+        .filter((p) => existsSync(join(ROOT, p)))
+        .map((p) => `### ${p}\n${readFileSync(join(ROOT, p), 'utf8')}`)
+        .join('\n\n');
       const session = randomUUID();
       ledger('seat-start', { seat: 'master', session, station: 'answer', file: r.file });
-      const m = seat({
+      const m = await seat({
         session,
         prompt: [
           readFileSync(answerer, 'utf8'),
           `\n\n--- PLAN ---\n${PLAN} on ${branch}, track ${route.track}, rigor ${route.rigor}`,
           `\n\n--- INTENT ---\n${intent}`,
-          `\n\n--- QUESTION (intent/${PLAN}/questions/${r.file}, raised by ${act.agent}) ---\n${readFileSync(qPath, 'utf8')}`,
+          `\n\n--- QUESTION (intent/${PLAN}/questions/${r.file}, raised by ${r.agent}) ---\n${readFileSync(qPath, 'utf8')}`,
           `\n\n--- DOCUMENT ---\n${document}`,
         ].join(''),
         budget: harness.budgets?.usd_per_master_call || 0.5,
@@ -519,25 +553,14 @@ if (asked.length) {
         }),
         tools: [],
       });
-      const tools = toolUses(transcript(session));
-      const touched = porcelain().filter((p) => !p.startsWith('ledger/'));
       const ans = m.out?.structured_output ?? null;
       const va = validateAnswer(ans, r.q);
-      const row = {
-        seat: 'master',
-        station: 'answer',
+      const aRow = row('master', 'answer', session, m, {
         file: r.file,
-        session: m.out?.session_id || session,
-        ok: m.ok,
-        minutes: m.minutes,
-        cost_usd: m.out?.total_cost_usd ?? null,
-        turns: m.out?.num_turns ?? null,
-        tokens: m.out?.usage ?? null,
-        tools,
-        changed: touched,
-      };
-      ledger('seat-end', row);
-      stat({ tool: 'claude -p', ...row });
+        changed: porcelain().filter((p) => !p.startsWith('ledger/')),
+      });
+      ledger('seat-end', aRow);
+      stat({ tool: 'claude -p', ...aRow });
       ledger(
         'answer',
         {
@@ -547,12 +570,12 @@ if (asked.length) {
           rejected: ans?.rejected || [],
           valid: m.ok && va.ok,
           refusals: va.refusals,
-          master_session: row.session,
+          master_session: aRow.session,
         },
         'agent:master',
       );
-      answerRows.push(row);
-      r.answered = m.ok && va.ok && authoringCalls(tools) === 0 && !touched.length;
+      answerRows.push(aRow);
+      r.answered = m.ok && va.ok && authoringCalls(aRow.tools) === 0 && !aRow.changed.length;
       r.answer = ans?.answer ?? null;
       r.answerRefusals = va.refusals;
       if (r.answered) {
@@ -588,8 +611,8 @@ const qChecks =
             ? qResults
                 .map((r) =>
                   r.valid
-                    ? `${r.file} (${r.q.kind}, stakes ${r.q.stakes}, triggers ${JSON.stringify(r.q.triggers)})`
-                    : `refused: ${r.refusals.join('; ')}`,
+                    ? `${r.file} by ${r.agent} (${r.q.kind}, stakes ${r.q.stakes}, triggers ${JSON.stringify(r.q.triggers)})`
+                    : `${r.agent} refused: ${r.refusals.join('; ')}`,
                 )
                 .join(' · ')
             : 'no question raised',
@@ -644,29 +667,57 @@ const qChecks =
       }
     : {};
 
+const sessions = [masterRow.session, ...wave.map((a) => a.row.session)];
+const overlap = overlapSeconds(results.map((r) => ({ start: r.start, end: r.end })));
 const checks = {
-  'two-sessions': {
+  'sessions-distinct': {
     ok:
-      masterRow.session !== agentRow.session &&
-      !!transcript(masterSession) &&
-      !!transcript(agentSession),
-    msg: `master ${masterRow.session.slice(0, 8)}, agent ${agentRow.session.slice(0, 8)}, both transcripts on disk`,
+      new Set(sessions).size === sessions.length &&
+      [masterSession, ...wave.map((a) => a.session)].every((s) => !!transcript(s)),
+    msg: `master ${masterRow.session.slice(0, 8)}, ${wave.map((a) => `${a.agent} ${a.row.session.slice(0, 8)}`).join(', ')}; every transcript on disk`,
   },
   ...masterChecks(),
-  'agent-in-jurisdiction': {
-    ok: agent.ok && written.length === owned.length && !outside.length,
-    msg: `owns ${owned.join(', ')}; wrote ${written.join(', ') || 'nothing'}; outside: ${outside.join(', ') || 'none'}`,
+  'agents-in-jurisdiction': {
+    ok:
+      !outsideWave.length &&
+      wave.every(
+        (a) => a.result.ok && a.written.length === a.owned.length && !a.row.outside.length,
+      ),
+    msg: `${wave.map((a) => `${a.agent} owns ${a.owned.join(', ')}, wrote ${a.written.join(', ') || 'nothing'}, its transcript authored ${a.authored.join(', ') || 'nothing'}${a.row.outside.length ? ` (outside: ${a.row.outside.join(', ')})` : ''}`).join(' · ')}; tree changes outside the wave: ${outsideWave.join(', ') || 'none'}`,
   },
+  ...(wave.length > 1
+    ? {
+        'ran-in-parallel': {
+          ok: overlap > 0,
+          msg: `${wave.map((a) => `${a.agent} ${a.row.started.slice(11, 19)}–${a.row.ended.slice(11, 19)}`).join(', ')}; overlap ${overlap}s`,
+        },
+      }
+    : {}),
   ...qChecks,
   'cost-per-session': {
-    ok: [masterRow, agentRow, ...answerRows].every((r) => typeof r.cost_usd === 'number'),
-    msg: `master $${masterRow.cost_usd}, ${act.agent} $${agentRow.cost_usd}${answerRows.map((r) => `, answer ${r.file} $${r.cost_usd}`).join('')}`,
+    ok: [masterRow, ...wave.map((a) => a.row), ...answerRows].every(
+      (r) => typeof r.cost_usd === 'number',
+    ),
+    msg: `master $${masterRow.cost_usd}${wave.map((a) => `, ${a.agent} $${a.row.cost_usd}`).join('')}${answerRows.map((r) => `, answer ${r.file} $${r.cost_usd}`).join('')}`,
   },
 };
 finish(checks, {
-  agent: agentRow,
-  agentCommit,
+  agents: wave.map((a) => ({ ...a.row, commit: a.commit ?? null })),
+  overlap_seconds: overlap,
   outcome,
-  questions: qResults.map(({ q, ...r }) => ({ ...r, alternatives: q.alternatives })),
+  questions: qResults.map((r) => ({
+    file: r.file,
+    agent: r.agent,
+    valid: r.valid,
+    refusals: r.refusals,
+    question: r.q.question,
+    alternatives: r.q.alternatives,
+    verdict: r.verdict ?? null,
+    reason: r.reason ?? null,
+    fired: r.fired ?? [],
+    stopsRound: !!r.stopsRound,
+    answered: !!r.answered,
+    answer: r.answer ?? null,
+  })),
   answers: answerRows,
 });
