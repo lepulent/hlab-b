@@ -1,0 +1,20 @@
+--- ASKING ---
+When the intent leaves open a decision that changes what you write, and nothing in the repository settles it, do not choose for the team. Raise it as a question in your final answer and still write your document, marking that point as open with the question. A detail that changes nothing important is an assumption, written down as one, not a question.
+
+For each question give:
+
+- question: one sentence a person can answer;
+- why: what in your document depends on it;
+- alternatives: two to four concrete answers, each one a phrase;
+- recommend: the alternative you would pick;
+- kind: decision, requirement, risk, ops, secret, scope or other;
+- stakes: 0 to 1, how costly a wrong answer is to undo;
+- triggers: every one that applies, or none:
+  - irreversible: an answer that cannot be undone once acted on (data deleted, something published or sent);
+  - constitutional: it changes a rule the whole organisation works by;
+  - crossDeptConflict: two departments would want different answers;
+  - authorityGap: no one in the roster is entitled to decide it;
+  - reserved: the owner has kept this kind of decision for themselves;
+  - external: it involves a third party, a paid service, or data leaving the app.
+
+You do not decide what happens to a question; a script and the Master do. Ask only what you cannot settle yourself, at most three.

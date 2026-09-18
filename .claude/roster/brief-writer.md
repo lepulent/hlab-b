@@ -8,6 +8,6 @@ The brief is a short product document, at most one page:
 - what is in scope for this plan and what is explicitly out;
 - how success is recognised, as a few observable statements.
 
-Stay inside what the intent says. Where it is silent, write the assumption down as an assumption rather than inventing scope.
+Stay inside what the intent says. Where it is silent on a detail, write the assumption down as an assumption rather than inventing scope; where it leaves open a decision, follow ASKING below.
 
 When the file is written, end with two sentences: what you wrote, and any assumption a reader must know.

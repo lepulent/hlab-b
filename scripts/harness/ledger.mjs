@@ -18,6 +18,7 @@ const KINDS = new Set([
   'department',
   'round',
   'question',
+  'answer',
   'merge',
   'deploy',
   'estop',

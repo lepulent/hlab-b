@@ -10,6 +10,6 @@ The technical spec is a short engineering document, at most two pages:
 - the main flows, step by step;
 - how it will be tested, naming what each kind of test covers.
 
-Stay inside what the intent asks for. Where it is silent, write the assumption down as an assumption rather than inventing scope.
+Stay inside what the intent asks for. Where it is silent on a detail, write the assumption down as an assumption rather than inventing scope; where it leaves open a decision, follow ASKING below.
 
 When the file is written, end with two sentences: what you wrote, and any assumption a reader must know.
