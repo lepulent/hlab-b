@@ -4,11 +4,49 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>hlab-b pacman</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        background: #000;
+        color: #fedd00;
+        font-family: 'Courier New', monospace;
+      }
+      main {
+        margin: auto;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      canvas {
+        image-rendering: pixelated;
+        border: 2px solid #1919c2;
+      }
+      #hud {
+        display: flex;
+        gap: 1.5rem;
+        font-size: 1.1rem;
+      }
+      #status {
+        min-height: 1.2em;
+        margin: 0;
+      }
+    </style>
   </head>
   <body>
     <main>
       <h1>Pacman Lab</h1>
-      <canvas id="game" width="480" height="320"></canvas>
+      <div id="hud">
+        <span id="score">Score: 0</span>
+        <span id="lives">Lives: 3</span>
+      </div>
+      <canvas id="game" width="304" height="336" role="img" aria-label="Pacman maze"></canvas>
+      <p id="status" role="status" aria-live="polite"></p>
     </main>
     <script type="module" src="/src/main.ts"></script>
   </body>

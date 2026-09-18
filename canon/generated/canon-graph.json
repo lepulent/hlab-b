@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-18T08:09:10.315Z",
+  "generatedAt": "2026-09-18T08:16:15.664Z",
   "nodes": [
     {
       "id": "MAP",
@@ -11,6 +11,211 @@
       "valid_from": null,
       "valid_to": null,
       "layer": "harness"
+    },
+    {
+      "id": "CAP-1",
+      "kind": "capability",
+      "label": "Pacman gameplay",
+      "file": "canon/capabilities/CAP-1.md",
+      "assurance": "draft",
+      "version": 1,
+      "valid_from": null,
+      "valid_to": null,
+      "layer": "harness"
+    },
+    {
+      "id": "CAP-1.1",
+      "kind": "criterion",
+      "label": "Pacman moves one tile per step in the requested direction",
+      "file": "canon/capabilities/CAP-1.md",
+      "parent": "CAP-1",
+      "layer": "harness"
+    },
+    {
+      "id": "P0-GAME-001",
+      "kind": "coverage-row",
+      "label": "P0-GAME-001"
+    },
+    {
+      "id": "file:src/game.ts#nextPosition",
+      "kind": "symbol",
+      "label": "nextPosition",
+      "file": "src/game.ts",
+      "layer": "domain"
+    },
+    {
+      "id": "CAP-1.2",
+      "kind": "criterion",
+      "label": "A move into a wall tile is refused and pacman stays put",
+      "file": "canon/capabilities/CAP-1.md",
+      "parent": "CAP-1",
+      "layer": "harness"
+    },
+    {
+      "id": "P0-GAME-002",
+      "kind": "coverage-row",
+      "label": "P0-GAME-002"
+    },
+    {
+      "id": "file:src/game.ts#attemptMove",
+      "kind": "symbol",
+      "label": "attemptMove",
+      "file": "src/game.ts",
+      "layer": "domain"
+    },
+    {
+      "id": "CAP-1.3",
+      "kind": "criterion",
+      "label": "Moving onto a dot or power pellet eats it and adds to the score; a pellet also frightens every ghost",
+      "file": "canon/capabilities/CAP-1.md",
+      "parent": "CAP-1",
+      "layer": "harness"
+    },
+    {
+      "id": "P0-GAME-003",
+      "kind": "coverage-row",
+      "label": "P0-GAME-003"
+    },
+    {
+      "id": "file:src/game.ts#eatDot",
+      "kind": "symbol",
+      "label": "eatDot",
+      "file": "src/game.ts",
+      "layer": "domain"
+    },
+    {
+      "id": "CAP-1.4",
+      "kind": "criterion",
+      "label": "Touching a ghost costs a life, unless the ghost is frightened, in which case it is eaten for points",
+      "file": "canon/capabilities/CAP-1.md",
+      "parent": "CAP-1",
+      "layer": "harness"
+    },
+    {
+      "id": "P0-GAME-004",
+      "kind": "coverage-row",
+      "label": "P0-GAME-004"
+    },
+    {
+      "id": "file:src/game.ts#resolveGhostCollisions",
+      "kind": "symbol",
+      "label": "resolveGhostCollisions",
+      "file": "src/game.ts",
+      "layer": "domain"
+    },
+    {
+      "id": "CAP-1.5",
+      "kind": "criterion",
+      "label": "The game is won once every dot and pellet is eaten",
+      "file": "canon/capabilities/CAP-1.md",
+      "parent": "CAP-1",
+      "layer": "harness"
+    },
+    {
+      "id": "P0-GAME-005",
+      "kind": "coverage-row",
+      "label": "P0-GAME-005"
+    },
+    {
+      "id": "file:src/game.ts#checkWin",
+      "kind": "symbol",
+      "label": "checkWin",
+      "file": "src/game.ts",
+      "layer": "domain"
+    },
+    {
+      "id": "CAP-1.6",
+      "kind": "criterion",
+      "label": "The game is lost once the last life is spent; otherwise pacman and the ghosts respawn",
+      "file": "canon/capabilities/CAP-1.md",
+      "parent": "CAP-1",
+      "layer": "harness"
+    },
+    {
+      "id": "P0-GAME-006",
+      "kind": "coverage-row",
+      "label": "P0-GAME-006"
+    },
+    {
+      "id": "file:src/game.ts#loseLife",
+      "kind": "symbol",
+      "label": "loseLife",
+      "file": "src/game.ts",
+      "layer": "domain"
+    },
+    {
+      "id": "CAP-1.7",
+      "kind": "criterion",
+      "label": "WASD and the arrow keys both drive the same four directions",
+      "file": "canon/capabilities/CAP-1.md",
+      "parent": "CAP-1",
+      "layer": "harness"
+    },
+    {
+      "id": "P0-GAME-007",
+      "kind": "coverage-row",
+      "label": "P0-GAME-007"
+    },
+    {
+      "id": "file:src/input.ts#keyToDirection",
+      "kind": "symbol",
+      "label": "keyToDirection",
+      "file": "src/input.ts",
+      "layer": "domain"
+    },
+    {
+      "id": "CAP-1.8",
+      "kind": "criterion",
+      "label": "The canvas rescales to the viewport, keeping the maze's aspect ratio and pixel-art sharpness",
+      "file": "canon/capabilities/CAP-1.md",
+      "parent": "CAP-1",
+      "layer": "harness"
+    },
+    {
+      "id": "P0-UI-001",
+      "kind": "coverage-row",
+      "label": "P0-UI-001"
+    },
+    {
+      "id": "file:src/main.ts#applyScale",
+      "kind": "symbol",
+      "label": "applyScale",
+      "file": "src/main.ts",
+      "layer": "composition"
+    },
+    {
+      "id": "file:src/render.ts#drawFrame",
+      "kind": "symbol",
+      "label": "drawFrame",
+      "file": "src/render.ts",
+      "layer": "domain"
+    },
+    {
+      "id": "CAP-1.9",
+      "kind": "criterion",
+      "label": "Each tick, every ghost advances one walkable step toward pacman when chasing and away from pacman when frightened",
+      "file": "canon/capabilities/CAP-1.md",
+      "parent": "CAP-1",
+      "layer": "harness"
+    },
+    {
+      "id": "P0-GAME-008",
+      "kind": "coverage-row",
+      "label": "P0-GAME-008"
+    },
+    {
+      "id": "file:src/game.ts#moveGhost",
+      "kind": "symbol",
+      "label": "moveGhost",
+      "file": "src/game.ts",
+      "layer": "domain"
+    },
+    {
+      "id": "file:src/game.ts#moveGhosts",
+      "kind": "symbol",
+      "label": "moveGhosts",
+      "file": "src/game.ts",
+      "layer": "domain"
     },
     {
       "id": "CONSTITUTION",
@@ -68,6 +273,180 @@
   ],
   "edges": [
     {
+      "source": "CAP-1",
+      "target": "CAP-1.1",
+      "type": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "P0-GAME-001",
+      "target": "CAP-1.1",
+      "type": "tests",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-1.1",
+      "target": "file:src/game.ts#nextPosition",
+      "type": "implements",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-1",
+      "target": "CAP-1.2",
+      "type": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "P0-GAME-002",
+      "target": "CAP-1.2",
+      "type": "tests",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-1.2",
+      "target": "file:src/game.ts#attemptMove",
+      "type": "implements",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-1",
+      "target": "CAP-1.3",
+      "type": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "P0-GAME-003",
+      "target": "CAP-1.3",
+      "type": "tests",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-1.3",
+      "target": "file:src/game.ts#eatDot",
+      "type": "implements",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-1",
+      "target": "CAP-1.4",
+      "type": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "P0-GAME-004",
+      "target": "CAP-1.4",
+      "type": "tests",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-1.4",
+      "target": "file:src/game.ts#resolveGhostCollisions",
+      "type": "implements",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-1",
+      "target": "CAP-1.5",
+      "type": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "P0-GAME-005",
+      "target": "CAP-1.5",
+      "type": "tests",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-1.5",
+      "target": "file:src/game.ts#checkWin",
+      "type": "implements",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-1",
+      "target": "CAP-1.6",
+      "type": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "P0-GAME-006",
+      "target": "CAP-1.6",
+      "type": "tests",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-1.6",
+      "target": "file:src/game.ts#loseLife",
+      "type": "implements",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-1",
+      "target": "CAP-1.7",
+      "type": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "P0-GAME-007",
+      "target": "CAP-1.7",
+      "type": "tests",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-1.7",
+      "target": "file:src/input.ts#keyToDirection",
+      "type": "implements",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-1",
+      "target": "CAP-1.8",
+      "type": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "P0-UI-001",
+      "target": "CAP-1.8",
+      "type": "tests",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-1.8",
+      "target": "file:src/main.ts#applyScale",
+      "type": "implements",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-1.8",
+      "target": "file:src/render.ts#drawFrame",
+      "type": "implements",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-1",
+      "target": "CAP-1.9",
+      "type": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "P0-GAME-008",
+      "target": "CAP-1.9",
+      "type": "tests",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-1.9",
+      "target": "file:src/game.ts#moveGhost",
+      "type": "implements",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-1.9",
+      "target": "file:src/game.ts#moveGhosts",
+      "type": "implements",
+      "confidence": "EXTRACTED"
+    },
+    {
       "source": "CONSTITUTION",
       "target": "C-1",
       "type": "contains",
@@ -102,6 +481,94 @@
       "target": "check:policy/tags-present",
       "type": "enforced_by",
       "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-1.1",
+      "target": "file:src/game.ts#nextPosition",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 43
+    },
+    {
+      "source": "CAP-1.2",
+      "target": "file:src/game.ts#attemptMove",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 77
+    },
+    {
+      "source": "CAP-1.3",
+      "target": "file:src/game.ts#eatDot",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 83
+    },
+    {
+      "source": "CAP-1.5",
+      "target": "file:src/game.ts#checkWin",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 104
+    },
+    {
+      "source": "CAP-1.6",
+      "target": "file:src/game.ts#loseLife",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 110
+    },
+    {
+      "source": "CAP-1.4",
+      "target": "file:src/game.ts#resolveGhostCollisions",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 122
+    },
+    {
+      "source": "CAP-1.9",
+      "target": "file:src/game.ts#moveGhost",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 143
+    },
+    {
+      "source": "CAP-1.9",
+      "target": "file:src/game.ts#moveGhosts",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 161
+    },
+    {
+      "source": "CAP-1.7",
+      "target": "file:src/input.ts#keyToDirection",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 19
+    },
+    {
+      "source": "CAP-1.8",
+      "target": "file:src/main.ts#applyScale",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 35
+    },
+    {
+      "source": "CAP-1.8",
+      "target": "file:src/render.ts#drawFrame",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 34
     }
   ]
 }

@@ -1,0 +1,10 @@
+{
+  "rounds": 2,
+  "status": "sealed",
+  "loopAttentionSeen": [],
+  "last": {
+    "rung": "test",
+    "summary": "Fixed the blocking same-tick ghost-collision bug in src/game.ts#tick and answered both canon-sync findings (new CAP-1.9 for ghost movement, render.ts pointer added to CAP-1.8), with regression tests for both; npm run check and npm run canon:check are fully green (12/12) with all 9 criteria bindings proven at HEAD d96ce4a via npm run test:report, and intent/r0/SEAL.md is rewritten and resealed to match.",
+    "at": "2026-09-18T08:16:43.099Z"
+  }
+}

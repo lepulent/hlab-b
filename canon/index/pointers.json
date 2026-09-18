@@ -1,5 +1,201 @@
 {
-  "generatedAt": "2026-09-18T08:09:10.315Z",
-  "byFile": {},
-  "count": 0
+  "generatedAt": "2026-09-18T08:16:15.664Z",
+  "byFile": {
+    "src/game.ts": [
+      {
+        "node": "CAP-1",
+        "criterion": "CAP-1.1",
+        "file": "src/game.ts",
+        "symbol": "nextPosition",
+        "range": null,
+        "blob": null
+      },
+      {
+        "node": "CAP-1",
+        "criterion": "CAP-1.2",
+        "file": "src/game.ts",
+        "symbol": "attemptMove",
+        "range": null,
+        "blob": null
+      },
+      {
+        "node": "CAP-1",
+        "criterion": "CAP-1.3",
+        "file": "src/game.ts",
+        "symbol": "eatDot",
+        "range": null,
+        "blob": null
+      },
+      {
+        "node": "CAP-1",
+        "criterion": "CAP-1.4",
+        "file": "src/game.ts",
+        "symbol": "resolveGhostCollisions",
+        "range": null,
+        "blob": null
+      },
+      {
+        "node": "CAP-1",
+        "criterion": "CAP-1.5",
+        "file": "src/game.ts",
+        "symbol": "checkWin",
+        "range": null,
+        "blob": null
+      },
+      {
+        "node": "CAP-1",
+        "criterion": "CAP-1.6",
+        "file": "src/game.ts",
+        "symbol": "loseLife",
+        "range": null,
+        "blob": null
+      },
+      {
+        "node": "CAP-1",
+        "criterion": "CAP-1.9",
+        "file": "src/game.ts",
+        "symbol": "moveGhost",
+        "range": null,
+        "blob": null
+      },
+      {
+        "node": "CAP-1",
+        "criterion": "CAP-1.9",
+        "file": "src/game.ts",
+        "symbol": "moveGhosts",
+        "range": null,
+        "blob": null
+      },
+      {
+        "node": null,
+        "criterion": "CAP-1.1",
+        "file": "src/game.ts",
+        "symbol": "nextPosition",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-1.2",
+        "file": "src/game.ts",
+        "symbol": "attemptMove",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-1.3",
+        "file": "src/game.ts",
+        "symbol": "eatDot",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-1.5",
+        "file": "src/game.ts",
+        "symbol": "checkWin",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-1.6",
+        "file": "src/game.ts",
+        "symbol": "loseLife",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-1.4",
+        "file": "src/game.ts",
+        "symbol": "resolveGhostCollisions",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-1.9",
+        "file": "src/game.ts",
+        "symbol": "moveGhost",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-1.9",
+        "file": "src/game.ts",
+        "symbol": "moveGhosts",
+        "range": null,
+        "blob": null,
+        "tag": true
+      }
+    ],
+    "src/input.ts": [
+      {
+        "node": "CAP-1",
+        "criterion": "CAP-1.7",
+        "file": "src/input.ts",
+        "symbol": "keyToDirection",
+        "range": null,
+        "blob": null
+      },
+      {
+        "node": null,
+        "criterion": "CAP-1.7",
+        "file": "src/input.ts",
+        "symbol": "keyToDirection",
+        "range": null,
+        "blob": null,
+        "tag": true
+      }
+    ],
+    "src/main.ts": [
+      {
+        "node": "CAP-1",
+        "criterion": "CAP-1.8",
+        "file": "src/main.ts",
+        "symbol": "applyScale",
+        "range": null,
+        "blob": null
+      },
+      {
+        "node": null,
+        "criterion": "CAP-1.8",
+        "file": "src/main.ts",
+        "symbol": "applyScale",
+        "range": null,
+        "blob": null,
+        "tag": true
+      }
+    ],
+    "src/render.ts": [
+      {
+        "node": "CAP-1",
+        "criterion": "CAP-1.8",
+        "file": "src/render.ts",
+        "symbol": "drawFrame",
+        "range": null,
+        "blob": null
+      },
+      {
+        "node": null,
+        "criterion": "CAP-1.8",
+        "file": "src/render.ts",
+        "symbol": "drawFrame",
+        "range": null,
+        "blob": null,
+        "tag": true
+      }
+    ]
+  },
+  "count": 22
 }
