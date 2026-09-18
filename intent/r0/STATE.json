@@ -1,0 +1,10 @@
+{
+  "rounds": 1,
+  "status": "sealed",
+  "loopAttentionSeen": [],
+  "last": {
+    "rung": "test",
+    "summary": "Built and sealed a playable round-0 pacman: one BFS-verified maze, four ghosts with a shared chase/flee AI, dots/pellets/lives/score, win/lose, WASD+arrow control, and a canvas that rescales to the viewport keeping aspect ratio — domain logic pure and unit-tested (29 vitest cases), DOM/loop covered by Playwright (3 cases incl. a11y and responsive scaling), all 8 CAP-1 criteria bound and proven at HEAD (32/32 tests), npm run check and canon:check green aside from one unmeasured check caused by an out-of-jurisdiction untracked ledger file. Three commits on plan/r0: tech-spec+ux docs, the build+tests+canon, and SEAL.md.</summary>\n",
+    "at": "2026-09-18T01:22:29.118Z"
+  }
+}
