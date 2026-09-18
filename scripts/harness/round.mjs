@@ -181,21 +181,24 @@ function go() {
     });
     const t = Date.now();
     ledger('seat-start', { round: n, seat: 'master', budgetUsd });
-    const r = sh('claude', [
-      '-p',
-      '--output-format',
-      'json',
-      '--json-schema',
-      schema,
-      '--permission-mode',
-      'acceptEdits',
-      '--allowedTools',
-      'Read,Write,Edit,MultiEdit,Glob,Grep,Bash(npm run *),Bash(node scripts/harness/*),Bash(npx playwright *),Bash(npx playwright-cli *),Bash(git add *),Bash(git commit *),Bash(git status*),Bash(git diff*),Bash(git log*)',
-      '--max-budget-usd',
-      String(budgetUsd),
-      ...(harness.yolo?.model ? ['--model', harness.yolo.model] : []),
-      context,
-    ]);
+    const r = sh(
+      'claude',
+      [
+        '-p',
+        '--output-format',
+        'json',
+        '--json-schema',
+        schema,
+        '--permission-mode',
+        'acceptEdits',
+        '--allowedTools',
+        'Read,Write,Edit,MultiEdit,Glob,Grep,Bash(npm run *),Bash(node scripts/harness/*),Bash(npx playwright *),Bash(npx playwright-cli *),Bash(git add *),Bash(git commit *),Bash(git status*),Bash(git diff*),Bash(git log*)',
+        '--max-budget-usd',
+        String(budgetUsd),
+        ...(harness.yolo?.model ? ['--model', harness.yolo.model] : []),
+      ],
+      { input: context },
+    );
     const out = safeJson(r.stdout);
     const result = out?.structured_output || safeJson(out?.result) || null;
     const minutes = Math.round((Date.now() - t) / 6000) / 10;
@@ -419,18 +422,22 @@ function observe() {
   ].join('');
   const budgetUsd = Number(harness.budgets?.usd_per_seat || 3);
   const t = Date.now();
-  const r = sh('claude', [
-    '-p',
-    '--bare',
-    '--output-format',
-    'json',
-    '--allowedTools',
-    '',
-    '--max-budget-usd',
-    String(budgetUsd),
-    ...(harness.yolo?.model ? ['--model', harness.yolo.model] : []),
-    context,
-  ]);
+  const r = sh(
+    'claude',
+    [
+      '-p',
+      '--output-format',
+      'json',
+      '--tools',
+      '',
+      '--setting-sources',
+      'user',
+      '--max-budget-usd',
+      String(budgetUsd),
+      ...(harness.yolo?.model ? ['--model', harness.yolo.model] : []),
+    ],
+    { input: context },
+  );
   const out = safeJson(r.stdout);
   const minutes = Math.round((Date.now() - t) / 6000) / 10;
   const okSeat = ok(r) && out && !out.is_error && typeof out.result === 'string';

@@ -286,20 +286,25 @@ function review() {
   for (const lens of lenses) {
     const prompt = `${readFileSync(join(lensDir, `${lens}.md`), 'utf8')}\n\n--- DIFF (${branch} vs ${base.slice(0, 7)}) ---\n${diff.slice(0, 120000)}`;
     const t = Date.now();
-    const r = sh('claude', [
-      '-p',
-      '--bare',
-      '--output-format',
-      'json',
-      '--json-schema',
-      schema,
-      '--allowedTools',
-      '',
-      '--max-budget-usd',
-      String(PIPE.review?.budget_usd || 0.5),
-      ...(PIPE.review?.model ? ['--model', PIPE.review.model] : []),
-      prompt,
-    ]);
+    // no --bare: it never reads the keychain; the prompt goes on stdin; project settings and hooks are skipped
+    const r = sh(
+      'claude',
+      [
+        '-p',
+        '--output-format',
+        'json',
+        '--json-schema',
+        schema,
+        '--tools',
+        '',
+        '--setting-sources',
+        'user',
+        '--max-budget-usd',
+        String(PIPE.review?.budget_usd || 0.5),
+        ...(PIPE.review?.model ? ['--model', PIPE.review.model] : []),
+      ],
+      { input: prompt },
+    );
     let out = null;
     try {
       out = JSON.parse(r.stdout);
