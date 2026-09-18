@@ -686,19 +686,6 @@ function land() {
   sh('npm', ['run', '--silent', 'graph:system']);
   script('infra-manifest.mjs');
   script('canon-graph.mjs', '--map');
-  const chk = script('canon-check.mjs');
-  if (!ok(chk)) {
-    ledger('decision', {
-      station: 'land',
-      decision: 'blocked',
-      reason: 'canon check failed after landing',
-      tail: chk.stdout.split('\n').slice(-6),
-    });
-    sh('git', ['checkout', '--', 'canon']);
-    fail(
-      `canon check failed after landing; landing reverted, code stays merged:\n${chk.stdout.split('\n').slice(-6).join('\n')}`,
-    );
-  }
   // 7. intent → records
   const from = join(ROOT, 'intent', PLAN);
   const to = join(ROOT, 'records', PLAN);
@@ -728,6 +715,24 @@ function land() {
     '-m',
     `chore(canon): land ${PLAN} from ${mergeSha.slice(0, 7)}\n\n${deltas.map((d) => `- ${d.op} ${d.node || d.file}`).join('\n') || '- no canon deltas'}\n\nCo-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`,
   ]);
+  // 9. the canon check reads main as committed, so it can only judge a landing that has been committed:
+  // main-nodes-have-valid-from asks about the tree at a ref, never the working tree. Verified here, and
+  // the commit is undone when it is red — nothing has left this clone yet, and the code stays merged.
+  const chk = script('canon-check.mjs');
+  if (!ok(chk)) {
+    const tail = chk.stdout.split('\n').slice(-6);
+    if (ok(c)) carryBookkeeping(() => sh('git', ['reset', '-q', '--hard', 'HEAD~1']));
+    else sh('git', ['checkout', '--', 'canon']);
+    ledger('decision', {
+      station: 'land',
+      decision: 'blocked',
+      reason: 'canon check failed on the landing commit',
+      tail,
+    });
+    fail(
+      `canon check failed on the landing commit; landing reverted, code stays merged:\n${tail.join('\n')}`,
+    );
+  }
   const p = sh('git', ['push', '-q', 'origin', 'main'], {
     env: { ...process.env, ALLOW_MAIN_PUSH: '1' },
   });
