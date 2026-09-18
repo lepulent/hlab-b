@@ -141,6 +141,67 @@ describe('resolveGhostCollisions', () => {
     const state = buildState({ ghosts: [buildGhost({ pos: { x: 1, y: 1 } })] });
     expect(resolveGhostCollisions(state)).toEqual(state);
   });
+
+  it('P0-GAME-004 catches pacman moving onto a chasing ghost in the same tick', () => {
+    const maze = buildMaze(['#####', '#...#', '#...#', '#...#', '#####']);
+    const state = buildState({
+      maze,
+      pacman: { pos: { x: 2, y: 2 }, dir: 'right' },
+      ghosts: [buildGhost({ pos: { x: 3, y: 2 }, mode: 'chase' })],
+      lives: 3,
+    });
+    const next = tick(state, 'right');
+    expect(next.lives).toBe(2);
+    expect(next.pacman.pos).toEqual(PACMAN_START);
+  });
+
+  it('P0-GAME-004 eats a frightened ghost pacman moves onto in the same tick', () => {
+    const maze = buildMaze(['#####', '#...#', '#...#', '#...#', '#####']);
+    const ghost = buildGhost({ pos: { x: 3, y: 2 }, mode: 'frightened', home: { x: 1, y: 1 } });
+    const state = buildState({
+      maze,
+      pacman: { pos: { x: 2, y: 2 }, dir: 'right' },
+      ghosts: [ghost],
+      lives: 3,
+      frightenedTicks: 5,
+    });
+    const next = tick(state, 'right');
+    expect(next.lives).toBe(3);
+    expect(next.score).toBe(210);
+  });
+});
+
+describe('moveGhost', () => {
+  const room = buildMaze([
+    '#######',
+    '#.....#',
+    '#.....#',
+    '#.....#',
+    '#.....#',
+    '#.....#',
+    '#######',
+  ]);
+
+  it('P0-GAME-008 steps toward pacman while chasing', () => {
+    const state = buildState({
+      maze: room,
+      pacman: { pos: { x: 1, y: 1 }, dir: 'left' },
+      ghosts: [buildGhost({ pos: { x: 3, y: 3 }, dir: 'right', mode: 'chase' })],
+    });
+    const next = tick(state, null);
+    expect(next.ghosts[0]?.pos).toEqual({ x: 3, y: 2 });
+  });
+
+  it('P0-GAME-008 steps away from pacman while frightened', () => {
+    const state = buildState({
+      maze: room,
+      pacman: { pos: { x: 1, y: 1 }, dir: 'left' },
+      ghosts: [buildGhost({ pos: { x: 3, y: 3 }, dir: 'right', mode: 'frightened' })],
+      frightenedTicks: 1,
+    });
+    const next = tick(state, null);
+    expect(next.ghosts[0]?.pos).toEqual({ x: 3, y: 4 });
+  });
 });
 
 describe('checkWin', () => {

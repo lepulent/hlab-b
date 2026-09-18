@@ -140,6 +140,7 @@ function movePacman(state: GameState, dir: Direction): GameState {
   return checkWin(eatDot(moved, target));
 }
 
+// canon: CAP-1.9
 function moveGhost(maze: Maze, ghost: Ghost, target: Position): Ghost {
   const options = DIRECTIONS.map((dir) => ({ dir, pos: nextPosition(ghost.pos, dir) })).filter(
     ({ pos }) => isWalkable(maze, pos),
@@ -157,6 +158,7 @@ function moveGhost(maze: Maze, ghost: Ghost, target: Position): Ghost {
   return { ...ghost, pos: choice.pos, dir: choice.dir };
 }
 
+// canon: CAP-1.9
 function moveGhosts(state: GameState): GameState {
   return { ...state, ghosts: state.ghosts.map((g) => moveGhost(state.maze, g, state.pacman.pos)) };
 }
@@ -166,7 +168,10 @@ export function tick(state: GameState, dir: Direction | null): GameState {
   const afterPacman = dir ? movePacman(state, dir) : state;
   if (afterPacman.status !== 'playing') return afterPacman;
 
-  const afterGhosts = moveGhosts(afterPacman);
+  const afterPacmanCollision = resolveGhostCollisions(afterPacman);
+  if (afterPacmanCollision.status !== 'playing') return afterPacmanCollision;
+
+  const afterGhosts = moveGhosts(afterPacmanCollision);
   const frightenedTicks = Math.max(0, afterGhosts.frightenedTicks - 1);
   const ghosts =
     frightenedTicks === 0
