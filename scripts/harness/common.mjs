@@ -99,6 +99,18 @@ export function productDirty(cwd = ROOT) {
 export function bookkeepingDirty(cwd = ROOT) {
   return git(['status', '--porcelain', '--', ...BOOKKEEPING], cwd) !== '';
 }
+// The app and the harness installed in it are two lineages (PLAN §1b): the tests bind to the product,
+// never to the scripts that run them, so a harness sync cannot change what a test proves. These are the
+// paths a proof about the product may ignore.
+export const NOT_PRODUCT = [
+  ...BOOKKEEPING,
+  'records',
+  'intent',
+  'scripts/harness',
+  'scripts/quality',
+  '.claude',
+  'harness.json',
+];
 
 export function headSha() {
   return git(['rev-parse', 'HEAD']) || 'no-git';

@@ -13,6 +13,7 @@ import {
   blobSha,
   sha,
   git,
+  NOT_PRODUCT,
   headSha,
   parseFrontmatter,
 } from './common.mjs';
@@ -282,26 +283,24 @@ else {
   }
 }
 
-// Results describe HEAD when they were taken at it, or at an ancestor with the same code: a landing
-// commit stamps canon, moves intent to records and appends to the ledger, and re-proving unchanged code
-// against it would only say the same thing twice. Bindings are read from the canon at HEAD either way,
-// so a criterion added since the run is still caught by the rows below.
+// Results describe HEAD when the code is the same at both, whatever the history between them: a squash
+// merge rewrites the plan branch into a new commit that is nobody's descendant, a landing commit stamps
+// canon, moves intent to records and appends to the ledger, and a harness sync reaches main on its own
+// lineage. Re-proving identical product code against a different sha would only say the same twice. Bindings are read from the canon at HEAD either
+// way, so a criterion added since the run is still caught by the rows below.
 function resultsDescribe(tr, head) {
   if (!tr.commit) return false;
   if (tr.commit === head) return true;
-  if (git(['merge-base', tr.commit, head]) !== tr.commit) return false;
+  if (!git(['rev-parse', '--verify', '--quiet', `${tr.commit}^{commit}`])) return false;
   return (
     git([
       'diff',
       '--name-only',
-      `${tr.commit}..${head}`,
+      tr.commit,
+      head,
       '--',
       '.',
-      ':!ledger',
-      ':!canon',
-      ':!records',
-      ':!intent',
-      ':!.harness',
+      ...NOT_PRODUCT.map((p) => `:!${p}`),
     ]) === ''
   );
 }
