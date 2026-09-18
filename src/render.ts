@@ -31,6 +31,7 @@ function drawGhost(ctx: CanvasRenderingContext2D, ghost: Ghost): void {
   ctx.fillRect(ghost.pos.x * TILE + 2, ghost.pos.y * TILE + 2, TILE - 4, TILE - 4);
 }
 
+// canon: CAP-1.8
 export function drawFrame(ctx: CanvasRenderingContext2D, state: GameState): void {
   const { maze } = state;
   ctx.imageSmoothingEnabled = false;

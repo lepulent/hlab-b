@@ -70,3 +70,12 @@ bindings: [P0-UI-001]
 pointers:
 
 - src/main.ts#applyScale
+- src/render.ts#drawFrame
+
+### CAP-1.9 Each tick, every ghost advances one walkable step toward pacman when chasing and away from pacman when frightened
+
+bindings: [P0-GAME-008]
+pointers:
+
+- src/game.ts#moveGhost
+- src/game.ts#moveGhosts

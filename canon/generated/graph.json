@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-18T08:09:48.746Z",
+  "generatedAt": "2026-09-18T08:13:57.882Z",
   "nodes": [
     {
       "id": "MAP",
@@ -126,6 +126,19 @@
       "id": "P0-UI-001",
       "kind": "coverage-row",
       "label": "P0-UI-001"
+    },
+    {
+      "id": "CAP-1.9",
+      "kind": "criterion",
+      "label": "Each tick, every ghost advances one walkable step toward pacman when chasing and away from pacman when frightened",
+      "file": "canon/capabilities/CAP-1.md",
+      "parent": "CAP-1",
+      "layer": "harness"
+    },
+    {
+      "id": "P0-GAME-008",
+      "kind": "coverage-row",
+      "label": "P0-GAME-008"
     },
     {
       "id": "CONSTITUTION",
@@ -683,6 +696,36 @@
       "confidence": "EXTRACTED"
     },
     {
+      "source": "CAP-1.8",
+      "target": "func:src/render.ts#drawFrame",
+      "type": "implements",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-1",
+      "target": "CAP-1.9",
+      "type": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "P0-GAME-008",
+      "target": "CAP-1.9",
+      "type": "tests",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-1.9",
+      "target": "func:src/game.ts#moveGhost",
+      "type": "implements",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-1.9",
+      "target": "func:src/game.ts#moveGhosts",
+      "type": "implements",
+      "confidence": "EXTRACTED"
+    },
+    {
       "source": "CONSTITUTION",
       "target": "C-1",
       "type": "contains",
@@ -767,6 +810,22 @@
       "line": 122
     },
     {
+      "source": "CAP-1.9",
+      "target": "func:src/game.ts#moveGhost",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 143
+    },
+    {
+      "source": "CAP-1.9",
+      "target": "func:src/game.ts#moveGhosts",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 161
+    },
+    {
       "source": "CAP-1.7",
       "target": "func:src/input.ts#keyToDirection",
       "type": "implements",
@@ -781,6 +840,14 @@
       "confidence": "EXTRACTED",
       "via": "tag",
       "line": 35
+    },
+    {
+      "source": "CAP-1.8",
+      "target": "func:src/render.ts#drawFrame",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 34
     },
     {
       "source": "file:src/game.test.ts",

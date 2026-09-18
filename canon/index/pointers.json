@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-18T08:09:48.746Z",
+  "generatedAt": "2026-09-18T08:13:57.882Z",
   "byFile": {
     "src/game.ts": [
       {
@@ -51,6 +51,22 @@
         "blob": null
       },
       {
+        "node": "CAP-1",
+        "criterion": "CAP-1.9",
+        "file": "src/game.ts",
+        "symbol": "moveGhost",
+        "range": null,
+        "blob": null
+      },
+      {
+        "node": "CAP-1",
+        "criterion": "CAP-1.9",
+        "file": "src/game.ts",
+        "symbol": "moveGhosts",
+        "range": null,
+        "blob": null
+      },
+      {
         "node": null,
         "criterion": "CAP-1.1",
         "file": "src/game.ts",
@@ -103,6 +119,24 @@
         "range": null,
         "blob": null,
         "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-1.9",
+        "file": "src/game.ts",
+        "symbol": "moveGhost",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-1.9",
+        "file": "src/game.ts",
+        "symbol": "moveGhosts",
+        "range": null,
+        "blob": null,
+        "tag": true
       }
     ],
     "src/input.ts": [
@@ -142,7 +176,26 @@
         "blob": null,
         "tag": true
       }
+    ],
+    "src/render.ts": [
+      {
+        "node": "CAP-1",
+        "criterion": "CAP-1.8",
+        "file": "src/render.ts",
+        "symbol": "drawFrame",
+        "range": null,
+        "blob": null
+      },
+      {
+        "node": null,
+        "criterion": "CAP-1.8",
+        "file": "src/render.ts",
+        "symbol": "drawFrame",
+        "range": null,
+        "blob": null,
+        "tag": true
+      }
     ]
   },
-  "count": 16
+  "count": 22
 }
