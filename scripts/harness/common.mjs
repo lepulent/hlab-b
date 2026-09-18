@@ -41,11 +41,26 @@ export function parseFrontmatter(text) {
   const m = /^---\n([\s\S]*?)\n---\n?/.exec(text);
   if (!m) return { data: {}, body: text };
   const data = {};
+  let list = null; // a block list belongs to the key above it; both YAML list forms read the same
   for (const line of m[1].split('\n')) {
+    const item = /^\s*-\s+(.*)$/.exec(line);
+    if (item && list) {
+      data[list].push(parseScalar(item[1].trim()));
+      continue;
+    }
     const mm = /^([A-Za-z_][\w-]*):\s*(.*)$/.exec(line);
     if (!mm) continue;
-    data[mm[1]] = parseScalar(mm[2].trim());
+    list = null;
+    const v = mm[2].trim();
+    if (v === '') {
+      list = mm[1];
+      data[list] = [];
+      continue;
+    }
+    data[mm[1]] = parseScalar(v);
   }
+  // a key with no value and no items is empty, not an empty list
+  for (const [k, v] of Object.entries(data)) if (Array.isArray(v) && !v.length) data[k] = null;
   return { data, body: text.slice(m[0].length) };
 }
 function parseScalar(v) {
@@ -72,6 +87,19 @@ export function git(args, cwd = ROOT) {
     return '';
   }
 }
+// The harness writes its own bookkeeping into the tracked tree: ledger lines, regenerated canon,
+// .harness records. That churn says nothing about whether the working tree matches the code at HEAD,
+// and it must never be mistaken for uncommitted product work — nor handed to a tool that refuses a
+// dirty tree. One definition of each, used by every precondition in the harness.
+export const BOOKKEEPING = ['ledger', 'canon/generated', 'canon/index', '.harness'];
+const exclude = BOOKKEEPING.map((p) => `:!${p}`);
+export function productDirty(cwd = ROOT) {
+  return git(['status', '--porcelain', '--', '.', ...exclude], cwd) !== '';
+}
+export function bookkeepingDirty(cwd = ROOT) {
+  return git(['status', '--porcelain', '--', ...BOOKKEEPING], cwd) !== '';
+}
+
 export function headSha() {
   return git(['rev-parse', 'HEAD']) || 'no-git';
 }
