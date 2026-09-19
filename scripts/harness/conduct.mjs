@@ -37,6 +37,7 @@ import {
   toolUses,
   authoringCalls,
   authoredPaths,
+  transcriptUsage,
   overlapSeconds,
 } from './activation.mjs';
 import { validateGap, castGap, gapKey, gapOptions, doctypeIds, overwrites } from './gap.mjs';
@@ -245,6 +246,8 @@ const row = (name, station, session, r, extra = {}) => ({
   turns: r.out?.num_turns ?? null,
   tokens: r.out?.usage ?? null,
   tools: toolUses(transcript(session)),
+  // the token series, always from the transcript; USD only when the seat lived to report it
+  transcript_tokens: transcriptUsage(transcript(session)),
   timed_out: !!r.timedOut,
   ...extra,
 });
@@ -1163,8 +1166,22 @@ const checks = {
       }
     : {}),
   'cost-per-session': {
-    ok: [...masterCalls, ...agents.map((a) => a.row)].every((r) => typeof r.cost_usd === 'number'),
-    msg: `Master decisions $${masterCost.toFixed(3)} + answers $${answerCost.toFixed(3)}, agents $${agentCost.toFixed(3)}; Master share of agent spend ${agentCost ? Math.round(((masterCost + answerCost) / agentCost) * 100) : 0}%`,
+    // two series (NFR-16): every session is metered in tokens from its transcript; USD comes from the
+    // seat's own report, which a killed seat never makes, so its USD is recorded as unknown, not zero
+    ok: [...masterCalls, ...agents.map((a) => a.row)].every(
+      (r) => r.transcript_tokens?.messages > 0 && (typeof r.cost_usd === 'number' || r.timed_out),
+    ),
+    msg: `Master decisions $${masterCost.toFixed(3)} + answers $${answerCost.toFixed(3)}, agents $${agentCost.toFixed(3)}${
+      agents.some((a) => a.row.cost_usd == null)
+        ? ` (+ ${agents
+            .filter((a) => a.row.cost_usd == null)
+            .map(
+              (a) =>
+                `${a.agent} w${a.n}: ${a.row.transcript_tokens.output} output tokens, USD unknown`,
+            )
+            .join(', ')})`
+        : ''
+    }; Master share of agent spend ${agentCost ? Math.round(((masterCost + answerCost) / agentCost) * 100) : 0}%`,
   },
 };
 const pass = Object.values(checks).every((c) => c.ok);

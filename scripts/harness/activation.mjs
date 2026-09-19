@@ -77,6 +77,33 @@ export function overlapSeconds(windows) {
   return Math.max(0, Math.round((end - start) / 100) / 10);
 }
 
+// the token series of a session from its transcript (NFR-16): every assistant message carries its usage,
+// so a seat killed before it could report its cost is still metered in tokens. A message is counted once
+// by its id, since a streamed message is written in several lines.
+export function transcriptUsage(jsonl) {
+  const seen = new Map();
+  for (const line of String(jsonl || '').split('\n')) {
+    if (!line.trim()) continue;
+    let j;
+    try {
+      j = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    const u = j?.message?.usage;
+    if (!u) continue;
+    seen.set(j.message.id || j.uuid || seen.size, u);
+  }
+  const t = { input: 0, output: 0, cache_read: 0, cache_creation: 0, messages: seen.size };
+  for (const u of seen.values()) {
+    t.input += u.input_tokens || 0;
+    t.output += u.output_tokens || 0;
+    t.cache_read += u.cache_read_input_tokens || 0;
+    t.cache_creation += u.cache_creation_input_tokens || 0;
+  }
+  return t;
+}
+
 export const AUTHORING_TOOLS = ['Write', 'Edit', 'MultiEdit', 'NotebookEdit', 'Bash'];
 export function authoringCalls(counts) {
   return AUTHORING_TOOLS.reduce((n, t) => n + (counts[t] || 0), 0);
