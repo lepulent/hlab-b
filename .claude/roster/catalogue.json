@@ -9,12 +9,44 @@
       "produced_by": "brief-writer"
     },
     {
-      "id": "tech_spec",
+      "id": "prd",
+      "title": "Product requirements",
+      "purpose": "What the product must do: numbered functional and non-functional requirements, each testable, with the users and journeys they serve.",
+      "path": "intent/{plan}/prd.md",
+      "workflow": "write-prd",
+      "produced_by": "pm"
+    },
+    {
+      "id": "technical_spec",
       "title": "Technical spec",
-      "purpose": "How the product will be built: approach and stack, the parts and how they fit, the state kept, the main flows, and how it is tested.",
+      "purpose": "How the product will be built in one document: approach and stack, the parts and how they fit, the state kept, the main flows, and how it is tested.",
       "path": "intent/{plan}/tech-spec.md",
       "workflow": "write-tech-spec",
       "produced_by": "spec-writer"
+    },
+    {
+      "id": "architecture",
+      "title": "Architecture",
+      "purpose": "The structure that meets the requirements: components and their boundaries, data and its ownership, the decisions taken with their alternatives, and the risks.",
+      "path": "intent/{plan}/architecture.md",
+      "workflow": "write-architecture",
+      "produced_by": "architect"
+    },
+    {
+      "id": "dev_plan",
+      "title": "Development plan",
+      "purpose": "The order of work to the seal: epics, their sequence and dependencies, what each delivers, and how each is known to be done.",
+      "path": "intent/{plan}/dev-plan.md",
+      "workflow": "write-dev-plan",
+      "produced_by": "sm"
+    },
+    {
+      "id": "stories",
+      "title": "Stories",
+      "purpose": "The epics broken into stories, each with acceptance criteria a test can check.",
+      "path": "intent/{plan}/stories.md",
+      "workflow": "write-stories",
+      "produced_by": "sm"
     }
   ]
 }

@@ -7,8 +7,26 @@
       "budget_usd": 1
     },
     {
+      "id": "pm",
+      "prompt": "pm.md",
+      "tools": ["Read", "Write", "Edit", "Glob", "Grep"],
+      "budget_usd": 1
+    },
+    {
       "id": "spec-writer",
       "prompt": "spec-writer.md",
+      "tools": ["Read", "Write", "Edit", "Glob", "Grep"],
+      "budget_usd": 1
+    },
+    {
+      "id": "architect",
+      "prompt": "architect.md",
+      "tools": ["Read", "Write", "Edit", "Glob", "Grep"],
+      "budget_usd": 1
+    },
+    {
+      "id": "sm",
+      "prompt": "sm.md",
       "tools": ["Read", "Write", "Edit", "Glob", "Grep"],
       "budget_usd": 1
     }

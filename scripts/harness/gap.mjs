@@ -35,7 +35,13 @@ export function gapOptions(catalogue) {
   return [...doctypeIds(catalogue), 'no-move'];
 }
 
-export function validateGap(dec, catalogue, { maxWave = 1, exists = () => true } = {}) {
+// mustProduce: the artifacts the plan's ladder still requires before its seal that the catalogue can
+// produce (ladder.mjs); a no-move while any remains is a premature close
+export function validateGap(
+  dec,
+  catalogue,
+  { maxWave = 1, exists = () => true, mustProduce = [] } = {},
+) {
   const refusals = [];
   if (!dec || typeof dec !== 'object') return { ok: false, refusals: ['no decision object'] };
   const types = new Map((catalogue?.doctypes || []).map((d) => [d.id, d]));
@@ -77,6 +83,8 @@ export function validateGap(dec, catalogue, { maxWave = 1, exists = () => true }
     if (types.size > 1 && words(dec.wave_reason) < MIN_WORDS.wave)
       refusals.push(`wave_reason has fewer than ${MIN_WORDS.wave} words`);
   } else if (chosen.length) refusals.push(`${dec.outcome} names artifacts to produce`);
+  if (dec.outcome === 'no-move' && mustProduce.length)
+    refusals.push(`the ladder still requires ${mustProduce.join(', ')} before the seal`);
 
   if (dec.outcome === 'clarify') {
     if (words(dec.clarify?.question) < MIN_WORDS.question)

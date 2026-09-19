@@ -12,9 +12,9 @@
 //      answers only what the decider allowed; a floor trigger stops the plan with needs-input.md;
 //   6. the loop ends when the Master decides no-move (goal closed), at a floor stop, at a refusal, or at
 //      conduct.max_waves waves of work (a closing no-move after the last wave is allowed). Checks over the whole plan decide pass or fail.
-// Usage: node scripts/harness/conduct.mjs --plan <slug> [--expect <agent[+agent]|no-move>]
+// Usage: node scripts/harness/conduct.mjs --plan <slug> [--expect <artifact[+artifact]|no-move|clarify>]
 //        [--expect-question none|answered|needs-input] [--expect-agents a,b]
-//        [--expect-ending goal-closed|needs-input]
+//        [--expect-ending goal-closed|needs-input|clarify]
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
@@ -39,6 +39,7 @@ import {
   overlapSeconds,
 } from './activation.mjs';
 import { validateGap, castGap, gapKey, gapOptions, doctypeIds, overwrites } from './gap.mjs';
+import { ladderKey, intentKindFor, coverage, coverageView } from './ladder.mjs';
 import { buildDigest, toolPaths, relayConsumed } from './relay.mjs';
 import {
   KINDS,
@@ -71,7 +72,7 @@ const MODEL = harness.yolo?.model || null;
 // sessions at once; the laptop's limit (H-18: parallelism 2)
 const MAX_WAVE = harness.conduct?.max_wave || 2;
 // Master decisions per plan, and the size of what one wave relays to the next (H-33 step 5)
-const MAX_WAVES = harness.conduct?.max_waves || 4;
+const MAX_WAVES = harness.conduct?.max_waves || 6;
 const DIGEST_CHARS = harness.conduct?.digest_chars || 4000;
 const sh = (file, args, opts = {}) =>
   spawnSync(file, args, { cwd: ROOT, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, ...opts });
@@ -213,6 +214,31 @@ if (productDirty() || porcelain().length)
 // ---------------------------------------------------------------- the loop: decide, run, relay, until the Master closes
 const intent = readFileSync(intentFile, 'utf8');
 const byId = rosterById(roster);
+// the ladder this plan owes before its seal: rigor × intent kind (13.2, 13.3); an app that already landed
+// a plan (records/<plan>) is brownfield
+const landedPlans = existsSync(join(ROOT, 'records'))
+  ? readdirSync(join(ROOT, 'records'), { withFileTypes: true }).filter((e) => e.isDirectory())
+      .length
+  : 0;
+const intentKind = intentKindFor({ landedPlans });
+const LADDER = ladderKey(route.rigor, intentKind);
+// the artifacts that exist now, by catalogue path, non-empty
+const present = () =>
+  catalogue.doctypes
+    .filter((d) => {
+      const f = join(ROOT, d.path.replaceAll('{plan}', PLAN));
+      return existsSync(f) && readFileSync(f, 'utf8').trim();
+    })
+    .map((d) => d.id);
+const producible = new Set(doctypeIds(catalogue));
+const ladderNow = () => {
+  const cov = coverage(LADDER, present());
+  const slots = new Map(cov.slots.map((x) => [x.id, x]));
+  const mustProduce = cov.stepsToSeal.flatMap((id) =>
+    slots.get(id).docTypes.filter((t) => producible.has(t)),
+  );
+  return { ...cov, mustProduce };
+};
 // the Master sees what can be produced, never who produces it (H-35: casting is derived)
 const catalogueView = () =>
   catalogue.doctypes.map((d) => {
@@ -349,6 +375,7 @@ const citableView = () =>
 // waves did; the door refuses a vacuous or impossible gap and returns it for exactly one correction
 async function master(n, attempt, refusals) {
   const digest = buildDigest(waves, DIGEST_CHARS);
+  const ladder = ladderNow();
   const session = randomUUID();
   ledger('seat-start', { seat: 'master', session, station: 'conduct', wave: n, attempt });
   const r = await seat({
@@ -357,6 +384,7 @@ async function master(n, attempt, refusals) {
       readFileSync(conductorPrompt, 'utf8'),
       `\n\n--- PLAN ---\n${PLAN} on ${branch}, track ${route.track}, rigor ${route.rigor}; at most ${MAX_WAVE} agent(s) at once; decision ${n}; ${n <= MAX_WAVES ? `${MAX_WAVES - n + 1} wave(s) of work left, including this one` : 'no waves of work are left: decide no-move or clarify'}`,
       `\n\n--- INTENT ---\n${intent}`,
+      `\n\n--- LADDER (what this plan owes before its seal; ${intentKind}, rigor ${route.rigor}) ---\n${coverageView(ladder)}`,
       `\n\n--- CATALOGUE (what can be produced) ---\n${JSON.stringify(catalogueView(), null, 2)}`,
       `\n\n--- IDS A PREMISE MAY CITE ---\n${citableView()}, or the path of any file in the repository`,
       `\n\n--- SO FAR ---\n${digest.text || 'Nothing has been done on this plan yet.'}`,
@@ -386,7 +414,11 @@ async function master(n, attempt, refusals) {
     handoff(`${PLAN} master seat failed`);
     fail(`master seat failed: ${String(r.out?.result || r.stderr).slice(0, 300)}`);
   }
-  const valid = validateGap(dec, catalogue, { maxWave: MAX_WAVE, exists: citable });
+  const valid = validateGap(dec, catalogue, {
+    maxWave: MAX_WAVE,
+    exists: citable,
+    mustProduce: ladder.mustProduce,
+  });
   ledger(
     'activation',
     {
@@ -402,6 +434,11 @@ async function master(n, attempt, refusals) {
       valid: valid.ok,
       refusals: valid.refusals,
       digest: { chars: digest.chars, truncated: digest.truncated },
+      ladder: {
+        key: ladder.key,
+        steps_to_seal: ladder.stepsToSeal,
+        must_produce: ladder.mustProduce,
+      },
       master_session: mRow.session,
     },
     'agent:master',
@@ -819,6 +856,7 @@ const answerCost = answerRows.reduce((s, r) => s + (r.cost_usd || 0), 0);
 const ranAgents = [...new Set(agents.map((a) => a.agent))].sort();
 const relayWaves = agents.filter((a) => a.relay.needed);
 const multi = waves.filter((w) => w.activations.length > 1);
+const endLadder = ladderNow();
 const expectedEnding = EXPECT_END || (EXPECT_Q === 'needs-input' ? 'needs-input' : 'goal-closed');
 const checks = {
   'sessions-distinct': {
@@ -923,6 +961,12 @@ const checks = {
         },
       }
     : {}),
+  'ladder-covered': {
+    // the plan closes when a script says the ladder is covered, never on the Master's word alone; a
+    // required rung nothing in the catalogue can produce is a roster gap, named here
+    ok: ending !== 'goal-closed' || endLadder.covered,
+    msg: `${LADDER} (${intentKind}); required still missing: ${endLadder.stepsToSeal.join(', ') || 'none'}${endLadder.stepsToSeal.length && !endLadder.mustProduce.length ? ' (no catalogue artifact produces it)' : ''}; present ${present().join(', ') || 'none'}`,
+  },
   'plan-ended': {
     ok: ending === expectedEnding,
     msg: `expected ${expectedEnding}, ended ${ending} after ${decisions.length} decision(s): ${sequence.join(' → ')}`,
@@ -980,6 +1024,7 @@ writeJson(join(H, `conduct-${PLAN}.json`), {
   ending,
   sequence,
   chose,
+  ladder: { key: LADDER, intent_kind: intentKind, landed_plans: landedPlans, end: endLadder },
   pass,
   checks,
   decisions: decisions.map((d) => ({
