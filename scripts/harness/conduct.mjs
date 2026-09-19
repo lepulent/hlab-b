@@ -732,7 +732,9 @@ async function runWave(n, d) {
       const d = catalogue.doctypes.find((x) => x.id === id);
       if (d?.kind !== 'code' || !d.gate) continue;
       const run = () => {
-        const g = sh('bash', ['-lc', d.gate], { timeout: 600000 });
+        // no login shell: the gate must run in the same environment the harness does, or it tests the
+        // code against a different node than the one the app's dependencies were installed for
+        const g = sh('bash', ['-c', d.gate], { timeout: 600000 });
         return {
           ok: g.status === 0,
           tail: (String(g.stdout || '') + String(g.stderr || '')).slice(-600),

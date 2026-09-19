@@ -3,6 +3,7 @@
 // how far a document has grown, shown to the Master and recorded. Closure is the gate: a gap closes only
 // when every artifact it claimed was actually changed by its cast seat and a linked artifact matured.
 // No I/O here.
+import { owns } from './activation.mjs';
 
 export const PLANTED = 0.1; // the artifact was cast; nothing written yet
 export const DRAFTED = 0.3; // every section carries a body
@@ -76,7 +77,8 @@ export function rollup(members) {
 export function verifyClosure({ claimed, mutationsBySeat, before, after, existed = [] }) {
   const refusals = [];
   for (const c of claimed)
-    if (!(mutationsBySeat[c.agent] || []).some((m) => m.target === c.path))
+    // a claimed path may be a glob (`src/**`): the change is matched by the pattern, not by equality
+    if (!(mutationsBySeat[c.agent] || []).some((m) => owns([c.path], m.target)))
       refusals.push(`${c.artifact} (${c.path}) shows no change by ${c.agent}`);
   const matured = claimed.filter((c) => (after[c.artifact] ?? 0) > (before[c.artifact] ?? 0));
   const reconciliation = claimed.every((c) => existed.includes(c.artifact));
