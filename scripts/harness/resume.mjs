@@ -78,7 +78,12 @@ export function rebuild(lines) {
       if (w) w.activations.forEach((a, i) => (a.commit = d.commits[i] ?? a.commit));
     }
   }
-  const ordered = [...waves.values()].sort((a, b) => a.n - b.n).filter((w) => w.activations.length);
+  // every rebuilt wave and gap is marked: this run did not witness it, and does not judge it again
+  const ordered = [...waves.values()]
+    .sort((a, b) => a.n - b.n)
+    .filter((w) => w.activations.length)
+    .map((w) => ({ ...w, prior: true }));
+  for (const g of gaps.values()) g.prior = true;
   return {
     waves: ordered,
     gaps: [...gaps.values()],

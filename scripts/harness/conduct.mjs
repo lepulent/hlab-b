@@ -1119,7 +1119,7 @@ const masterCost = decisions.reduce((s, d) => s + (d.row.cost_usd || 0), 0);
 const answerCost = answerRows.reduce((s, r) => s + (r.cost_usd || 0), 0);
 const ranAgents = [...new Set([...prior.agents, ...agents.map((a) => a.agent)])].sort();
 const relayWaves = agents.filter((a) => a.relay.needed);
-const multi = waves.filter((w) => w.activations.length > 1);
+const multi = waves.filter((w) => !w.prior && w.activations.length > 1);
 const endLadder = ladderNow();
 const expectedEnding = EXPECT_END || (EXPECT_Q === 'needs-input' ? 'needs-input' : 'goal-closed');
 const checks = {
@@ -1128,7 +1128,7 @@ const checks = {
       const all = [...decisions.map((d) => d.row.session), ...agents.map((a) => a.row.session)];
       return new Set(all).size === all.length && all.every((s) => !!transcript(s));
     })(),
-    msg: `${decisions.length} Master decision session(s), ${agents.length} agent session(s), ${answerRows.length} answer session(s); every transcript on disk`,
+    msg: `${prior.lastWave ? `resumed after wave ${prior.lastWave} (${prior.waves.length} wave(s), agents ${prior.agents.join(', ')} read back from the ledger); ` : ''}${decisions.length} Master decision session(s), ${agents.length} agent session(s), ${answerRows.length} answer session(s); every transcript on disk`,
   },
   'master-authored-nothing': {
     ok: masterCalls.every((r) => authoringCalls(r.tools) === 0 && !r.changed.length),
@@ -1225,9 +1225,10 @@ const checks = {
           // no gap closed without its artifacts changed by the cast seat and, unless a reconciliation,
           // a linked artifact maturing
           ok: gaps.every(
-            (g) => g.status === 'superseded' || (g.status === 'closed' && g.closure?.ok),
+            (g) => g.prior || g.status === 'superseded' || (g.status === 'closed' && g.closure?.ok),
           ),
           msg: gaps
+            .filter((g) => !g.prior)
             .map(
               (g) =>
                 `${g.id} ${g.status}: ${Object.entries(g.maturity || {})
@@ -1244,8 +1245,9 @@ const checks = {
         },
         'witnesses-agree': {
           // the hook's footprint, git's state diff and the transcript name the same writes
-          ok: waves.every((w) => w.witnesses?.ok),
+          ok: waves.every((w) => w.prior || w.witnesses?.ok),
           msg: waves
+            .filter((w) => !w.prior)
             .map((w) =>
               w.witnesses?.ok
                 ? `w${w.n} hook, git and transcript agree (${w.activations.map((x) => x.agent).join(', ')})`
