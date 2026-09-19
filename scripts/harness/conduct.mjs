@@ -52,6 +52,13 @@ import {
   supersede,
 } from './record.mjs';
 import { deriveTriggers, vetoHeld } from './department.mjs';
+import {
+  artifactMaturity,
+  rollup,
+  verifyClosure,
+  elicitedCount,
+  MACHINE_CAP,
+} from './maturity.mjs';
 import { buildDigest, toolPaths, relayConsumed } from './relay.mjs';
 import {
   KINDS,
@@ -320,6 +327,41 @@ const present = () =>
     })
     .map((d) => d.id);
 const producible = new Set(doctypeIds(catalogue));
+// each artifact's maturity from facts (D3): cast by a gap, drafted, and answers taken in by a rewrite;
+// no human rung exists in the lab yet, so a conducted artifact stops at the machine cap
+const maturityNow = () => {
+  const out = {};
+  for (const d of catalogue.doctypes) {
+    const path = d.path.replaceAll('{plan}', PLAN);
+    const f = join(ROOT, path);
+    const text = existsSync(f) ? readFileSync(f, 'utf8') : null;
+    const lastWave = Math.max(
+      0,
+      ...agents
+        .filter((a) => a.artifacts.includes(d.id) && a.written.includes(path))
+        .map((a) => a.n),
+    );
+    const qs = qResults
+      .filter((q) => q.file && q.a.artifacts.includes(d.id))
+      .map((q) => ({ wave: q.n, answered: !!q.answered }));
+    out[d.id] = {
+      ...artifactMaturity({
+        cast: gaps.some((g) => g.artifacts.includes(d.id)),
+        text,
+        elicited: elicitedCount(qs, lastWave),
+      }),
+      tier: d.tier || 'contract',
+    };
+  }
+  return out;
+};
+const maturityView = (m) =>
+  `${
+    Object.entries(m)
+      .filter(([, v]) => v.rung !== 'absent')
+      .map(([id, v]) => `${id} ${v.value} (${v.rung})`)
+      .join(', ') || 'nothing produced yet'
+  }; plan ${rollup(Object.values(m).filter((v) => v.rung !== 'absent'))}. Maturity never gates; ${MACHINE_CAP} is the most a document only machines have touched can reach.`;
 const ladderNow = () => {
   const cov = coverage(LADDER, present());
   const slots = new Map(cov.slots.map((x) => [x.id, x]));
@@ -474,6 +516,7 @@ async function master(n, attempt, refusals) {
       `\n\n--- PLAN ---\n${PLAN} on ${branch}, track ${route.track}, rigor ${route.rigor}; at most ${MAX_WAVE} agent(s) at once; decision ${n}; ${n <= MAX_WAVES ? `${MAX_WAVES - n + 1} wave(s) of work left, including this one` : 'no waves of work are left: decide no-move or clarify'}`,
       `\n\n--- INTENT ---\n${intent}`,
       `\n\n--- LADDER (what this plan owes before its seal; ${intentKind}, rigor ${route.rigor}) ---\n${coverageView(ladder)}`,
+      `\n\n--- MATURITY ---\n${maturityView(maturityNow())}`,
       `\n\n--- CATALOGUE (what can be produced) ---\n${JSON.stringify(catalogueView(), null, 2)}`,
       `\n\n--- IDS A PREMISE MAY CITE ---\n${citableView()}, or the path of any file in the repository`,
       `\n\n--- SO FAR ---\n${digest.text || 'Nothing has been done on this plan yet.'}`,
@@ -564,6 +607,10 @@ async function runWave(n, d) {
   const relay = buildDigest(waves, DIGEST_CHARS);
   // artifact → workflow → agent, by the catalogue; the Master never named these agents
   const casts = castGap(d.dec, catalogue, PLAN);
+  const maturityBefore = maturityNow();
+  const existedBefore = Object.entries(maturityBefore)
+    .filter(([, v]) => v.rung !== 'absent' && v.rung !== 'planted')
+    .map(([id]) => id);
   const existing = casts.flatMap((c) => c.owned).filter((p) => existsSync(join(ROOT, p)));
   const rewrites = overwrites(casts, existing);
   const gap = gaps.find((g) => g.id === d.gapId);
@@ -717,7 +764,26 @@ async function runWave(n, d) {
   agents.push(...wave);
   // a gap closes when every seat cast for it completed and its artifacts are committed; a closing gap
   // supersedes any earlier open gap that named the same artifacts
-  gap.status = wave.every((a) => a.terminal === 'complete' && a.commit) ? 'closed' : 'linked';
+  // FR-23: every claimed artifact changed by its cast seat, and a linked artifact matured (or, for a pure
+  // rewrite, the reconciliation recorded)
+  const maturityAfter = maturityNow();
+  const val = (m) => Object.fromEntries(Object.entries(m).map(([k, v]) => [k, v.value]));
+  gap.closure = verifyClosure({
+    claimed: wave.flatMap((a) =>
+      a.artifacts.map((id, i) => ({ artifact: id, path: a.owned[i], agent: a.agent })),
+    ),
+    mutationsBySeat: Object.fromEntries(wave.map((a) => [a.agent, a.mutations])),
+    before: val(maturityBefore),
+    after: val(maturityAfter),
+    existed: existedBefore,
+  });
+  gap.maturity = Object.fromEntries(
+    gap.artifacts.map((id) => [id, [maturityBefore[id].value, maturityAfter[id].value]]),
+  );
+  gap.status =
+    wave.every((a) => a.terminal === 'complete' && a.commit) && gap.closure.ok
+      ? 'closed'
+      : 'linked';
   gap.agents = wave.map((a) => a.agent);
   ledger('gap', {
     id: gap.id,
@@ -726,6 +792,8 @@ async function runWave(n, d) {
     written: wave.flatMap((a) => a.written),
     commits: wave.map((a) => a.commit || null),
     terminals: wave.map((a) => ({ agent: a.agent, terminal: a.terminal, reason: a.reason })),
+    closure: gap.closure,
+    maturity: gap.maturity,
   });
   if (gap.status === 'closed')
     for (const id of supersede(gaps, gap)) {
@@ -1133,6 +1201,27 @@ const checks = {
               },
             }
           : {}),
+        'closure-verified': {
+          // no gap closed without its artifacts changed by the cast seat and, unless a reconciliation,
+          // a linked artifact maturing
+          ok: gaps.every(
+            (g) => g.status === 'superseded' || (g.status === 'closed' && g.closure?.ok),
+          ),
+          msg: gaps
+            .map(
+              (g) =>
+                `${g.id} ${g.status}: ${Object.entries(g.maturity || {})
+                  .map(([id, [b, a]]) => `${id} ${b}→${a}`)
+                  .join(
+                    ', ',
+                  )}${g.closure?.reconciliation ? ' (reconciliation)' : ''}${g.closure?.refusals?.length ? ` refused: ${g.closure.refusals.join('; ')}` : ''}`,
+            )
+            .join(' · '),
+        },
+        'machine-cap-held': {
+          ok: Object.values(maturityNow()).every((v) => v.value <= MACHINE_CAP),
+          msg: maturityView(maturityNow()),
+        },
         'witnesses-agree': {
           // the hook's footprint, git's state diff and the transcript name the same writes
           ok: waves.every((w) => w.witnesses?.ok),
@@ -1251,6 +1340,7 @@ writeJson(join(H, `conduct-${PLAN}.json`), {
   sequence,
   chose,
   ladder: { key: LADDER, intent_kind: intentKind, landed_plans: landedPlans, end: endLadder },
+  maturity: maturityNow(),
   pass,
   checks,
   decisions: decisions.map((d) => ({
