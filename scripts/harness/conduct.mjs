@@ -11,7 +11,7 @@
 //   5. each question an agent raised becomes a file, the decider gives its verdict, and the Master
 //      answers only what the decider allowed; a floor trigger stops the plan with needs-input.md;
 //   6. the loop ends when the Master decides no-move (goal closed), at a floor stop, at a refusal, or at
-//      conduct.max_waves. Checks over the whole plan decide pass or fail.
+//      conduct.max_waves waves of work (a closing no-move after the last wave is allowed). Checks over the whole plan decide pass or fail.
 // Usage: node scripts/harness/conduct.mjs --plan <slug> [--expect <agent[+agent]|no-move>]
 //        [--expect-question none|answered|needs-input] [--expect-agents a,b]
 //        [--expect-ending goal-closed|needs-input]
@@ -355,7 +355,7 @@ async function master(n, attempt, refusals) {
     session,
     prompt: [
       readFileSync(conductorPrompt, 'utf8'),
-      `\n\n--- PLAN ---\n${PLAN} on ${branch}, track ${route.track}, rigor ${route.rigor}; at most ${MAX_WAVE} agent(s) at once; this is decision ${n} of at most ${MAX_WAVES}`,
+      `\n\n--- PLAN ---\n${PLAN} on ${branch}, track ${route.track}, rigor ${route.rigor}; at most ${MAX_WAVE} agent(s) at once; decision ${n}; ${n <= MAX_WAVES ? `${MAX_WAVES - n + 1} wave(s) of work left, including this one` : 'no waves of work are left: decide no-move or clarify'}`,
       `\n\n--- INTENT ---\n${intent}`,
       `\n\n--- CATALOGUE (what can be produced) ---\n${JSON.stringify(catalogueView(), null, 2)}`,
       `\n\n--- IDS A PREMISE MAY CITE ---\n${citableView()}, or the path of any file in the repository`,
@@ -768,13 +768,15 @@ async function questions(n, wave, record) {
 }
 
 for (let n = 1; ; n++) {
-  if (n > MAX_WAVES) {
-    ending = 'wave-cap';
-    break;
-  }
   const d = await decide(n);
   if (!d.valid.ok) {
     ending = 'refused';
+    break;
+  }
+  // the cap bounds waves of work, not the decision that closes them: after the last wave the Master is
+  // asked once more, and only no-move or clarify may follow
+  if (n > MAX_WAVES && d.dec.outcome === 'move') {
+    ending = 'wave-cap';
     break;
   }
   if (d.dec.outcome === 'no-move') {
