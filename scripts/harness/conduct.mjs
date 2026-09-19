@@ -29,9 +29,7 @@ import {
   BOOKKEEPING,
 } from './common.mjs';
 import {
-  resolveOwns,
   rosterById,
-  validateActivation,
   parsePorcelain,
   outsideJurisdiction,
   transcriptDir,
@@ -39,9 +37,8 @@ import {
   authoringCalls,
   authoredPaths,
   overlapSeconds,
-  chosenKey,
-  rejectionOptions,
 } from './activation.mjs';
+import { validateGap, castGap, gapKey, gapOptions, doctypeIds, overwrites } from './gap.mjs';
 import { buildDigest, toolPaths, relayConsumed } from './relay.mjs';
 import {
   KINDS,
@@ -205,6 +202,8 @@ const branch = git(['rev-parse', '--abbrev-ref', 'HEAD']);
 if (branch !== route.branch) fail(`on ${branch}, plan lives on ${route.branch}`, 2);
 const roster = readJson(join(ROOT, '.claude', 'roster', 'roster.json'));
 if (!roster?.agents?.length) fail('no .claude/roster/roster.json (install the bundle)', 2);
+const catalogue = readJson(join(ROOT, '.claude', 'roster', 'catalogue.json'));
+if (!catalogue?.doctypes?.length) fail('no .claude/roster/catalogue.json (install the bundle)', 2);
 const conductorPrompt = join(ROOT, '.claude', 'seats', 'conductor.md');
 if (!existsSync(conductorPrompt)) fail('no .claude/seats/conductor.md (install the bundle)', 2);
 handoff(`${PLAN} conduct starts`);
@@ -214,42 +213,76 @@ if (productDirty() || porcelain().length)
 // ---------------------------------------------------------------- the loop: decide, run, relay, until the Master closes
 const intent = readFileSync(intentFile, 'utf8');
 const byId = rosterById(roster);
-const rosterView = roster.agents.map((a) => ({
-  id: a.id,
-  purpose: a.purpose,
-  owns: resolveOwns(a.owns, PLAN),
-}));
+// the Master sees what can be produced, never who produces it (H-35: casting is derived)
+const catalogueView = () =>
+  catalogue.doctypes.map((d) => {
+    const path = d.path.replaceAll('{plan}', PLAN);
+    return {
+      id: d.id,
+      title: d.title,
+      purpose: d.purpose,
+      path,
+      exists: existsSync(join(ROOT, path)),
+    };
+  });
 const decisionSchema = JSON.stringify({
   type: 'object',
   properties: {
-    decision: { type: 'string', enum: ['activate', 'no-move'] },
-    activations: {
-      type: 'array',
-      maxItems: MAX_WAVE,
-      items: {
-        type: 'object',
-        properties: {
-          agent: { type: 'string', enum: roster.agents.map((a) => a.id) },
-          task: { type: 'string' },
-        },
-        required: ['agent', 'task'],
-      },
-    },
+    outcome: { type: 'string', enum: ['move', 'no-move', 'clarify'] },
     reason: { type: 'string' },
     wave_reason: { type: 'string' },
-    rejected: {
-      type: 'array',
-      items: {
-        type: 'object',
-        properties: {
-          option: { type: 'string', enum: rejectionOptions(roster) },
-          why: { type: 'string' },
+    gap: {
+      type: 'object',
+      properties: {
+        statement: { type: 'string' },
+        premises: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              text: { type: 'string' },
+              cites: { type: 'array', items: { type: 'string' } },
+            },
+            required: ['text', 'cites'],
+          },
         },
-        required: ['option', 'why'],
+        blocks: { type: 'array', items: { type: 'string' } },
+        artifacts: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              artifact: { type: 'string', enum: doctypeIds(catalogue) },
+              task: { type: 'string' },
+            },
+            required: ['artifact', 'task'],
+          },
+        },
+        rejected: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              artifact: { type: 'string', enum: gapOptions(catalogue) },
+              why: { type: 'string' },
+            },
+            required: ['artifact', 'why'],
+          },
+        },
+        also_available: { type: 'array', items: { type: 'string', enum: doctypeIds(catalogue) } },
       },
+      required: ['statement', 'premises', 'blocks', 'artifacts', 'rejected', 'also_available'],
+    },
+    clarify: {
+      type: 'object',
+      properties: {
+        question: { type: 'string' },
+        alternatives: { type: 'array', items: { type: 'string' } },
+      },
+      required: ['question', 'alternatives'],
     },
   },
-  required: ['decision', 'activations', 'reason', 'wave_reason', 'rejected'],
+  required: ['outcome', 'reason', 'wave_reason', 'gap'],
 });
 const agentSchema = JSON.stringify({
   type: 'object',
@@ -286,19 +319,50 @@ const qResults = [];
 const answerRows = [];
 let ending = null; // goal-closed | needs-input | refused | wave-cap
 
-// 1. the Master decides the next wave from the intent and a capped digest of what earlier waves did
-async function decide(n) {
+// what a premise may cite: the intent, an artifact of the catalogue, an earlier gap or question, a canon
+// capability or criterion, or a file that exists in the repository
+const gaps = []; // every gap declared on this plan: { id, n, statement, artifacts, status }
+function citable(id) {
+  const x = String(id || '').trim();
+  if (x === 'INTENT') return true;
+  if (doctypeIds(catalogue).includes(x)) return true;
+  if (/^G-\d+$/.test(x)) return gaps.some((g) => g.id === x);
+  if (/^Q-\d+$/.test(x)) return existsSync(join(qdir, `${x}.md`));
+  if (/^CAP-\d+(\.\d+)?$/.test(x))
+    return existsSync(join(ROOT, 'canon', 'capabilities', `${x.split('.')[0]}.md`));
+  if (x.includes('..') || x.startsWith('/')) return false;
+  return existsSync(join(ROOT, x));
+}
+const citableView = () =>
+  [
+    'INTENT',
+    ...doctypeIds(catalogue),
+    ...gaps.map((g) => g.id),
+    ...(existsSync(qdir)
+      ? readdirSync(qdir)
+          .filter((f) => /^Q-\d+\.md$/.test(f))
+          .map((f) => f.slice(0, -3))
+      : []),
+  ].join(', ');
+
+// 1. the Master declares the next gap from the intent, the catalogue and a capped digest of what earlier
+// waves did; the door refuses a vacuous or impossible gap and returns it for exactly one correction
+async function master(n, attempt, refusals) {
   const digest = buildDigest(waves, DIGEST_CHARS);
   const session = randomUUID();
-  ledger('seat-start', { seat: 'master', session, station: 'conduct', wave: n });
+  ledger('seat-start', { seat: 'master', session, station: 'conduct', wave: n, attempt });
   const r = await seat({
     session,
     prompt: [
       readFileSync(conductorPrompt, 'utf8'),
       `\n\n--- PLAN ---\n${PLAN} on ${branch}, track ${route.track}, rigor ${route.rigor}; at most ${MAX_WAVE} agent(s) at once; this is decision ${n} of at most ${MAX_WAVES}`,
       `\n\n--- INTENT ---\n${intent}`,
-      `\n\n--- ROSTER ---\n${JSON.stringify(rosterView, null, 2)}`,
+      `\n\n--- CATALOGUE (what can be produced) ---\n${JSON.stringify(catalogueView(), null, 2)}`,
+      `\n\n--- IDS A PREMISE MAY CITE ---\n${citableView()}, or the path of any file in the repository`,
       `\n\n--- SO FAR ---\n${digest.text || 'Nothing has been done on this plan yet.'}`,
+      refusals
+        ? `\n\n--- REFUSED ---\nYour previous decision was refused by the door for these reasons. Correct it once:\n${refusals.map((x) => `- ${x}`).join('\n')}`
+        : '',
     ].join(''),
     budget: harness.budgets?.usd_per_master_call || 0.5,
     schema: decisionSchema,
@@ -306,12 +370,13 @@ async function decide(n) {
   });
   const mRow = row('master', 'conduct', session, r, {
     wave: n,
+    attempt,
     changed: porcelain().filter((p) => !p.startsWith('ledger/')),
   });
   ledger('seat-end', mRow);
   stat({ tool: 'claude -p', ...mRow });
-  const act = r.out?.structured_output ?? null;
-  if (!r.ok || !act) {
+  const dec = r.out?.structured_output ?? null;
+  if (!r.ok || !dec) {
     ledger('decision', {
       station: 'conduct',
       wave: n,
@@ -321,20 +386,18 @@ async function decide(n) {
     handoff(`${PLAN} master seat failed`);
     fail(`master seat failed: ${String(r.out?.result || r.stderr).slice(0, 300)}`);
   }
-  const valid = validateActivation(act, roster, { plan: PLAN, maxWave: MAX_WAVE });
+  const valid = validateGap(dec, catalogue, { maxWave: MAX_WAVE, exists: citable });
   ledger(
     'activation',
     {
       wave: n,
-      decision: act.decision,
-      activations: (act.decision === 'activate' ? act.activations || [] : []).map((a) => ({
-        agent: a.agent,
-        task: a.task,
-        owns: resolveOwns(byId.get(a.agent)?.owns, PLAN),
-      })),
-      reason: act.reason,
-      wave_reason: act.wave_reason ?? null,
-      rejected: act.rejected || [],
+      attempt,
+      outcome: dec.outcome,
+      chose: gapKey(dec),
+      reason: dec.reason,
+      wave_reason: dec.wave_reason ?? null,
+      gap: dec.gap ?? null,
+      clarify: dec.clarify ?? null,
       max_wave: MAX_WAVE,
       valid: valid.ok,
       refusals: valid.refusals,
@@ -343,22 +406,58 @@ async function decide(n) {
     },
     'agent:master',
   );
-  handoff(`${PLAN} wave ${n} decision recorded`);
-  const d = { n, act, valid, row: mRow, digest };
+  handoff(`${PLAN} wave ${n} decision ${attempt} recorded`);
+  return { n, attempt, dec, valid, row: mRow, digest };
+}
+async function decide(n) {
+  let d = await master(n, 1, null);
   decisions.push(d);
+  if (!d.valid.ok) {
+    d = await master(n, 2, d.valid.refusals);
+    d.corrected = true;
+    decisions.push(d);
+  }
+  if (d.valid.ok && d.dec.outcome === 'move') {
+    d.gapId = `G-${gaps.length + 1}`;
+    gaps.push({
+      id: d.gapId,
+      n,
+      statement: d.dec.gap.statement,
+      artifacts: d.dec.gap.artifacts.map((a) => a.artifact),
+      status: 'declared',
+    });
+    ledger('gap', { id: d.gapId, status: 'declared', wave: n, ...d.dec.gap }, 'agent:master');
+  }
   return d;
 }
 
 // 2. the script spawns the wave; each agent after wave 1 gets the relay: what exists and what was decided
-async function runWave(n, act) {
+async function runWave(n, d) {
   const relay = buildDigest(waves, DIGEST_CHARS);
-  const wave = act.activations.map((a) => ({
-    ...a,
+  // artifact → workflow → agent, by the catalogue; the Master never named these agents
+  const casts = castGap(d.dec, catalogue, PLAN);
+  const existing = casts.flatMap((c) => c.owned).filter((p) => existsSync(join(ROOT, p)));
+  const rewrites = overwrites(casts, existing);
+  const gap = gaps.find((g) => g.id === d.gapId);
+  gap.status = 'linked';
+  ledger('gap', {
+    id: gap.id,
+    status: 'linked',
+    wave: n,
+    cast: casts.map((c) => ({ artifacts: c.artifacts, workflows: c.workflows, agent: c.agent })),
+    overwrites: rewrites,
+  });
+  const wave = casts.map((c) => ({
+    agent: c.agent,
+    artifacts: c.artifacts,
+    task: c.tasks.join('\n'),
     n,
-    def: byId.get(a.agent),
-    owned: resolveOwns(byId.get(a.agent)?.owns, PLAN),
+    def: byId.get(c.agent),
+    owned: c.owned,
     relayed: relay.sources.map((s) => s.path),
   }));
+  for (const a of wave)
+    if (!a.def) fail(`catalogue casts to "${a.agent}", which is not in the roster`, 2);
   for (const a of wave) {
     const promptFile = join(ROOT, '.claude', 'roster', a.def.prompt);
     if (!existsSync(promptFile)) fail(`no ${promptFile}`, 2);
@@ -444,11 +543,26 @@ async function runWave(n, act) {
   }
   handoff(`${PLAN} wave ${n} witnessed`);
   agents.push(...wave);
+  // a gap closes when every artifact it named was written by its cast agent and committed
+  gap.status = wave.every((a) => a.commit && a.written.length === a.owned.length)
+    ? 'closed'
+    : 'linked';
+  gap.agents = wave.map((a) => a.agent);
+  ledger('gap', {
+    id: gap.id,
+    status: gap.status,
+    wave: n,
+    written: wave.flatMap((a) => a.written),
+    commits: wave.map((a) => a.commit || null),
+  });
+  handoff(`${PLAN} ${gap.id} ${gap.status}`);
   const record = {
     n,
+    gap: { id: gap.id, statement: gap.statement },
     overlap: overlapSeconds(results.map((r) => ({ start: r.start, end: r.end }))),
     activations: wave.map((a) => ({
       agent: a.agent,
+      artifacts: a.artifacts,
       task: a.task,
       written: a.written,
       commit: a.commit || null,
@@ -663,11 +777,27 @@ for (let n = 1; ; n++) {
     ending = 'refused';
     break;
   }
-  if (d.act.decision === 'no-move') {
+  if (d.dec.outcome === 'no-move') {
     ending = 'goal-closed';
     break;
   }
-  const { wave, record } = await runWave(n, d.act);
+  if (d.dec.outcome === 'clarify') {
+    // the Master cannot read the intent one way; the owner is asked, the plan stops here
+    const c = d.dec.clarify;
+    writeFileSync(
+      join(dir, 'needs-input.md'),
+      `# Needs input\n\n${PLAN}: the Master asks for clarification before anything is produced.\n\n${c.question}\n\n${c.alternatives.map((x) => `- ${x}`).join('\n')}\n\nWhy: ${d.dec.reason}\n`,
+    );
+    commitAs(
+      'seat:master',
+      [`intent/${PLAN}/needs-input.md`],
+      `chore(intent): ${PLAN} the Master asks for clarification`,
+    );
+    handoff(`${PLAN} clarify`);
+    ending = 'clarify';
+    break;
+  }
+  const { wave, record } = await runWave(n, d);
   if (await questions(n, wave, record)) {
     ending = 'needs-input';
     break;
@@ -675,7 +805,9 @@ for (let n = 1; ; n++) {
 }
 
 // ---------------------------------------------------------------- checks over the whole plan
-const sequence = decisions.map((d) => chosenKey(d.act));
+// the decision that stands for each wave: the correction when there was one
+const final = [...new Map(decisions.map((d) => [d.n, d])).values()];
+const sequence = final.map((d) => gapKey(d.dec));
 const chose = sequence[0];
 const outcome = questionOutcome(qResults.filter((r) => r.file));
 const masterCalls = [...decisions.map((d) => d.row), ...answerRows];
@@ -700,16 +832,39 @@ const checks = {
       .map((r) => `${r.station}${r.file ? ` ${r.file}` : ` w${r.wave}`} ${JSON.stringify(r.tools)}`)
       .join(', '),
   },
-  'activation-recorded': {
-    ok: decisions.every((d) => d.valid.ok),
-    msg: decisions
-      .map((d) =>
-        d.valid.ok
-          ? `w${d.n} ${chosenKey(d.act)}: "${d.act.reason}"`
-          : `w${d.n} refused: ${d.valid.refusals.join('; ')}`,
-      )
+  door: {
+    ok: final.every((d) => d.valid.ok),
+    msg: final
+      .map((d) => {
+        const first = decisions.find((x) => x.n === d.n && x.attempt === 1);
+        const fix = d.corrected
+          ? ` (corrected once; refused first for: ${first.valid.refusals.join('; ')})`
+          : '';
+        return d.valid.ok
+          ? `w${d.n} ${d.dec.outcome} ${gapKey(d.dec)}${d.gapId ? ` ${d.gapId}` : ''}: "${d.dec.gap?.statement || d.dec.reason}"${fix}`
+          : `w${d.n} refused after correction: ${d.valid.refusals.join('; ')}`;
+      })
       .join(' · '),
   },
+  ...(agents.length
+    ? {
+        'casting-derived': {
+          // every agent session was cast from the catalogue by the artifacts of a gap, never named
+          ok: agents.every(
+            (a) =>
+              a.artifacts.length &&
+              a.artifacts.every(
+                (id) => catalogue.doctypes.find((x) => x.id === id)?.produced_by === a.agent,
+              ),
+          ),
+          msg: agents.map((a) => `w${a.n} ${a.artifacts.join('+')} → ${a.agent}`).join(' · '),
+        },
+        'gaps-closed': {
+          ok: gaps.every((g) => g.status === 'closed'),
+          msg: gaps.map((g) => `${g.id} ${g.status} (${g.artifacts.join('+')})`).join(' · '),
+        },
+      }
+    : {}),
   ...(EXPECT
     ? {
         'chose-expected': {
@@ -827,12 +982,14 @@ writeJson(join(H, `conduct-${PLAN}.json`), {
   checks,
   decisions: decisions.map((d) => ({
     n: d.n,
-    decision: d.act.decision,
-    chose: chosenKey(d.act),
-    activations: d.act.activations,
-    reason: d.act.reason,
-    wave_reason: d.act.wave_reason ?? null,
-    rejected: d.act.rejected,
+    attempt: d.attempt,
+    outcome: d.dec.outcome,
+    chose: gapKey(d.dec),
+    gap_id: d.gapId ?? null,
+    gap: d.dec.gap ?? null,
+    clarify: d.dec.clarify ?? null,
+    reason: d.dec.reason,
+    wave_reason: d.dec.wave_reason ?? null,
     valid: d.valid.ok,
     refusals: d.valid.refusals,
     digest_chars: d.digest.chars,

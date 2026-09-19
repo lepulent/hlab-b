@@ -1,0 +1,20 @@
+{
+  "doctypes": [
+    {
+      "id": "brief",
+      "title": "Product brief",
+      "purpose": "Who the plan is for, the problem it solves, what is in and out of scope, and how success is recognised.",
+      "path": "intent/{plan}/brief.md",
+      "workflow": "write-brief",
+      "produced_by": "brief-writer"
+    },
+    {
+      "id": "tech_spec",
+      "title": "Technical spec",
+      "purpose": "How the product will be built: approach and stack, the parts and how they fit, the state kept, the main flows, and how it is tested.",
+      "path": "intent/{plan}/tech-spec.md",
+      "workflow": "write-tech-spec",
+      "produced_by": "spec-writer"
+    }
+  ]
+}

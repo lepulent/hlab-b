@@ -9,6 +9,7 @@ import { ROOT, headSha } from './common.mjs';
 const KINDS = new Set([
   'route',
   'activation',
+  'gap',
   'decision',
   'seat-start',
   'seat-end',

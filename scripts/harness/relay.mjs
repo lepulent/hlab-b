@@ -15,7 +15,7 @@ export function buildDigest(waves, cap) {
   const blocks = [];
   const latest = new Map(); // a document rewritten in a later wave is relayed at its latest commit
   for (const w of waves) {
-    const lines = [`Wave ${w.n}:`];
+    const lines = [`Wave ${w.n}${w.gap ? ` (${w.gap.id}: ${oneLine(w.gap.statement)})` : ''}:`];
     for (const a of w.activations) {
       lines.push(
         `- ${a.agent} (task: ${oneLine(a.task)}) wrote ${a.written.join(', ') || 'nothing'}${a.commit ? ` at ${a.commit.slice(0, 7)}` : ''}. It reported: ${oneLine(a.summary)}`,

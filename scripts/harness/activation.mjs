@@ -1,93 +1,9 @@
-// Pure rules for conducted activations (H-32, H-33 steps 1 and 4): the Master's decision is validated,
-// an agent's jurisdiction is resolved and checked, and transcripts are read for tool use. No I/O here,
+// Pure rules for conducted activations (H-32, H-33): an agent's jurisdiction is checked and transcripts
+// are read for tool use. The Master's decision is validated in gap.mjs (H-35). No I/O here,
 // so every rule is a unit test.
-
-const MIN_WORDS = { task: 4, reason: 4, rejection: 3, wave: 4 };
-const words = (s) =>
-  String(s || '')
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean).length;
-
-// {plan} in a roster path is the plan slug; nothing else is interpolated
-export function resolveOwns(owns, plan) {
-  return (owns || []).map((p) => p.replaceAll('{plan}', plan));
-}
 
 export function rosterById(roster) {
   return new Map((roster?.agents || []).map((a) => [a.id, a]));
-}
-
-// The Master's output is accepted only when every activation names a roster agent and says what to do
-// in words that carry something; a well-formed but empty decision is refused, never recorded as if it
-// were one. A wave (H-33 step 4) holds at most maxWave agents, each once, whose owned paths are disjoint,
-// so no two sessions running at the same time may write the same file.
-export function validateActivation(act, roster, { plan = 'plan', maxWave = 1 } = {}) {
-  const refusals = [];
-  const agents = rosterById(roster);
-  if (!act || typeof act !== 'object') return { ok: false, refusals: ['no decision object'] };
-  if (!['activate', 'no-move'].includes(act.decision))
-    refusals.push(`decision "${act.decision}" is not activate or no-move`);
-  const wave = Array.isArray(act.activations) ? act.activations : [];
-  if (act.decision === 'activate') {
-    if (!wave.length) refusals.push('activate names no agent');
-    if (wave.length > maxWave)
-      refusals.push(`a wave of ${wave.length} exceeds the limit of ${maxWave}`);
-    const seen = new Set();
-    const owner = new Map();
-    for (const a of wave) {
-      if (!agents.has(a?.agent)) refusals.push(`agent "${a?.agent}" is not in the roster`);
-      if (seen.has(a?.agent)) refusals.push(`agent "${a?.agent}" is activated twice`);
-      seen.add(a?.agent);
-      if (words(a?.task) < MIN_WORDS.task)
-        refusals.push(`task for "${a?.agent}" has fewer than ${MIN_WORDS.task} words`);
-      for (const p of resolveOwns(agents.get(a?.agent)?.owns, plan)) {
-        if (owner.has(p) && owner.get(p) !== a.agent)
-          refusals.push(`"${p}" is owned by both "${owner.get(p)}" and "${a.agent}"`);
-        owner.set(p, a.agent);
-      }
-    }
-  }
-  if (act.decision === 'no-move' && wave.length) refusals.push('no-move activates an agent');
-  if (words(act.reason) < MIN_WORDS.reason)
-    refusals.push(`reason has fewer than ${MIN_WORDS.reason} words`);
-  // why these agents run together, or why the others wait: the shape of the wave is a decision too,
-  // kept in its own field so options stay a closed set (step 4, both apps: rejected combinations such as
-  // "brief-writer alone, then spec-writer later" were read as rejecting the chosen agents)
-  if (act.decision === 'activate' && agents.size > 1 && words(act.wave_reason) < MIN_WORDS.wave)
-    refusals.push(`wave_reason has fewer than ${MIN_WORDS.wave} words`);
-  // an option is a roster agent id or no-move, never free text to be parsed
-  const options = rejectionOptions(roster);
-  for (const r of act.rejected || []) {
-    if (!options.includes(r?.option))
-      refusals.push(`rejected option "${r?.option}" is not a roster agent or no-move`);
-    if (words(r?.why) < MIN_WORDS.rejection)
-      refusals.push(`rejection of "${r?.option}" has fewer than ${MIN_WORDS.rejection} words`);
-  }
-  // a decision records what else was possible: every roster agent is either chosen or rejected with a
-  // reason, and never both (step 1, hlab-b: "brief-writer — Chosen, not rejected." passed the gate)
-  const rejectedIds = new Set((act.rejected || []).map((r) => r?.option));
-  const chosen = new Set(act.decision === 'activate' ? wave.map((a) => a?.agent) : []);
-  for (const id of chosen)
-    if (rejectedIds.has(id)) refusals.push(`the chosen agent "${id}" is also listed as rejected`);
-  for (const id of agents.keys())
-    if (!chosen.has(id) && !rejectedIds.has(id))
-      refusals.push(`roster agent "${id}" was neither chosen nor rejected`);
-  return { ok: !refusals.length, refusals };
-}
-
-// the closed set a rejection names: every roster agent, and doing nothing
-export function rejectionOptions(roster) {
-  return [...rosterById(roster).keys(), 'no-move'];
-}
-
-// what a decision chose, in one comparable word: "no-move", or the activated agents sorted and joined
-export function chosenKey(act) {
-  if (act?.decision === 'no-move') return 'no-move';
-  return (act?.activations || [])
-    .map((a) => a?.agent)
-    .sort()
-    .join('+');
 }
 
 // paths from `git status --porcelain --untracked-files=all`, relative to the repo root
