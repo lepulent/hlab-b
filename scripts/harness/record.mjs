@@ -48,7 +48,8 @@ export function terminalFor({
   if (timedOut) return { terminal: 'abandoned', reason: `deadline of ${deadlineS}s passed` };
   if (!ok) return { terminal: 'abandoned', reason: `session failed: ${error || 'no result'}` };
   if (escalated) return { terminal: 'escalated', reason: `question ${escalated} stopped the plan` };
-  const missing = owned.filter((p) => !written.includes(p));
+  // `owned` is what the caller says is still undelivered; a glob is never 'in' the written list
+  const missing = owned.filter((p) => (p.includes('*') ? true : !written.includes(p)));
   if (missing.length && denied.length) return { terminal: 'blocked', reason: `veto: ${denied[0]}` };
   if (missing.length)
     return { terminal: 'abandoned', reason: `ended without writing ${missing.join(', ')}` };

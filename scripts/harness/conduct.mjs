@@ -731,18 +731,31 @@ async function runWave(n, d) {
     for (const id of a.artifacts) {
       const d = catalogue.doctypes.find((x) => x.id === id);
       if (d?.kind !== 'code' || !d.gate) continue;
-      const g = sh('bash', ['-lc', d.gate], { timeout: 600000 });
-      gates[id] = {
-        ok: g.status === 0,
-        tail: String(g.stdout || '').slice(-400) + String(g.stderr || '').slice(-400),
+      const run = () => {
+        const g = sh('bash', ['-lc', d.gate], { timeout: 600000 });
+        return {
+          ok: g.status === 0,
+          tail: (String(g.stdout || '') + String(g.stderr || '')).slice(-600),
+        };
       };
+      let g = run();
+      let flaky = false;
+      // a failing gate is run once more before it is believed: the same triage the pipeline does, after
+      // a transient test-runner error failed a seat whose tests passed on the next run (hlab-a s11)
+      if (!g.ok) {
+        const again = run();
+        flaky = again.ok;
+        g = again.ok ? { ...again, flaky: true, first: g.tail } : g;
+      }
+      gates[id] = g;
       ledger('decision', {
         station: 'gate',
         wave: n,
         artifact: id,
         command: d.gate,
-        ok: gates[id].ok,
-        tail: gates[id].tail.slice(-400),
+        ok: g.ok,
+        flaky,
+        tail: g.tail.slice(-400),
       });
     }
   wave.forEach((a, i) => {
@@ -782,7 +795,7 @@ async function runWave(n, d) {
         },
         `script:veto`,
       );
-    a.mutations = mutations.filter((m) => a.owned.includes(m.target));
+    a.mutations = mutations.filter((m) => owns(a.owned, m.target));
     const failedGate = a.artifacts.find((id) => gates[id] && !gates[id].ok);
     Object.assign(
       a,
@@ -795,7 +808,7 @@ async function runWave(n, d) {
             error: String(r.out?.result || r.stderr || '').slice(0, 200),
             denied: a.veto.denied.map((d) => `${d.department} ${d.denied}: ${d.reason}`),
             owned: a.undelivered,
-            written: [],
+            written: a.written,
           }),
     );
     a.row = row(a.agent, 'conduct', a.session, r, {
