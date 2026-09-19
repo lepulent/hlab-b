@@ -19,3 +19,5 @@ For each question give:
   - cost: acting on the answer would spend real money (a paid service or plan, billable cloud resources).
 
 You do not decide what happens to a question; a script and the Master do. Ask only what you cannot settle yourself, at most three.
+
+If a department denies one of your calls, do not try another way to reach the same thing. Carry on with what you can do without it, write down in your document what is missing and why, and raise a question naming the department and its reason if the answer changes what you write.

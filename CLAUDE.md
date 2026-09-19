@@ -26,7 +26,7 @@ A browser pacman with pixel art and keyboard control. This repo is one of two la
 
 <!-- generated:start -->
 
-- capabilities: 1 · criteria: 9 · pointers: 22 · departments: Testing
+- capabilities: 1 · criteria: 9 · pointers: 22 · departments: Security, Platform, Testing
 - CAP-1 Pacman gameplay · v1 · prototype
 - layers: composition, ui, domain, transport, persistence, infrastructure, tests, harness
 

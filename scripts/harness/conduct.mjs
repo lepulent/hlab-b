@@ -51,6 +51,7 @@ import {
   buildRecord,
   supersede,
 } from './record.mjs';
+import { deriveTriggers, vetoHeld } from './department.mjs';
 import { buildDigest, toolPaths, relayConsumed } from './relay.mjs';
 import {
   KINDS,
@@ -91,6 +92,8 @@ const MASTER_DEADLINE = harness.conduct?.master_deadline_s || 180;
 const AGENT_DEADLINE = harness.conduct?.agent_deadline_s || 420;
 const FORCE_DEADLINE = Number(arg('force-deadline', 0)) || null;
 const EXPECT_TERM = arg('expect-terminal', null);
+// the department whose veto the plan should run into (the guarded action must be attempted)
+const EXPECT_VETO = arg('expect-veto', null);
 const sh = (file, args, opts = {}) =>
   spawnSync(file, args, { cwd: ROOT, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, ...opts });
 const ok = (r) => r.status === 0;
@@ -141,6 +144,18 @@ const SEAT_ENV = Object.fromEntries(
 SEAT_ENV.CLAUDE_PROJECT_DIR = ROOT;
 const SEAT_SETTINGS = JSON.stringify({
   hooks: {
+    // the department veto at the call (FR-17): denies with the department's reason, before the tool runs
+    PreToolUse: [
+      {
+        matcher: '*',
+        hooks: [
+          {
+            type: 'command',
+            command: `node ${JSON.stringify(join(ROOT, '.claude', 'hooks', 'veto.mjs'))}`,
+          },
+        ],
+      },
+    ],
     PostToolUse: [
       {
         matcher: '*',
@@ -277,6 +292,7 @@ if (branch !== route.branch) fail(`on ${branch}, plan lives on ${route.branch}`,
 const roster = readJson(join(ROOT, '.claude', 'roster', 'roster.json'));
 if (!roster?.agents?.length) fail('no .claude/roster/roster.json (install the bundle)', 2);
 const catalogue = readJson(join(ROOT, '.claude', 'roster', 'catalogue.json'));
+const departments = readJson(join(ROOT, 'canon', 'departments.json'), { departments: [] });
 if (!catalogue?.doctypes?.length) fail('no .claude/roster/catalogue.json (install the bundle)', 2);
 const conductorPrompt = join(ROOT, '.claude', 'seats', 'conductor.md');
 if (!existsSync(conductorPrompt)) fail('no .claude/seats/conductor.md (install the bundle)', 2);
@@ -640,6 +656,22 @@ async function runWave(n, d) {
     );
     a.asked = r.out?.structured_output?.questions || [];
     a.footprint = footprintOf(a.session);
+    a.veto = vetoHeld(a.footprint);
+    for (const d of a.veto.denied)
+      ledger(
+        'department',
+        {
+          department: d.department,
+          veto: d.denied,
+          reason: d.reason,
+          tool: d.tool,
+          target: d.target,
+          seat: a.agent,
+          session: a.session,
+          wave: n,
+        },
+        `script:veto`,
+      );
     a.mutations = mutations.filter((m) => a.owned.includes(m.target));
     Object.assign(
       a,
@@ -648,6 +680,7 @@ async function runWave(n, d) {
         timedOut: r.timedOut,
         deadlineS: r.deadlineS,
         error: String(r.out?.result || r.stderr || '').slice(0, 200),
+        denied: a.veto.denied.map((d) => `${d.department} ${d.denied}: ${d.reason}`),
         owned: a.owned,
         written: a.written,
       }),
@@ -754,7 +787,11 @@ async function questions(n, wave, record) {
   mkdirSync(qdir, { recursive: true });
   let k = readdirSync(qdir).filter((f) => /^Q-\d+\.md$/.test(f)).length;
   const mine = [];
-  for (const { a, q } of asked) {
+  for (const { a, q: raw } of asked) {
+    // a trigger that cannot be true in this app is dropped before the decider reads it, and recorded
+    const { kept, dropped } = deriveTriggers(raw.triggers, departments);
+    const q = { ...raw, triggers: kept };
+    if (dropped.length) q.dropped_triggers = dropped;
     const v = validateQuestion(q);
     const file = v.ok ? `Q-${++k}.md` : null;
     if (file)
@@ -1076,6 +1113,26 @@ const checks = {
             )
             .join(' · '),
         },
+        ...(agents.some((a) => a.veto.denied.length) || EXPECT_VETO
+          ? {
+              'veto-held': {
+                // the guarded action was attempted, denied with its reason, and never reached another way
+                ok:
+                  agents.every((a) => a.veto.ok) &&
+                  (!EXPECT_VETO ||
+                    agents.some((a) => a.veto.denied.some((d) => d.department === EXPECT_VETO))),
+                msg: `${EXPECT_VETO ? `expected a ${EXPECT_VETO} veto; ` : ''}${
+                  agents
+                    .filter((a) => a.veto.denied.length)
+                    .map(
+                      (a) =>
+                        `w${a.n} ${a.agent} denied ${a.veto.denied.map((d) => `${d.tool} ${d.target} (${d.department} ${d.denied})`).join(', ')}${a.veto.breaches.length ? `; BREACHED: ${a.veto.breaches.join('; ')}` : '; held'}`,
+                    )
+                    .join(' · ') || 'no call was denied'
+                }`,
+              },
+            }
+          : {}),
         'witnesses-agree': {
           // the hook's footprint, git's state diff and the transcript name the same writes
           ok: waves.every((w) => w.witnesses?.ok),

@@ -23,15 +23,18 @@ export function parsePorcelainOps(text) {
 export function footprintWrites(footprint) {
   return [
     ...new Set(
-      (footprint || []).filter((f) => FILE_TOOLS.includes(f.tool) && f.target).map((f) => f.target),
+      (footprint || [])
+        .filter((f) => FILE_TOOLS.includes(f.tool) && f.target && !f.denied)
+        .map((f) => f.target),
     ),
   ].sort();
 }
 
-// The terminal comes from facts, in precedence order: a veto that denied a call blocks the seat; a
-// deadline or a failed session abandons it (its partial work is kept as evidence); a question of its own
-// that the floor stopped escalates it; a session that ended without writing what it owned is abandoned;
-// anything else is complete.
+// The terminal comes from facts, in precedence order: a deadline or a failed session abandons the seat
+// (its partial work is kept as evidence); a question of its own that the floor stopped escalates it; a
+// seat that ended without writing what it owned is blocked when a department denied one of its calls
+// (with the veto's reason) and abandoned otherwise; anything else is complete. A denied call that the seat
+// worked within, still delivering what it owned, does not block it; the denial stays in its record.
 export function terminalFor({
   ok,
   timedOut = false,
@@ -42,11 +45,11 @@ export function terminalFor({
   owned = [],
   written = [],
 }) {
-  if (denied.length) return { terminal: 'blocked', reason: `veto: ${denied[0]}` };
   if (timedOut) return { terminal: 'abandoned', reason: `deadline of ${deadlineS}s passed` };
   if (!ok) return { terminal: 'abandoned', reason: `session failed: ${error || 'no result'}` };
   if (escalated) return { terminal: 'escalated', reason: `question ${escalated} stopped the plan` };
   const missing = owned.filter((p) => !written.includes(p));
+  if (missing.length && denied.length) return { terminal: 'blocked', reason: `veto: ${denied[0]}` };
   if (missing.length)
     return { terminal: 'abandoned', reason: `ended without writing ${missing.join(', ')}` };
   return { terminal: 'complete', reason: `wrote ${written.join(', ')}` };
@@ -63,7 +66,13 @@ export function corroborate(sessions, mutations, { unchanged = [] } = {}) {
   for (const s of sessions) {
     const hook = footprintWrites(s.footprint);
     hook.forEach((p) => hookAll.add(p));
-    const authored = [...new Set(s.authored || [])].sort();
+    // a denied write appears as a call in the transcript, but it never happened
+    const deniedWrites = new Set(
+      (s.footprint || [])
+        .filter((f) => f.denied && FILE_TOOLS.includes(f.tool))
+        .map((f) => f.target),
+    );
+    const authored = [...new Set((s.authored || []).filter((p) => !deniedWrites.has(p)))].sort();
     if (JSON.stringify(hook) !== JSON.stringify(authored))
       disagreements.push(
         `${s.agent}: hook saw writes to ${hook.join(', ') || 'nothing'}, transcript to ${authored.join(', ') || 'nothing'}`,
