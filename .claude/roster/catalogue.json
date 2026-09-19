@@ -53,6 +53,17 @@
       "workflow": "write-stories",
       "produced_by": "sm",
       "tier": "record"
+    },
+    {
+      "id": "implementation",
+      "title": "Implementation",
+      "purpose": "The code that delivers what the plan specified, with the unit tests that show it works.",
+      "path": "src/**",
+      "kind": "code",
+      "gate": "npm run -s typecheck && npm run -s test && npm run -s lint",
+      "workflow": "write-code",
+      "produced_by": "dev",
+      "tier": "contract"
     }
   ]
 }

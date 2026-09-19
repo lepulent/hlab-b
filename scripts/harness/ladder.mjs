@@ -10,15 +10,24 @@ export const DEFAULT_LADDER = 'method-greenfield';
 const slot = (id, requirement, docTypes = [id]) => ({ id, requirement, docTypes });
 // the Mycelium seal apex every track owes: a plan cannot seal without a dev plan
 const sealApex = () => [slot('dev_plan', 'required'), slot('stories', 'recommended')];
+// after the seal: the code the plan specified. Mycelium's implementation phase carries sprint_status;
+// here it carries the implementation itself, which is what the lab has to show.
+const implementation = () => ({
+  phase: 'implementation',
+  gate: 'warn',
+  slots: [slot('implementation', 'required')],
+});
 
 export const LADDERS = {
   'quick-flow-greenfield': [
     { phase: 'planning', gate: 'block', slots: [slot('technical_spec', 'required')] },
     { phase: 'solutioning', gate: 'seal', slots: sealApex() },
+    implementation(),
   ],
   'quick-flow-brownfield': [
     { phase: 'planning', gate: 'block', slots: [slot('technical_spec', 'required')] },
     { phase: 'solutioning', gate: 'seal', slots: sealApex() },
+    implementation(),
   ],
   'method-greenfield': [
     { phase: 'discovery', gate: 'warn', slots: [slot('brief', 'recommended')] },
@@ -32,6 +41,7 @@ export const LADDERS = {
       gate: 'seal',
       slots: [slot('architecture', 'required'), ...sealApex()],
     },
+    implementation(),
   ],
   'method-brownfield': [
     { phase: 'discovery', gate: 'warn', slots: [slot('brief', 'optional')] },
@@ -45,6 +55,7 @@ export const LADDERS = {
       gate: 'seal',
       slots: [slot('architecture', 'recommended'), ...sealApex()],
     },
+    implementation(),
   ],
   'enterprise-greenfield': [
     { phase: 'discovery', gate: 'block', slots: [slot('brief', 'recommended')] },
@@ -63,6 +74,7 @@ export const LADDERS = {
         ...sealApex(),
       ],
     },
+    implementation(),
   ],
   'enterprise-brownfield': [
     { phase: 'discovery', gate: 'block', slots: [slot('brief', 'optional')] },
@@ -81,6 +93,7 @@ export const LADDERS = {
         ...sealApex(),
       ],
     },
+    implementation(),
   ],
 };
 
@@ -99,17 +112,19 @@ export function intentKindFor({ landedPlans = 0 } = {}) {
 
 // coverage of a ladder by the doc types that exist; stepsToSeal lists the required slots still missing,
 // in ladder order, which is the order that unblocks the most
-export function coverage(key, present) {
+export function coverage(key, present, { code = true } = {}) {
   const has = new Set(present);
-  const slots = (LADDERS[key] || LADDERS[DEFAULT_LADDER]).flatMap((p) =>
-    p.slots.map((s) => ({
-      phase: p.phase,
-      id: s.id,
-      requirement: s.requirement,
-      docTypes: s.docTypes,
-      covered: s.docTypes.filter((t) => has.has(t)),
-    })),
-  );
+  const slots = (LADDERS[key] || LADDERS[DEFAULT_LADDER])
+    .filter((p) => code || p.phase !== 'implementation')
+    .flatMap((p) =>
+      p.slots.map((s) => ({
+        phase: p.phase,
+        id: s.id,
+        requirement: s.requirement,
+        docTypes: s.docTypes,
+        covered: s.docTypes.filter((t) => has.has(t)),
+      })),
+    );
   const stepsToSeal = slots
     .filter((s) => s.requirement === 'required' && !s.covered.length)
     .map((s) => s.id);

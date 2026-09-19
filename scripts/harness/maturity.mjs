@@ -39,7 +39,16 @@ export function artifactMaturity({
   reviewed = false,
   validated = false,
   consumed = false,
+  code = false,
+  files = 0,
+  checked = false,
 }) {
+  if (code) {
+    if (consumed) return { value: CONSUMED, rung: 'consumed' };
+    if (!files) return cast ? { value: PLANTED, rung: 'planted' } : { value: 0, rung: 'absent' };
+    // the gate is run by a machine, so it buys the ceiling and never a human rung
+    return checked ? { value: MACHINE_CAP, rung: 'checked' } : { value: DRAFTED, rung: 'drafted' };
+  }
   if (consumed) return { value: CONSUMED, rung: 'consumed' };
   if (validated) return { value: VALIDATED, rung: 'validated' };
   if (reviewed) return { value: REVIEWED, rung: 'reviewed' };

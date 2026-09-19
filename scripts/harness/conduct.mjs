@@ -38,6 +38,7 @@ import {
   authoringCalls,
   authoredPaths,
   transcriptUsage,
+  owns,
   overlapSeconds,
 } from './activation.mjs';
 import { validateGap, castGap, gapKey, gapOptions, doctypeIds, overwrites } from './gap.mjs';
@@ -103,6 +104,8 @@ const FORCE_DEADLINE = Number(arg('force-deadline', 0)) || null;
 const EXPECT_TERM = arg('expect-terminal', null);
 // the department whose veto the plan should run into (the guarded action must be attempted)
 const EXPECT_VETO = arg('expect-veto', null);
+// a documents-only run drops the implementation rung; by default a plan owes the code it specified
+const WANT_CODE = !argv.includes('--no-code');
 const sh = (file, args, opts = {}) =>
   spawnSync(file, args, { cwd: ROOT, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, ...opts });
 const ok = (r) => r.status === 0;
@@ -216,9 +219,10 @@ function seat({ session, prompt, budget, schema, tools, permissionMode, deadline
       '--max-budget-usd',
       String(budget),
       ...(MODEL ? ['--model', MODEL] : []),
+      // an allowance may be a pattern (Bash(npm run -s test)); --tools takes the tool names
       ...(tools.length ? ['--allowedTools', tools.join(',')] : []),
       '--tools',
-      tools.join(','),
+      [...new Set(tools.map((t) => t.split('(')[0]))].join(','),
     ],
     { cwd: ROOT, stdio: ['pipe', 'pipe', 'pipe'], env: SEAT_ENV },
   );
@@ -321,9 +325,17 @@ const landedPlans = existsSync(join(ROOT, 'records'))
 const intentKind = intentKindFor({ landedPlans });
 const LADDER = ladderKey(route.rigor, intentKind);
 // the artifacts that exist now, by catalogue path, non-empty
+// what the plan changed under a code artifact's paths, against the base it was planted from
+const codeFiles = (d) =>
+  parsePorcelain(
+    sh('git', ['diff', '--name-only', `${route.base}..HEAD`]).stdout.replace(/^/gm, '   '),
+  )
+    .concat(porcelain())
+    .filter((p) => owns([d.path], p));
 const present = () =>
   catalogue.doctypes
     .filter((d) => {
+      if (d.kind === 'code') return codeFiles(d).length > 0;
       const f = join(ROOT, d.path.replaceAll('{plan}', PLAN));
       return existsSync(f) && readFileSync(f, 'utf8').trim();
     })
@@ -336,7 +348,7 @@ const maturityNow = () => {
   for (const d of catalogue.doctypes) {
     const path = d.path.replaceAll('{plan}', PLAN);
     const f = join(ROOT, path);
-    const text = existsSync(f) ? readFileSync(f, 'utf8') : null;
+    const text = d.kind === 'code' ? null : existsSync(f) ? readFileSync(f, 'utf8') : null;
     const lastWave = Math.max(
       0,
       ...agents
@@ -351,12 +363,16 @@ const maturityNow = () => {
         cast: gaps.some((g) => g.artifacts.includes(d.id)),
         text,
         elicited: elicitedCount(qs, lastWave),
+        code: d.kind === 'code',
+        files: d.kind === 'code' ? codeFiles(d).length : 0,
+        checked: !!gates[d.id]?.ok,
       }),
       tier: d.tier || 'contract',
     };
   }
   return out;
 };
+const gates = {}; // artifact id → { ok, tail }: the quality gate a code artifact must pass
 const maturityView = (m) =>
   `${
     Object.entries(m)
@@ -365,7 +381,7 @@ const maturityView = (m) =>
       .join(', ') || 'nothing produced yet'
   }; plan ${rollup(Object.values(m).filter((v) => v.rung !== 'absent'))}. Maturity never gates; ${MACHINE_CAP} is the most a document only machines have touched can reach.`;
 const ladderNow = () => {
-  const cov = coverage(LADDER, present());
+  const cov = coverage(LADDER, present(), { code: WANT_CODE });
   const slots = new Map(cov.slots.map((x) => [x.id, x]));
   const mustProduce = cov.stepsToSeal.flatMap((id) =>
     slots.get(id).docTypes.filter((t) => producible.has(t)),
@@ -709,6 +725,26 @@ async function runWave(n, d) {
     changed,
     wave.flatMap((a) => a.owned),
   );
+  // a code artifact is only delivered when the app's own checks pass on it; the gate is run by this
+  // script, never by the seat that wrote the code
+  for (const a of wave)
+    for (const id of a.artifacts) {
+      const d = catalogue.doctypes.find((x) => x.id === id);
+      if (d?.kind !== 'code' || !d.gate) continue;
+      const g = sh('bash', ['-lc', d.gate], { timeout: 600000 });
+      gates[id] = {
+        ok: g.status === 0,
+        tail: String(g.stdout || '').slice(-400) + String(g.stderr || '').slice(-400),
+      };
+      ledger('decision', {
+        station: 'gate',
+        wave: n,
+        artifact: id,
+        command: d.gate,
+        ok: gates[id].ok,
+        tail: gates[id].tail.slice(-400),
+      });
+    }
   wave.forEach((a, i) => {
     const r = results[i];
     const t = transcript(a.session);
@@ -717,8 +753,16 @@ async function runWave(n, d) {
     a.authored = authoredPaths(t, ROOT);
     a.read = toolPaths(t, ROOT, ['Read']);
     a.relay = relayConsumed(a.relayed, a.owned, a.read);
-    a.written = a.owned.filter(
-      (p) => existsSync(join(ROOT, p)) && readFileSync(join(ROOT, p), 'utf8').trim(),
+    a.written = a.owned.flatMap((o) =>
+      o.includes('*')
+        ? changed.filter((p) => owns([o], p))
+        : existsSync(join(ROOT, o)) && readFileSync(join(ROOT, o), 'utf8').trim()
+          ? [o]
+          : [],
+    );
+    // an owned entry is delivered when a file it names, or a file under its glob, was written
+    a.undelivered = a.owned.filter((o) =>
+      o.includes('*') ? !a.written.some((p) => owns([o], p)) : !a.written.includes(o),
     );
     a.asked = r.out?.structured_output?.questions || [];
     a.footprint = footprintOf(a.session);
@@ -739,17 +783,20 @@ async function runWave(n, d) {
         `script:veto`,
       );
     a.mutations = mutations.filter((m) => a.owned.includes(m.target));
+    const failedGate = a.artifacts.find((id) => gates[id] && !gates[id].ok);
     Object.assign(
       a,
-      terminalFor({
-        ok: r.ok,
-        timedOut: r.timedOut,
-        deadlineS: r.deadlineS,
-        error: String(r.out?.result || r.stderr || '').slice(0, 200),
-        denied: a.veto.denied.map((d) => `${d.department} ${d.denied}: ${d.reason}`),
-        owned: a.owned,
-        written: a.written,
-      }),
+      failedGate
+        ? { terminal: 'abandoned', reason: `the quality gate failed for ${failedGate}` }
+        : terminalFor({
+            ok: r.ok,
+            timedOut: r.timedOut,
+            deadlineS: r.deadlineS,
+            error: String(r.out?.result || r.stderr || '').slice(0, 200),
+            denied: a.veto.denied.map((d) => `${d.department} ${d.denied}: ${d.reason}`),
+            owned: a.undelivered,
+            written: [],
+          }),
     );
     a.row = row(a.agent, 'conduct', a.session, r, {
       wave: n,

@@ -1,3 +1,5 @@
+import { globToRegex } from './common.mjs';
+
 // Pure rules for conducted activations (H-32, H-33): an agent's jurisdiction is checked and transcripts
 // are read for tool use. The Master's decision is validated in gap.mjs (H-35). No I/O here,
 // so every rule is a unit test.
@@ -15,9 +17,12 @@ export function parsePorcelain(text) {
     .map((p) => (p.includes(' -> ') ? p.split(' -> ')[1] : p));
 }
 
+// an owned entry is a path or a glob (a code agent owns `src/**`, not a file list known in advance)
+export function owns(owned, path) {
+  return (owned || []).some((o) => (o.includes('*') ? globToRegex(o).test(path) : o === path));
+}
 export function outsideJurisdiction(changed, owned) {
-  const own = new Set(owned);
-  return changed.filter((p) => !own.has(p));
+  return changed.filter((p) => !owns(owned, p));
 }
 
 // Claude Code keeps a session's transcript under ~/.claude/projects/<cwd with every non-alphanumeric
