@@ -19,6 +19,7 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync } from 
 import { join } from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import { setTimeout, clearTimeout } from 'node:timers';
 import {
   ROOT,
   readJson,
@@ -40,6 +41,15 @@ import {
 } from './activation.mjs';
 import { validateGap, castGap, gapKey, gapOptions, doctypeIds, overwrites } from './gap.mjs';
 import { ladderKey, intentKindFor, coverage, coverageView } from './ladder.mjs';
+import {
+  TERMINALS,
+  parsePorcelainOps,
+  footprintWrites,
+  terminalFor,
+  corroborate,
+  buildRecord,
+  supersede,
+} from './record.mjs';
 import { buildDigest, toolPaths, relayConsumed } from './relay.mjs';
 import {
   KINDS,
@@ -74,6 +84,12 @@ const MAX_WAVE = harness.conduct?.max_wave || 2;
 // Master decisions per plan, and the size of what one wave relays to the next (H-33 step 5)
 const MAX_WAVES = harness.conduct?.max_waves || 6;
 const DIGEST_CHARS = harness.conduct?.digest_chars || 4000;
+// per-child deadlines (NFR-5; Mycelium's 180 s and 420 s): past it the seat is killed and recorded
+// abandoned
+const MASTER_DEADLINE = harness.conduct?.master_deadline_s || 180;
+const AGENT_DEADLINE = harness.conduct?.agent_deadline_s || 420;
+const FORCE_DEADLINE = Number(arg('force-deadline', 0)) || null;
+const EXPECT_TERM = arg('expect-terminal', null);
 const sh = (file, args, opts = {}) =>
   spawnSync(file, args, { cwd: ROOT, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, ...opts });
 const ok = (r) => r.status === 0;
@@ -113,9 +129,49 @@ const transcript = (session) => {
   return existsSync(f) ? readFileSync(f, 'utf8') : null;
 };
 
+// Seat hygiene (NFR-5..7, 14.1): the child gets an allowlisted environment (no ANTHROPIC_* or anything
+// else inherited by accident), strict MCP, and the footprint hook through an absolute --settings, since
+// project settings are not loaded; a deadline kills a hung seat, which is then recorded as abandoned.
+const SEAT_ENV = Object.fromEntries(
+  ['PATH', 'HOME', 'USER', 'LOGNAME', 'SHELL', 'LANG', 'TERM', 'TMPDIR']
+    .filter((k) => process.env[k])
+    .map((k) => [k, process.env[k]]),
+);
+SEAT_ENV.CLAUDE_PROJECT_DIR = ROOT;
+const SEAT_SETTINGS = JSON.stringify({
+  hooks: {
+    PostToolUse: [
+      {
+        matcher: '*',
+        hooks: [
+          {
+            type: 'command',
+            command: `node ${JSON.stringify(join(ROOT, '.claude', 'hooks', 'footprint.mjs'))}`,
+          },
+        ],
+      },
+    ],
+  },
+});
+const footprintOf = (session) => {
+  const f = join(ROOT, '.harness', 'footprint', `${session}.jsonl`);
+  if (!existsSync(f)) return [];
+  return readFileSync(f, 'utf8')
+    .split('\n')
+    .filter(Boolean)
+    .map((l) => {
+      try {
+        return JSON.parse(l);
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean);
+};
+
 // one headless session, asynchronous so a wave's sessions run at the same time; tools last because
 // --tools is variadic
-function seat({ session, prompt, budget, schema, tools, permissionMode }) {
+function seat({ session, prompt, budget, schema, tools, permissionMode, deadlineS }) {
   const start = Date.now();
   const child = spawn(
     'claude',
@@ -128,6 +184,8 @@ function seat({ session, prompt, budget, schema, tools, permissionMode }) {
       '--setting-sources',
       'user',
       '--strict-mcp-config',
+      '--settings',
+      SEAT_SETTINGS,
       '--session-id',
       session,
       '--max-budget-usd',
@@ -137,8 +195,16 @@ function seat({ session, prompt, budget, schema, tools, permissionMode }) {
       '--tools',
       tools.join(','),
     ],
-    { cwd: ROOT, stdio: ['pipe', 'pipe', 'pipe'] },
+    { cwd: ROOT, stdio: ['pipe', 'pipe', 'pipe'], env: SEAT_ENV },
   );
+  let timedOut = false;
+  const timer = deadlineS
+    ? setTimeout(() => {
+        timedOut = true;
+        child.kill('SIGTERM');
+        setTimeout(() => child.kill('SIGKILL'), 5000).unref();
+      }, deadlineS * 1000)
+    : null;
   let stdout = '';
   let stderr = '';
   child.stdout.on('data', (d) => (stdout += d));
@@ -146,6 +212,7 @@ function seat({ session, prompt, budget, schema, tools, permissionMode }) {
   child.stdin.end(prompt);
   return new Promise((resolve) =>
     child.on('close', (code) => {
+      if (timer) clearTimeout(timer);
       let out = null;
       try {
         out = JSON.parse(stdout);
@@ -154,7 +221,9 @@ function seat({ session, prompt, budget, schema, tools, permissionMode }) {
       }
       const end = Date.now();
       resolve({
-        ok: code === 0 && !!out && !out.is_error,
+        ok: !timedOut && code === 0 && !!out && !out.is_error,
+        timedOut,
+        deadlineS: deadlineS || null,
         out,
         stderr,
         start,
@@ -176,6 +245,7 @@ const row = (name, station, session, r, extra = {}) => ({
   turns: r.out?.num_turns ?? null,
   tokens: r.out?.usage ?? null,
   tools: toolUses(transcript(session)),
+  timed_out: !!r.timedOut,
   ...extra,
 });
 const commitAs = (who, paths, msg) => {
@@ -393,6 +463,7 @@ async function master(n, attempt, refusals) {
         : '',
     ].join(''),
     budget: harness.budgets?.usd_per_master_call || 0.5,
+    deadlineS: MASTER_DEADLINE,
     schema: decisionSchema,
     tools: [],
   });
@@ -408,7 +479,8 @@ async function master(n, attempt, refusals) {
     ledger('decision', {
       station: 'conduct',
       wave: n,
-      decision: 'master-failed',
+      decision: r.timedOut ? 'master-abstained' : 'master-failed',
+      deadline_s: r.timedOut ? MASTER_DEADLINE : null,
       stderr: r.stderr?.slice(-400),
     });
     handoff(`${PLAN} master seat failed`);
@@ -536,12 +608,18 @@ async function runWave(n, d) {
         schema: agentSchema,
         tools: a.def.tools || ['Read', 'Write', 'Edit', 'Glob', 'Grep'],
         permissionMode: 'acceptEdits',
+        // a lab lever to prove abandonment: --force-deadline applies to the first wave only
+        deadlineS: n === 1 && FORCE_DEADLINE ? FORCE_DEADLINE : AGENT_DEADLINE,
       }),
     ),
   );
 
-  // witnesses: git sees the wave's changes together; each transcript says which session wrote and read what
-  const changed = porcelain().filter((p) => !p.startsWith('ledger/'));
+  // witnesses: the hook's footprint and git's state diff (neither written by a model), and each
+  // transcript as a third; git sees the wave's changes together, the hook and the transcript per session
+  const mutations = parsePorcelainOps(
+    sh('git', ['status', '--porcelain', '--untracked-files=all']).stdout,
+  ).filter((m) => !m.target.startsWith('ledger/'));
+  const changed = mutations.map((m) => m.target);
   const outsideWave = outsideJurisdiction(
     changed,
     wave.flatMap((a) => a.owned),
@@ -558,6 +636,19 @@ async function runWave(n, d) {
       (p) => existsSync(join(ROOT, p)) && readFileSync(join(ROOT, p), 'utf8').trim(),
     );
     a.asked = r.out?.structured_output?.questions || [];
+    a.footprint = footprintOf(a.session);
+    a.mutations = mutations.filter((m) => a.owned.includes(m.target));
+    Object.assign(
+      a,
+      terminalFor({
+        ok: r.ok,
+        timedOut: r.timedOut,
+        deadlineS: r.deadlineS,
+        error: String(r.out?.result || r.stderr || '').slice(0, 200),
+        owned: a.owned,
+        written: a.written,
+      }),
+    );
     a.row = row(a.agent, 'conduct', a.session, r, {
       wave: n,
       authored: a.authored,
@@ -565,25 +656,32 @@ async function runWave(n, d) {
       relay: a.relay,
       summary: String(r.out?.structured_output?.summary || r.out?.result || '').slice(0, 600),
       questions: a.asked.length,
+      terminal: a.terminal,
+      reason: a.reason,
+      footprint_calls: a.footprint.length,
     });
     ledger('seat-end', a.row);
     stat({ tool: 'claude -p', ...a.row });
   });
+  const unchanged = wave.flatMap((a) =>
+    footprintWrites(a.footprint).filter((p) => !changed.includes(p) && existsSync(join(ROOT, p))),
+  );
+  const witnesses = corroborate(wave, mutations, { unchanged });
+  // an abandoned seat's partial work is kept as evidence, committed under its name and marked so
   for (const a of wave) {
     if (!a.written.length || a.row.outside.length || outsideWave.length) continue;
     const c = commitAs(
       `seat:${a.agent}`,
       a.written,
-      `docs(intent): ${PLAN} ${a.written.join(', ')} by seat:${a.agent} (wave ${n})`,
+      `docs(intent): ${PLAN} ${a.written.join(', ')} by seat:${a.agent} (wave ${n}${a.terminal === 'complete' ? '' : `, ${a.terminal}: ${a.reason}`})`,
     );
     if (ok(c)) a.commit = git(['rev-parse', 'HEAD']);
   }
   handoff(`${PLAN} wave ${n} witnessed`);
   agents.push(...wave);
-  // a gap closes when every artifact it named was written by its cast agent and committed
-  gap.status = wave.every((a) => a.commit && a.written.length === a.owned.length)
-    ? 'closed'
-    : 'linked';
+  // a gap closes when every seat cast for it completed and its artifacts are committed; a closing gap
+  // supersedes any earlier open gap that named the same artifacts
+  gap.status = wave.every((a) => a.terminal === 'complete' && a.commit) ? 'closed' : 'linked';
   gap.agents = wave.map((a) => a.agent);
   ledger('gap', {
     id: gap.id,
@@ -591,12 +689,19 @@ async function runWave(n, d) {
     wave: n,
     written: wave.flatMap((a) => a.written),
     commits: wave.map((a) => a.commit || null),
+    terminals: wave.map((a) => ({ agent: a.agent, terminal: a.terminal, reason: a.reason })),
   });
+  if (gap.status === 'closed')
+    for (const id of supersede(gaps, gap)) {
+      gaps.find((g) => g.id === id).status = 'superseded';
+      ledger('gap', { id, status: 'superseded', by: gap.id, wave: n });
+    }
   handoff(`${PLAN} ${gap.id} ${gap.status}`);
   const record = {
     n,
     gap: { id: gap.id, statement: gap.statement },
     overlap: overlapSeconds(results.map((r) => ({ start: r.start, end: r.end }))),
+    witnesses,
     activations: wave.map((a) => ({
       agent: a.agent,
       artifacts: a.artifacts,
@@ -604,11 +709,39 @@ async function runWave(n, d) {
       written: a.written,
       commit: a.commit || null,
       summary: a.row.summary,
+      terminal: a.terminal,
+      reason: a.reason,
     })),
     questions: [],
   };
   waves.push(record);
   return { wave, record };
+}
+
+// 4. the ActivationRecord, once the questions are settled: a seat whose own question stopped the plan
+// ended escalated; every field but resultProse is written by this script (FR-16)
+function recordWave(n, wave, record, stop) {
+  for (const a of wave) {
+    const mine = qResults.filter((q) => q.n === n && q.a === a && q.file);
+    if (stop && a.terminal === 'complete' && mine.some((q) => q.file === stop.file))
+      Object.assign(a, { terminal: 'escalated', reason: `question ${stop.file} stopped the plan` });
+    a.record = buildRecord({
+      gapId: record.gap.id,
+      artifacts: a.artifacts,
+      agent: a.agent,
+      session: a.row.session,
+      footprint: a.footprint,
+      mutations: a.mutations,
+      decisionsTouched: mine.map((q) => q.file),
+      terminal: a.terminal,
+      reason: a.reason,
+      resultProse: a.row.summary,
+    });
+    ledger('record', a.record);
+    const act = record.activations.find((x) => x.agent === a.agent);
+    Object.assign(act, { terminal: a.terminal, reason: a.reason });
+  }
+  handoff(`${PLAN} wave ${n} records`);
 }
 
 // 3. questions: decider first, the Master only if allowed; returns true when the floor stops the plan
@@ -729,6 +862,7 @@ async function questions(n, wave, record) {
         `\n\n--- DOCUMENT ---\n${document}`,
       ].join(''),
       budget: harness.budgets?.usd_per_master_call || 0.5,
+      deadlineS: MASTER_DEADLINE,
       schema: JSON.stringify({
         type: 'object',
         properties: {
@@ -837,7 +971,9 @@ for (let n = 1; ; n++) {
     break;
   }
   const { wave, record } = await runWave(n, d);
-  if (await questions(n, wave, record)) {
+  const stopped = await questions(n, wave, record);
+  recordWave(n, wave, record, stopped ? qResults.find((q) => q.n === n && q.stopsRound) : null);
+  if (stopped) {
     ending = 'needs-input';
     break;
   }
@@ -900,7 +1036,7 @@ const checks = {
           msg: agents.map((a) => `w${a.n} ${a.artifacts.join('+')} → ${a.agent}`).join(' · '),
         },
         'gaps-closed': {
-          ok: gaps.every((g) => g.status === 'closed'),
+          ok: gaps.every((g) => ['closed', 'superseded'].includes(g.status)),
           msg: gaps.map((g) => `${g.id} ${g.status} (${g.artifacts.join('+')})`).join(' · '),
         },
       }
@@ -926,10 +1062,9 @@ const checks = {
         'agents-in-jurisdiction': {
           ok: agents.every(
             (a) =>
-              a.result.ok &&
-              a.written.length === a.owned.length &&
               !a.row.outside.length &&
-              !a.outsideWave.length,
+              !a.outsideWave.length &&
+              (a.terminal !== 'complete' || a.written.length === a.owned.length),
           ),
           msg: agents
             .map(
@@ -937,6 +1072,23 @@ const checks = {
                 `w${a.n} ${a.agent} wrote ${a.written.join(', ') || 'nothing'}, authored ${a.authored.join(', ') || 'nothing'}${a.row.outside.length ? ` (outside: ${a.row.outside.join(', ')})` : ''}${a.outsideWave.length ? ` (tree outside the wave: ${a.outsideWave.join(', ')})` : ''}`,
             )
             .join(' · '),
+        },
+        'witnesses-agree': {
+          // the hook's footprint, git's state diff and the transcript name the same writes
+          ok: waves.every((w) => w.witnesses?.ok),
+          msg: waves
+            .map((w) =>
+              w.witnesses?.ok
+                ? `w${w.n} hook, git and transcript agree (${w.activations.map((x) => x.agent).join(', ')})`
+                : `w${w.n} ${(w.witnesses?.disagreements || ['no witness']).join('; ')}`,
+            )
+            .join(' · '),
+        },
+        'terminals-read': {
+          ok:
+            agents.every((a) => TERMINALS.includes(a.terminal) && a.reason && a.record) &&
+            (!EXPECT_TERM || agents.some((a) => a.n === 1 && a.terminal === EXPECT_TERM)),
+          msg: `${EXPECT_TERM ? `expected ${EXPECT_TERM} in wave 1; ` : ''}${agents.map((a) => `w${a.n} ${a.agent} ${a.terminal} (${a.reason})`).join(' · ')}`,
         },
       }
     : {}),
@@ -1044,7 +1196,7 @@ writeJson(join(H, `conduct-${PLAN}.json`), {
     master: d.row,
   })),
   waves,
-  agents: agents.map((a) => ({ ...a.row, commit: a.commit ?? null })),
+  agents: agents.map((a) => ({ ...a.row, commit: a.commit ?? null, record: a.record ?? null })),
   outcome,
   questions: qResults.map((r) => ({
     wave: r.n,

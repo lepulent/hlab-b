@@ -10,6 +10,7 @@ const KINDS = new Set([
   'route',
   'activation',
   'gap',
+  'record',
   'decision',
   'seat-start',
   'seat-end',

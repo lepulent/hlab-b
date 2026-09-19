@@ -18,7 +18,7 @@ export function buildDigest(waves, cap) {
     const lines = [`Wave ${w.n}${w.gap ? ` (${w.gap.id}: ${oneLine(w.gap.statement)})` : ''}:`];
     for (const a of w.activations) {
       lines.push(
-        `- ${a.agent} (task: ${oneLine(a.task)}) wrote ${a.written.join(', ') || 'nothing'}${a.commit ? ` at ${a.commit.slice(0, 7)}` : ''}. It reported: ${oneLine(a.summary)}`,
+        `- ${a.agent} (task: ${oneLine(a.task)}) wrote ${a.written.join(', ') || 'nothing'}${a.commit ? ` at ${a.commit.slice(0, 7)}` : ''}${a.terminal && a.terminal !== 'complete' ? `, and ended ${a.terminal}: ${oneLine(a.reason)}` : ''}. It reported: ${oneLine(a.summary) || 'nothing'}`,
       );
       for (const p of a.written)
         latest.set(p, { path: p, agent: a.agent, commit: a.commit || null });
