@@ -52,6 +52,7 @@ import {
   supersede,
 } from './record.mjs';
 import { deriveTriggers, vetoHeld } from './department.mjs';
+import { rebuild, parseLedger } from './resume.mjs';
 import {
   artifactMaturity,
   rollup,
@@ -91,7 +92,8 @@ const MODEL = harness.yolo?.model || null;
 // sessions at once; the laptop's limit (H-18: parallelism 2)
 const MAX_WAVE = harness.conduct?.max_wave || 2;
 // Master decisions per plan, and the size of what one wave relays to the next (H-33 step 5)
-const MAX_WAVES = harness.conduct?.max_waves || 6;
+// a lab lever, like --force-deadline: stop the plan after this many waves of work, to prove a resume
+const MAX_WAVES = Number(arg('max-waves', 0)) || harness.conduct?.max_waves || 6;
 const DIGEST_CHARS = harness.conduct?.digest_chars || 4000;
 // per-child deadlines (NFR-5; Mycelium's 180 s and 420 s): past it the seat is killed and recorded
 // abandoned
@@ -475,9 +477,13 @@ const agents = []; // every agent session of every wave, with its witnesses
 const qResults = [];
 const answerRows = [];
 let ending = null; // goal-closed | needs-input | refused | wave-cap
-
-// what a premise may cite: the intent, an artifact of the catalogue, an earlier gap or question, a canon
-// capability or criterion, or a file that exists in the repository
+// A plan that already has waves behind it (an interrupted run, resumed on its branch) is read back from
+// its ledger, so the Master sees the same history it would have seen had nothing stopped (NFR-1, NFR-2:
+// the digest is a fold over recorded state, and the Master is re-read, never resumed).
+const ledgerFile = join(ROOT, 'ledger', `${PLAN}.jsonl`);
+const prior = existsSync(ledgerFile)
+  ? rebuild(parseLedger(readFileSync(ledgerFile, 'utf8')))
+  : { waves: [], gaps: [], questions: [], lastWave: 0, agents: [] };
 const gaps = []; // every gap declared on this plan: { id, n, statement, artifacts, status }
 function citable(id) {
   const x = String(id || '').trim();
@@ -490,6 +496,19 @@ function citable(id) {
   if (x.includes('..') || x.startsWith('/')) return false;
   return existsSync(join(ROOT, x));
 }
+waves.push(...prior.waves);
+gaps.push(...prior.gaps);
+if (prior.lastWave)
+  ledger('decision', {
+    station: 'conduct',
+    decision: 'resumed',
+    from_wave: prior.lastWave,
+    gaps: prior.gaps.map((g) => `${g.id} ${g.status}`),
+    agents: prior.agents,
+  });
+
+// what a premise may cite: the intent, an artifact of the catalogue, an earlier gap or question, a canon
+// capability or criterion, or a file that exists in the repository
 const citableView = () =>
   [
     'INTENT',
@@ -734,6 +753,7 @@ async function runWave(n, d) {
     );
     a.row = row(a.agent, 'conduct', a.session, r, {
       wave: n,
+      artifacts: a.artifacts,
       authored: a.authored,
       outside: outsideJurisdiction(a.authored, a.owned),
       relay: a.relay,
@@ -1046,7 +1066,7 @@ async function questions(n, wave, record) {
   return false;
 }
 
-for (let n = 1; ; n++) {
+for (let n = prior.lastWave + 1; ; n++) {
   const d = await decide(n);
   if (!d.valid.ok) {
     ending = 'refused';
@@ -1097,7 +1117,7 @@ const masterCalls = [...decisions.map((d) => d.row), ...answerRows];
 const agentCost = agents.reduce((s, a) => s + (a.row.cost_usd || 0), 0);
 const masterCost = decisions.reduce((s, d) => s + (d.row.cost_usd || 0), 0);
 const answerCost = answerRows.reduce((s, r) => s + (r.cost_usd || 0), 0);
-const ranAgents = [...new Set(agents.map((a) => a.agent))].sort();
+const ranAgents = [...new Set([...prior.agents, ...agents.map((a) => a.agent)])].sort();
 const relayWaves = agents.filter((a) => a.relay.needed);
 const multi = waves.filter((w) => w.activations.length > 1);
 const endLadder = ladderNow();
@@ -1340,6 +1360,7 @@ writeJson(join(H, `conduct-${PLAN}.json`), {
   sequence,
   chose,
   ladder: { key: LADDER, intent_kind: intentKind, landed_plans: landedPlans, end: endLadder },
+  resumed: prior.lastWave ? { from_wave: prior.lastWave, agents: prior.agents } : null,
   maturity: maturityNow(),
   pass,
   checks,
