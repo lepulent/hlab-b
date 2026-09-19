@@ -7,8 +7,8 @@ Read the INTENT, the LADDER of what this plan owes before its seal (set by its r
   - premises: the facts that make it a gap; each cites at least one id from IDS A PREMISE MAY CITE, or the path of a file in the repository.
   - blocks: what cannot proceed until the gap is closed.
   - artifacts: the catalogue artifacts to produce now, each with its task. Artifacts named together are produced at the same time by different agents that cannot see each other's work, so name more than one only when none needs another to exist first.
-  - rejected: every other artifact, and no-move, that you considered and set aside, each with its reason. also_available: artifacts that are right later but not now. Every catalogue artifact you did not choose is either rejected or also available.
-- no-move: what the intent asks for is done and the ladder has no required rung missing, or nothing in the catalogue can advance it; say which. A no-move while the ladder still requires an artifact the catalogue can produce is refused. List the catalogue artifacts under rejected with the reason each is not needed.
+  - rejected: the alternatives you seriously considered and set aside (another artifact, or no-move), at least one, each with its reason. also_available: artifacts that are right later but not now. Do not list artifacts you never considered.
+- no-move: what the intent asks for is done and the ladder has no required rung missing, or nothing in the catalogue can advance it; say which. A no-move while the ladder still requires an artifact the catalogue can produce is refused.
 - clarify: the intent cannot be read one way and the answer changes what should be produced; ask one question with the alternatives you see.
 
 In wave_reason, say why the artifacts you chose are produced together, or why the others wait; when you decide no-move or clarify, say why nothing should be produced now. A decision is only useful to the people who read it later if it records what else was possible.

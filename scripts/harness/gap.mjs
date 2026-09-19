@@ -65,8 +65,11 @@ export function validateGap(
         if (!exists(id)) refusals.push(`premise ${i + 1} cites "${id}", which does not exist`);
     }
     if (!(gap.blocks || []).length) refusals.push('a gap must say what it blocks');
+    // what is blocked is named either by a catalogue artifact id, which is the most exact reference
+    // there is, or in words (steps 7-8, both apps: "dev_plan" was refused as vacuous five times)
     for (const b of gap.blocks || [])
-      if (words(b) < MIN_WORDS.block) refusals.push(`"${b}" does not say what is blocked`);
+      if (!types.has(String(b).trim()) && words(b) < MIN_WORDS.block)
+        refusals.push(`"${b}" does not say what is blocked`);
     if (!chosen.length) refusals.push('a move names no artifact');
     const seen = new Set();
     for (const a of gap.artifacts || []) {
@@ -94,8 +97,13 @@ export function validateGap(
       refusals.push('a clarifying question needs two distinct alternatives');
   }
 
-  // what else was possible: every artifact not chosen is rejected with a reason or kept for later,
-  // never both chosen and set aside
+  // what else was possible: a move records at least one alternative it considered and set aside, with
+  // its reason — "a rejected alternative is a premise, not a checkbox" (Mycelium tech-spec). Accounting
+  // for every catalogue artifact made the decision grow with the catalogue (steps 7-8, both apps: 4.3
+  // rejections per decision, and two refusals for an artifact left unticked). Nothing chosen is also
+  // set aside.
+  if (dec.outcome === 'move' && !(gap.rejected || []).length)
+    refusals.push('a move records no alternative it rejected');
   if (dec.outcome !== 'clarify') {
     const options = gapOptions(catalogue);
     const rejected = new Set();
@@ -112,9 +120,6 @@ export function validateGap(
     for (const id of chosen)
       if (rejected.has(id) || later.has(id))
         refusals.push(`artifact "${id}" is both chosen and set aside`);
-    for (const id of types.keys())
-      if (!chosen.includes(id) && !rejected.has(id) && !later.has(id))
-        refusals.push(`artifact "${id}" was neither chosen, rejected nor kept for later`);
   }
   return { ok: !refusals.length, refusals };
 }
