@@ -1180,7 +1180,7 @@ const agentCost = agents.reduce((s, a) => s + (a.row.cost_usd || 0), 0);
 const masterCost = decisions.reduce((s, d) => s + (d.row.cost_usd || 0), 0);
 const answerCost = answerRows.reduce((s, r) => s + (r.cost_usd || 0), 0);
 const ranAgents = [...new Set([...prior.agents, ...agents.map((a) => a.agent)])].sort();
-const relayWaves = agents.filter((a) => a.relay.needed);
+const relayWaves = agents.filter((a) => a.relay.needed && a.terminal === 'complete');
 const multi = waves.filter((w) => !w.prior && w.activations.length > 1);
 const endLadder = ladderNow();
 const expectedEnding = EXPECT_END || (EXPECT_Q === 'needs-input' ? 'needs-input' : 'goal-closed');
@@ -1250,11 +1250,13 @@ const checks = {
   ...(agents.length
     ? {
         'agents-in-jurisdiction': {
+          // a seat is judged on delivery only when it says it delivered; an owned entry may be a glob,
+          // so delivery is "nothing left undelivered", never a file count
           ok: agents.every(
             (a) =>
               !a.row.outside.length &&
               !a.outsideWave.length &&
-              (a.terminal !== 'complete' || a.written.length === a.owned.length),
+              (a.terminal !== 'complete' || !a.undelivered.length),
           ),
           msg: agents
             .map(
