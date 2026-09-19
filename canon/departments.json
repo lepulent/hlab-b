@@ -1,1 +1,35 @@
-{ "departments": [{ "name": "Testing", "since": "round-0", "signal": "a test file exists" }] }
+{
+  "departments": [
+    {
+      "name": "Security",
+      "floor": true,
+      "veto": "hard",
+      "concern": "Secrets, identity, and data leaving its boundary.",
+      "since": "birth",
+      "vetoes": [
+        {
+          "id": "SEC-1",
+          "tools": ["Read", "Write", "Edit", "MultiEdit", "NotebookEdit"],
+          "targets": ["**/.env", "**/.env.*", "**/*.env", "**/secrets.*", "**/*.pem", "**/*.key"],
+          "reason": "Security: secrets are never read or written by an agent. Name the settings you need; their values stay with the owner."
+        }
+      ]
+    },
+    {
+      "name": "Platform",
+      "floor": true,
+      "veto": "hard",
+      "concern": "Runtime, dependencies, hosting and infrastructure.",
+      "since": "birth",
+      "vetoes": [
+        {
+          "id": "PLT-1",
+          "tools": ["Write", "Edit", "MultiEdit"],
+          "targets": ["package.json", "package-lock.json", "sst.config.ts", "infra/**"],
+          "reason": "Platform: dependencies, runtime and hosting change only through a plan Platform signs. Describe the change you need in your document instead."
+        }
+      ]
+    },
+    { "name": "Testing", "since": "round-0", "signal": "a test file exists" }
+  ]
+}
