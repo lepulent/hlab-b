@@ -24,6 +24,10 @@ const KINDS = new Set([
   'merge',
   'deploy',
   'estop',
+  // step 12: what a plan is held to when it is delivered
+  'seal',
+  // step 13: the decisions an artifact was written against, stamped when its wave is recorded
+  'stamp',
 ]);
 const args = process.argv.slice(2);
 const cmd = args[0];

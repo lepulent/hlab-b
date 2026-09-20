@@ -41,8 +41,9 @@ const fail = (msg, code = 1) => {
   console.error(`deliver: ${msg}`);
   process.exit(code);
 };
-const ledger = (kind, data, actor = 'script:deliver') =>
-  sh('node', [
+// a refused line is evidence that was meant to exist and does not; it stops the delivery (see conduct)
+const ledger = (kind, data, actor = 'script:deliver') => {
+  const r = sh('node', [
     join(ROOT, 'scripts', 'harness', 'ledger.mjs'),
     'append',
     '--plan',
@@ -54,6 +55,14 @@ const ledger = (kind, data, actor = 'script:deliver') =>
     '--data',
     JSON.stringify(data),
   ]);
+  if (r.status !== 0)
+    fail(
+      `the ledger refused a "${kind}" line: ${String(r.stderr || r.stdout)
+        .trim()
+        .slice(0, 300)}`,
+    );
+  return r;
+};
 
 // ---------------------------------------------------------------- the seal, derived
 // Mycelium's seal states what the plan is held to. Every field of it is a fact about the branch: the

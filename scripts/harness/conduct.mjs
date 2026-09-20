@@ -127,8 +127,12 @@ const fail = (msg, code = 1) => {
   console.error(`conduct: ${msg}`);
   process.exit(code);
 };
-const ledger = (kind, data, actor = 'script:conduct') =>
-  sh('node', [
+// The ledger is the evidence of record, so a line it refuses is not a small failure to shrug at: it is
+// evidence that was supposed to exist and does not. `stamp` and `seal` were written for two whole steps
+// against a registry that did not list them, and every one of those lines was dropped without a word.
+// A refused line now stops the run at the point of loss, where the cause is still on screen.
+const ledger = (kind, data, actor = 'script:conduct') => {
+  const r = sh('node', [
     join(ROOT, 'scripts', 'harness', 'ledger.mjs'),
     'append',
     '--plan',
@@ -140,6 +144,14 @@ const ledger = (kind, data, actor = 'script:conduct') =>
     '--data',
     JSON.stringify(data),
   ]);
+  if (r.status !== 0)
+    fail(
+      `the ledger refused a "${kind}" line: ${String(r.stderr || r.stdout)
+        .trim()
+        .slice(0, 300)}`,
+    );
+  return r;
+};
 const stat = (row) =>
   writeFileSync(
     join(H, 'stats.jsonl'),
