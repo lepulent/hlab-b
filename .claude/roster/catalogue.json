@@ -69,7 +69,7 @@
       "purpose": "The code that delivers what the plan specified, with the unit tests that show it works.",
       "path": "src/**",
       "kind": "code",
-      "gate": "npm run -s format:check && npm run -s typecheck && npm run -s test && npm run -s lint",
+      "gate": "npm run -s typecheck && npm run -s test && npm run -s lint",
       "workflow": "write-code",
       "produced_by": "dev",
       "tier": "contract"

@@ -202,10 +202,14 @@ export function nodeDelta({ file, before, after, committed }) {
   const bump = deriveBump(diff.changes);
   const from = before ? before.version : [0, 0, 0];
   const version = applyBump(from, bump);
+  // A version an agent typed is a claim about a change it is not the one to judge, so what is checked is
+  // that it made no claim at all: the node keeps the version it had (0.0.0 when it is new) and the
+  // landing sets the next one. Anything else is recorded as a mislabel and overwritten.
   const declared = after ? after.declaredVersion : null;
+  const expected = formatVersion(from);
   const mislabel =
-    declared != null && formatVersion(parseVersion(declared)) !== formatVersion(version)
-      ? { declared: String(declared), derived: formatVersion(version) }
+    declared != null && formatVersion(parseVersion(declared)) !== expected
+      ? { declared: String(declared), expected, derived: formatVersion(version) }
       : null;
   return {
     file,

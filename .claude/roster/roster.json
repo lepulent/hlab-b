@@ -45,6 +45,7 @@
         "Edit",
         "Glob",
         "Grep",
+        "Bash(npm run -s check)",
         "Bash(npm run -s typecheck)",
         "Bash(npm run -s test)",
         "Bash(npm run -s lint)",
