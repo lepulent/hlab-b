@@ -97,6 +97,21 @@ export function verifyClosure({ claimed, mutationsBySeat, before, after, existed
 // and the artifact was actually used downstream. Code is used by the landing itself: it is what merged.
 // A document is used when a later seat of the plan opened it; one nobody read did not feed anything, and
 // a landing does not make it so.
+// which files a plan wrote for each artifact, read from its ledger: the seats of earlier waves are as
+// much part of the plan as the ones this session ran, and after a landing there may be none left in
+// memory at all (hlab-a s12a, hlab-b s12b: the capability was written in wave 1 or 2 and the delivering
+// run had no agent of its own, so the node nobody could name went unconsumed).
+export function authoredByArtifact(lines) {
+  const out = {};
+  for (const l of lines || []) {
+    const d = l?.data || {};
+    if (l?.kind !== 'seat-end' || !Array.isArray(d.artifacts) || !Array.isArray(d.authored))
+      continue;
+    for (const id of d.artifacts) out[id] = [...new Set([...(out[id] || []), ...d.authored])];
+  }
+  return out;
+}
+
 export function consumedArtifacts({ landed, artifacts, openedPaths = [] }) {
   if (!landed) return [];
   const opened = new Set(openedPaths);

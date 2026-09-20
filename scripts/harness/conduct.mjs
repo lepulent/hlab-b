@@ -60,6 +60,7 @@ import {
   verifyClosure,
   elicitedCount,
   consumedArtifacts,
+  authoredByArtifact,
   MACHINE_CAP,
 } from './maturity.mjs';
 import { buildDigest, toolPaths, relayConsumed } from './relay.mjs';
@@ -1482,16 +1483,18 @@ if (WANT_DELIVER && ending === 'goal-closed' && endLadder.covered) {
   // its documents are sealed; a document a later seat actually opened is now consumed (D3 1.00)
   // every path any seat of this plan opened, from the ledger: a document read in a wave this run only
   // rebuilt (a resume) was still read, and consumption is a fact about the plan, not about the session
+  const lines = existsSync(ledgerFile) ? parseLedger(readFileSync(ledgerFile, 'utf8')) : [];
   const openedPaths = [
     ...new Set([
       ...agents.flatMap((a) => a.read || []),
-      ...(existsSync(ledgerFile) ? parseLedger(readFileSync(ledgerFile, 'utf8')) : [])
+      ...lines
         .filter((l) => l?.kind === 'record')
         .flatMap((l) => (l.data?.toolFootprint || []).filter((t) => t.tool === 'Read'))
         .map((t) => t.target)
         .filter(Boolean),
     ]),
   ];
+  const wrote = authoredByArtifact(lines);
   const consumed = new Set(
     consumedArtifacts({
       landed: !!delivery?.ok,
@@ -1502,6 +1505,7 @@ if (WANT_DELIVER && ending === 'goal-closed' && endLadder.covered) {
         paths: [
           ...new Set([
             ...agents.filter((a) => a.artifacts.includes(d.id)).flatMap((a) => a.written),
+            ...(wrote[d.id] || []),
             d.path.replaceAll('{plan}', PLAN),
             artifactPath(d),
           ]),
