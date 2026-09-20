@@ -329,6 +329,9 @@ const intentKind = intentKindFor({ landedPlans });
 const LADDER = ladderKey(route.rigor, intentKind);
 // the artifacts that exist now, by catalogue path, non-empty
 // what the plan changed under a code artifact's paths, against the base it was planted from
+// artifact id → { ok, tail }: the quality gate a code artifact must pass. Seeded from the ledger so a
+// resumed plan remembers a gate that already passed, and does not re-judge it as never run.
+const gates = { ...prior.gates };
 const changedUnder = (d) =>
   parsePorcelain(
     sh('git', ['diff', '--name-only', `${route.base}..HEAD`]).stdout.replace(/^/gm, '   '),
@@ -349,9 +352,14 @@ const artifactText = (d) =>
     .map((p) => (existsSync(join(ROOT, p)) ? readFileSync(join(ROOT, p), 'utf8') : ''))
     .join('\n\n')
     .trim() || null;
+// A code artifact exists as files, but it covers its rung only when the app's own gate passed on it:
+// files that fail the checks are work in progress, not a covered rung. hlab-a s12a wave 5 closed a plan
+// whose implementation had failed the gate twice, because coverage asked whether files had changed.
 const present = () =>
   catalogue.doctypes
-    .filter((d) => (d.kind === 'code' ? changedUnder(d).length > 0 : !!artifactText(d)))
+    .filter((d) =>
+      d.kind === 'code' ? changedUnder(d).length > 0 && gates[d.id]?.ok : !!artifactText(d),
+    )
     .map((d) => d.id);
 const producible = new Set(doctypeIds(catalogue));
 // each artifact's maturity from facts (D3): cast by a gap, drafted, and answers taken in by a rewrite;
@@ -385,7 +393,7 @@ const maturityNow = (consumed = new Set()) => {
   }
   return out;
 };
-const gates = {}; // artifact id → { ok, tail }: the quality gate a code artifact must pass
+
 const maturityView = (m) =>
   `${
     Object.entries(m)
