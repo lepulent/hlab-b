@@ -31,6 +31,12 @@
       "budget_usd": 1
     },
     {
+      "id": "curator",
+      "prompt": "curator.md",
+      "tools": ["Read", "Write", "Edit", "Glob", "Grep"],
+      "budget_usd": 1
+    },
+    {
       "id": "dev",
       "prompt": "dev.md",
       "tools": [
@@ -42,6 +48,8 @@
         "Bash(npm run -s typecheck)",
         "Bash(npm run -s test)",
         "Bash(npm run -s lint)",
+        "Bash(npm run -s format)",
+        "Bash(npm run -s format:check)",
         "Bash(npx vitest run:*)"
       ],
       "budget_usd": 3

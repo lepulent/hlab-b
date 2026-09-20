@@ -91,6 +91,20 @@ export function verifyClosure({ claimed, mutationsBySeat, before, after, existed
   };
 }
 
+// FR-23, D3's top rung: `consumed` is the one rung a machine-only artifact may reach, because it is not
+// a judgement about the artifact — it is a fact about what happened to it. It needs both halves: the plan
+// landed on main (its code is merged, its documents are sealed into records, its canon carries a version)
+// and the artifact was actually used downstream. Code is used by the landing itself: it is what merged.
+// A document is used when a later seat of the plan opened it; one nobody read did not feed anything, and
+// a landing does not make it so.
+export function consumedArtifacts({ landed, artifacts, openedPaths = [] }) {
+  if (!landed) return [];
+  const opened = new Set(openedPaths);
+  return artifacts
+    .filter((a) => a.code || (a.paths || []).some((p) => opened.has(p)))
+    .map((a) => a.id);
+}
+
 // answered questions count as elicitation only once the document was rewritten after the answer: an
 // answer the document has not taken in has not grown it
 export function elicitedCount(questions, lastWrittenWave) {

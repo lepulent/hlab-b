@@ -14,7 +14,7 @@
 //      conduct.max_waves waves of work (a closing no-move after the last wave is allowed). Checks over the whole plan decide pass or fail.
 // Usage: node scripts/harness/conduct.mjs --plan <slug> [--expect <artifact[+artifact]|no-move|clarify>]
 //        [--expect-question none|answered|needs-input] [--expect-agents a,b]
-//        [--expect-ending goal-closed|needs-input|clarify]
+//        [--expect-ending goal-closed|needs-input|clarify] [--no-deliver]
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
@@ -59,6 +59,7 @@ import {
   rollup,
   verifyClosure,
   elicitedCount,
+  consumedArtifacts,
   MACHINE_CAP,
 } from './maturity.mjs';
 import { buildDigest, toolPaths, relayConsumed } from './relay.mjs';
@@ -106,6 +107,8 @@ const EXPECT_TERM = arg('expect-terminal', null);
 const EXPECT_VETO = arg('expect-veto', null);
 // a documents-only run drops the implementation rung; by default a plan owes the code it specified
 const WANT_CODE = !argv.includes('--no-code');
+// delivery runs only for a plan that makes code: a documents-only plan has no contract to land
+const WANT_DELIVER = WANT_CODE && !argv.includes('--no-deliver');
 const sh = (file, args, opts = {}) =>
   spawnSync(file, args, { cwd: ROOT, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, ...opts });
 const ok = (r) => r.status === 0;
@@ -326,33 +329,42 @@ const intentKind = intentKindFor({ landedPlans });
 const LADDER = ladderKey(route.rigor, intentKind);
 // the artifacts that exist now, by catalogue path, non-empty
 // what the plan changed under a code artifact's paths, against the base it was planted from
-const codeFiles = (d) =>
+const changedUnder = (d) =>
   parsePorcelain(
     sh('git', ['diff', '--name-only', `${route.base}..HEAD`]).stdout.replace(/^/gm, '   '),
   )
     .concat(porcelain())
-    .filter((p) => owns([d.path], p));
+    .filter((p) => owns([artifactPath(d)], p));
+const artifactPath = (d) => d.path.replaceAll('{plan}', PLAN);
+// An artifact whose path is a pattern (`src/**`, `canon/capabilities/**`) has no file until this plan
+// writes one, and what stood there before belongs to an earlier plan: its files are the ones this plan
+// changed. A plain path is the file at that path.
+const artifactFiles = (d) => {
+  const path = artifactPath(d);
+  if (path.includes('*')) return changedUnder(d);
+  return existsSync(join(ROOT, path)) ? [path] : [];
+};
+const artifactText = (d) =>
+  artifactFiles(d)
+    .map((p) => (existsSync(join(ROOT, p)) ? readFileSync(join(ROOT, p), 'utf8') : ''))
+    .join('\n\n')
+    .trim() || null;
 const present = () =>
   catalogue.doctypes
-    .filter((d) => {
-      if (d.kind === 'code') return codeFiles(d).length > 0;
-      const f = join(ROOT, d.path.replaceAll('{plan}', PLAN));
-      return existsSync(f) && readFileSync(f, 'utf8').trim();
-    })
+    .filter((d) => (d.kind === 'code' ? changedUnder(d).length > 0 : !!artifactText(d)))
     .map((d) => d.id);
 const producible = new Set(doctypeIds(catalogue));
 // each artifact's maturity from facts (D3): cast by a gap, drafted, and answers taken in by a rewrite;
 // no human rung exists in the lab yet, so a conducted artifact stops at the machine cap
-const maturityNow = () => {
+const maturityNow = (consumed = new Set()) => {
   const out = {};
   for (const d of catalogue.doctypes) {
-    const path = d.path.replaceAll('{plan}', PLAN);
-    const f = join(ROOT, path);
-    const text = d.kind === 'code' ? null : existsSync(f) ? readFileSync(f, 'utf8') : null;
+    const path = artifactPath(d);
+    const text = d.kind === 'code' ? null : artifactText(d);
     const lastWave = Math.max(
       0,
       ...agents
-        .filter((a) => a.artifacts.includes(d.id) && a.written.includes(path))
+        .filter((a) => a.artifacts.includes(d.id) && a.written.some((w) => owns([path], w)))
         .map((a) => a.n),
     );
     const qs = qResults
@@ -364,8 +376,9 @@ const maturityNow = () => {
         text,
         elicited: elicitedCount(qs, lastWave),
         code: d.kind === 'code',
-        files: d.kind === 'code' ? codeFiles(d).length : 0,
+        files: d.kind === 'code' ? changedUnder(d).length : 0,
         checked: !!gates[d.id]?.ok,
+        consumed: consumed.has(d.id),
       }),
       tier: d.tier || 'contract',
     };
@@ -389,17 +402,16 @@ const ladderNow = () => {
   return { ...cov, mustProduce };
 };
 // the Master sees what can be produced, never who produces it (H-35: casting is derived)
-const catalogueView = () =>
-  catalogue.doctypes.map((d) => {
-    const path = d.path.replaceAll('{plan}', PLAN);
-    return {
-      id: d.id,
-      title: d.title,
-      purpose: d.purpose,
-      path,
-      exists: existsSync(join(ROOT, path)),
-    };
-  });
+const catalogueView = () => {
+  const now = new Set(present());
+  return catalogue.doctypes.map((d) => ({
+    id: d.id,
+    title: d.title,
+    purpose: d.purpose,
+    path: artifactPath(d),
+    exists: now.has(d.id),
+  }));
+};
 const decisionSchema = JSON.stringify({
   type: 'object',
   properties: {
@@ -1416,6 +1428,66 @@ const checks = {
     }; Master share of agent spend ${agentCost ? Math.round(((masterCost + answerCost) / agentCost) * 100) : 0}%`,
   },
 };
+// ---------------------------------------------------------------- delivery (H-1, step 12)
+// A closed plan with a covered ladder is not finished: its contract and its code still have to reach
+// main through the pipeline, which is where canon lands. The Master does not decide this and no seat
+// runs it — the ladder being covered is the condition, and a script does the rest.
+let delivery = null;
+let maturityAfter = null;
+if (WANT_DELIVER && ending === 'goal-closed' && endLadder.covered) {
+  console.log('\nconduct: the plan is closed and its ladder covered; delivering');
+  handoff(`${PLAN} conduct closed, delivering`);
+  const r = spawnSync('node', [join(ROOT, 'scripts', 'harness', 'deliver.mjs'), '--plan', PLAN], {
+    cwd: ROOT,
+    stdio: 'inherit',
+  });
+  delivery = readJson(join(H, `deliver-${PLAN}.json`), null);
+  const land = readJson(join(H, 'land.json'), null);
+  // the top rung becomes reachable here and nowhere else: the plan landed, so its code is on main and
+  // its documents are sealed; a document a later seat actually opened is now consumed (D3 1.00)
+  const openedPaths = [...new Set(agents.flatMap((a) => a.read || []))];
+  const consumed = new Set(
+    consumedArtifacts({
+      landed: !!delivery?.ok,
+      artifacts: catalogue.doctypes.map((d) => ({
+        id: d.id,
+        code: d.kind === 'code',
+        paths: [
+          ...new Set(agents.filter((a) => a.artifacts.includes(d.id)).flatMap((a) => a.written)),
+        ],
+      })),
+      openedPaths,
+    }),
+  );
+  maturityAfter = maturityNow(consumed);
+  checks['documents-consumed'] = {
+    ok: !delivery?.ok || consumed.size > 0,
+    msg: `${[...consumed].join(', ') || 'nothing'} consumed by the landing; ${maturityView(maturityAfter)}`,
+  };
+  checks['plan-delivered'] = {
+    ok: r.status === 0 && !!delivery?.ok,
+    msg: delivery
+      ? `${(delivery.stations || []).map((x) => `${x.station} ${x.ok ? 'ok' : 'FAILED'} ${x.minutes}min`).join(', ')}${
+          delivery.ok && land
+            ? `; merged at ${String(land.mergeSha).slice(0, 7)}, ${(land.deltas || []).length} delta(s): ${(
+                land.deltas || []
+              )
+                .map(
+                  (d) =>
+                    `${d.altitude || '?'} ${d.op} ${d.node || ''}${d.version ? ` → ${d.version}` : ''}`,
+                )
+                .join(', ')}`
+            : ''
+        }`
+      : `deliver.mjs exited ${r.status} before writing its record`,
+  };
+} else if (WANT_DELIVER && ending === 'goal-closed') {
+  checks['plan-delivered'] = {
+    ok: false,
+    msg: `the plan closed with ${endLadder.stepsToSeal.join(', ')} still missing, so nothing was delivered`,
+  };
+}
+
 const pass = Object.values(checks).every((c) => c.ok);
 writeJson(join(H, `conduct-${PLAN}.json`), {
   plan: PLAN,
@@ -1426,8 +1498,10 @@ writeJson(join(H, `conduct-${PLAN}.json`), {
   sequence,
   chose,
   ladder: { key: LADDER, intent_kind: intentKind, landed_plans: landedPlans, end: endLadder },
+  delivery,
   resumed: prior.lastWave ? { from_wave: prior.lastWave, agents: prior.agents } : null,
-  maturity: maturityNow(),
+  maturity: maturityAfter || maturityNow(),
+  maturity_before_delivery: maturityAfter ? maturityNow() : null,
   pass,
   checks,
   decisions: decisions.map((d) => ({

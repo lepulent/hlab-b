@@ -30,6 +30,14 @@ import {
   parseFrontmatter,
   BOOKKEEPING,
 } from './common.mjs';
+import {
+  parseNode,
+  nodeDelta,
+  landingBump,
+  altitudeOf,
+  supersede,
+  historyOk,
+} from './canon-delta.mjs';
 
 const argv = process.argv.slice(2);
 const cmd = argv[0];
@@ -636,36 +644,101 @@ function land() {
     debt: [],
   });
   q.assurance ||= {};
+  // the history of versions: rows, because a file is mutated in place and its superseded version lives
+  // only in git. A landing appends and stamps valid_to; it never rewrites a row (canon-delta.historyOk).
+  const historyFile = join(ROOT, 'canon', 'versions.jsonl');
+  const historyBefore = existsSync(historyFile)
+    ? readFileSync(historyFile, 'utf8')
+        .split('\n')
+        .filter(Boolean)
+        .map((l) => JSON.parse(l))
+    : [];
+  let history = historyBefore.map((r) => ({ ...r }));
+  const refusals = [];
   for (const f of changed) {
     const p = join(ROOT, f);
     if (!existsSync(p)) {
-      deltas.push({ file: f, op: 'REMOVED' });
+      deltas.push({ file: f, op: 'REMOVED', altitude: altitudeOf(f) });
+      refusals.push(
+        `${f} was deleted; canon retires a node with a valid_to, it never drops the file`,
+      );
       continue;
     }
     const text = readFileSync(p, 'utf8');
     const { data } = parseFrontmatter(text);
-    if (!data.id || ['map', 'constitution'].includes(data.kind)) continue;
-    const existedAtBase =
-      git(['cat-file', '-e', `${seal.base}:${f}`]) !== '' ||
-      ok(sh('git', ['cat-file', '-e', `${seal.base}:${f}`]));
-    // 3. valid_from = the merge SHA on every changed node
-    const stamped = text.replace(/^valid_from:.*$/m, `valid_from: ${mergeSha}`);
-    writeFileSync(
-      p,
-      stamped === text && !/^valid_from:/m.test(text)
-        ? text.replace(/^---\n/, `---\nvalid_from: ${mergeSha}\n`)
-        : stamped,
-    );
-    // 4. assurance ratchets up to the plan's rigor, never down
+    if (!data.id || data.kind === 'map') continue;
+    const existedAtBase = ok(sh('git', ['cat-file', '-e', `${seal.base}:${f}`]));
+    const baseText = existedAtBase ? git(['show', `${seal.base}:${f}`]) : null;
+    // 3. the typed delta: what this plan did to the contract, read from the node at both ends. A
+    // criterion is committed when it stood at the base with an assurance above draft — only those break.
+    const delta = nodeDelta({
+      file: f,
+      before: baseText == null ? null : parseNode(baseText),
+      after: parseNode(text),
+      committed: (id) => existedAtBase && (RANK[q.assurance[id]] || 0) > RANK.draft,
+    });
+    refusals.push(...delta.refusals);
+    // 4. valid_from = the merge SHA, and the version is the derived one, never the one an agent typed
+    let stamped = text.replace(/^valid_from:.*$/m, `valid_from: ${mergeSha}`);
+    if (!/^valid_from:/m.test(text))
+      stamped = text.replace(/^---\n/, `---\nvalid_from: ${mergeSha}\n`);
+    if (data.kind === 'capability' && delta.bump !== 'NONE') {
+      stamped = /^version:/m.test(stamped)
+        ? stamped.replace(/^version:.*$/m, `version: ${delta.version}`)
+        : stamped.replace(/^---\n/, `---\nversion: ${delta.version}\n`);
+      history = supersede(history, {
+        node: delta.node,
+        altitude: delta.altitude,
+        version: delta.version,
+        bump: delta.bump,
+        plan: PLAN,
+        mergeSha,
+        changes: delta.changes,
+      });
+    }
+    writeFileSync(p, stamped);
+    // 5. assurance ratchets up to the plan's rigor, never down
     const before = q.assurance[data.id] || 'draft';
     if (RANK[seal.rigor] > (RANK[before] || 0)) q.assurance[data.id] = seal.rigor;
     deltas.push({
-      file: f,
-      node: data.id,
-      op: existedAtBase ? 'MODIFIED' : 'ADDED',
+      ...delta,
       assurance: { before, after: q.assurance[data.id] || before },
     });
   }
+  // the code the plan changed moves at its own altitude; it carries no version, the capability does
+  const codeChanged = git(['diff', '--name-only', `${seal.base}..${mergeSha}`])
+    .split('\n')
+    .filter((f) => altitudeOf(f) === 'code');
+  if (codeChanged.length)
+    deltas.push({
+      altitude: 'code',
+      op: 'MODIFIED',
+      files: codeChanged.length,
+      paths: codeChanged.slice(0, 20),
+    });
+  const historyProblems = historyOk(historyBefore, history);
+  refusals.push(...historyProblems);
+  if (refusals.length) {
+    ledger('decision', {
+      station: 'land',
+      decision: 'refused',
+      reason: 'the typed deltas do not hold',
+      refusals,
+    });
+    sh('git', ['checkout', '--', 'canon']);
+    fail(`refused: ${refusals.join('; ')}`);
+  }
+  if (JSON.stringify(history) !== JSON.stringify(historyBefore))
+    writeFileSync(historyFile, history.map((r) => JSON.stringify(r)).join('\n') + '\n');
+  // a version an agent typed that is not the derived one is a finding, never the version that lands
+  for (const d of deltas.filter((x) => x.mislabel))
+    ledger('finding', {
+      station: 'land',
+      kind: 'semver-mislabel',
+      node: d.node,
+      declared: d.mislabel.declared,
+      derived: d.mislabel.derived,
+    });
   for (const n of seal.touches || []) {
     const before = q.assurance[n] || 'draft';
     if (RANK[seal.rigor] > (RANK[before] || 0)) {
@@ -706,6 +779,9 @@ function land() {
     plan: PLAN,
     mergeSha,
     deltas: deltas.length,
+    bump: landingBump(deltas),
+    altitudes: [...new Set(deltas.map((d) => d.altitude).filter(Boolean))],
+    versions: deltas.filter((d) => d.version).map((d) => `${d.node} ${d.from} → ${d.version}`),
     departments_configured: deps.departments?.map((x) => x.name) || [],
   });
   sh('git', ['add', '-A']);
@@ -713,7 +789,7 @@ function land() {
     'commit',
     '-q',
     '-m',
-    `chore(canon): land ${PLAN} from ${mergeSha.slice(0, 7)}\n\n${deltas.map((d) => `- ${d.op} ${d.node || d.file}`).join('\n') || '- no canon deltas'}\n\nCo-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`,
+    `chore(canon): land ${PLAN} from ${mergeSha.slice(0, 7)}\n\n${deltas.map((d) => `- ${d.altitude || '?'} ${d.op} ${d.node || d.file || ''}${d.version ? ` ${d.from} → ${d.version} (${d.bump})` : ''}${(d.changes || []).length ? `: ${d.changes.map((c) => `${c.op} ${c.id}`).join(', ')}` : ''}`).join('\n') || '- no canon deltas'}\n\nCo-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`,
   ]);
   // 9. the canon check reads main as committed, so it can only judge a landing that has been committed:
   // main-nodes-have-valid-from asks about the tree at a ref, never the working tree. Verified here, and

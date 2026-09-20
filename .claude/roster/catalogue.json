@@ -55,12 +55,21 @@
       "tier": "record"
     },
     {
+      "id": "capability",
+      "title": "Capability",
+      "purpose": "The durable contract this app keeps: what the capability is for, and the criteria a test can carry, one file per capability in the canon.",
+      "path": "canon/capabilities/**",
+      "workflow": "write-capability",
+      "produced_by": "curator",
+      "tier": "contract"
+    },
+    {
       "id": "implementation",
       "title": "Implementation",
       "purpose": "The code that delivers what the plan specified, with the unit tests that show it works.",
       "path": "src/**",
       "kind": "code",
-      "gate": "npm run -s typecheck && npm run -s test && npm run -s lint",
+      "gate": "npm run -s format:check && npm run -s typecheck && npm run -s test && npm run -s lint",
       "workflow": "write-code",
       "produced_by": "dev",
       "tier": "contract"

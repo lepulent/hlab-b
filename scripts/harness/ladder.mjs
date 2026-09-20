@@ -10,8 +10,15 @@ export const DEFAULT_LADDER = 'method-greenfield';
 const slot = (id, requirement, docTypes = [id]) => ({ id, requirement, docTypes });
 // the Mycelium seal apex every track owes: a plan cannot seal without a dev plan
 const sealApex = () => [slot('dev_plan', 'required'), slot('stories', 'recommended')];
-// after the seal: the code the plan specified. Mycelium's implementation phase carries sprint_status;
-// here it carries the implementation itself, which is what the lab has to show.
+// after the seal, two rungs the lab owes and Mycelium keeps elsewhere. The contract comes first: the
+// capability node states the criteria the code will be held to, and each carries the binding id a test
+// must cite — written before the code so the code can be built and proved against it, not described
+// after the fact. Then the implementation itself, which is what the lab has to show.
+const contract = () => ({
+  phase: 'contract',
+  gate: 'warn',
+  slots: [slot('capability', 'required')],
+});
 const implementation = () => ({
   phase: 'implementation',
   gate: 'warn',
@@ -22,11 +29,13 @@ export const LADDERS = {
   'quick-flow-greenfield': [
     { phase: 'planning', gate: 'block', slots: [slot('technical_spec', 'required')] },
     { phase: 'solutioning', gate: 'seal', slots: sealApex() },
+    contract(),
     implementation(),
   ],
   'quick-flow-brownfield': [
     { phase: 'planning', gate: 'block', slots: [slot('technical_spec', 'required')] },
     { phase: 'solutioning', gate: 'seal', slots: sealApex() },
+    contract(),
     implementation(),
   ],
   'method-greenfield': [
@@ -41,6 +50,7 @@ export const LADDERS = {
       gate: 'seal',
       slots: [slot('architecture', 'required'), ...sealApex()],
     },
+    contract(),
     implementation(),
   ],
   'method-brownfield': [
@@ -55,6 +65,7 @@ export const LADDERS = {
       gate: 'seal',
       slots: [slot('architecture', 'recommended'), ...sealApex()],
     },
+    contract(),
     implementation(),
   ],
   'enterprise-greenfield': [
@@ -74,6 +85,7 @@ export const LADDERS = {
         ...sealApex(),
       ],
     },
+    contract(),
     implementation(),
   ],
   'enterprise-brownfield': [
@@ -93,6 +105,7 @@ export const LADDERS = {
         ...sealApex(),
       ],
     },
+    contract(),
     implementation(),
   ],
 };
@@ -115,7 +128,8 @@ export function intentKindFor({ landedPlans = 0 } = {}) {
 export function coverage(key, present, { code = true } = {}) {
   const has = new Set(present);
   const slots = (LADDERS[key] || LADDERS[DEFAULT_LADDER])
-    .filter((p) => code || p.phase !== 'implementation')
+    // a documents-only plan owes neither the code nor the contract the code is held to
+    .filter((p) => code || !['implementation', 'contract'].includes(p.phase))
     .flatMap((p) =>
       p.slots.map((s) => ({
         phase: p.phase,
