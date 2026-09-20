@@ -329,9 +329,7 @@ const intentKind = intentKindFor({ landedPlans });
 const LADDER = ladderKey(route.rigor, intentKind);
 // the artifacts that exist now, by catalogue path, non-empty
 // what the plan changed under a code artifact's paths, against the base it was planted from
-// artifact id → { ok, tail }: the quality gate a code artifact must pass. Seeded from the ledger so a
-// resumed plan remembers a gate that already passed, and does not re-judge it as never run.
-const gates = { ...prior.gates };
+const gates = {};
 const changedUnder = (d) =>
   parsePorcelain(
     sh('git', ['diff', '--name-only', `${route.base}..HEAD`]).stdout.replace(/^/gm, '   '),
@@ -519,7 +517,10 @@ let ending = null; // goal-closed | needs-input | refused | wave-cap
 const ledgerFile = join(ROOT, 'ledger', `${PLAN}.jsonl`);
 const prior = existsSync(ledgerFile)
   ? rebuild(parseLedger(readFileSync(ledgerFile, 'utf8')))
-  : { waves: [], gaps: [], questions: [], lastWave: 0, agents: [] };
+  : { waves: [], gaps: [], questions: [], gates: {}, lastWave: 0, agents: [] };
+// artifact id → { ok, tail }: the quality gate a code artifact must pass. Seeded from the ledger so a
+// resumed plan remembers a gate that already passed, and does not re-judge it as never run.
+Object.assign(gates, prior.gates);
 const gaps = []; // every gap declared on this plan: { id, n, statement, artifacts, status }
 function citable(id) {
   const x = String(id || '').trim();
