@@ -1,3 +1,5 @@
+import { effectiveRequirement, blocks } from './stage.mjs';
+
 // Rigor ladders (Mycelium 13.2, 13.3; ported from src/lib/bmad/paths.ts): which artifacts a plan owes
 // before its seal, selected by rigor × intent kind. Pure data and pure functions, so coverage is a
 // lookup, never a model's word. Lab rigor words map to Mycelium's (H-2, H-36): prototype → explore,
@@ -123,9 +125,13 @@ export function intentKindFor({ landedPlans = 0 } = {}) {
   return landedPlans > 0 ? 'brownfield' : 'greenfield';
 }
 
-// coverage of a ladder by the doc types that exist; stepsToSeal lists the required slots still missing,
-// in ladder order, which is the order that unblocks the most
-export function coverage(key, present, { code = true } = {}) {
+// coverage of a ladder by the doc types that exist; stepsToSeal lists the blocking slots still missing,
+// in ladder order, which is the order that unblocks the most.
+//
+// The written requirement is the NEUTRAL (alpha / internal) baseline. `stage` turns the dial on it:
+// sandbox relaxes every rung a notch, beta and live tighten them. So what a plan owes is one ladder
+// read at the app's stage, never a second ladder written for each stage.
+export function coverage(key, present, { code = true, stage = 'alpha' } = {}) {
   const has = new Set(present);
   const slots = (LADDERS[key] || LADDERS[DEFAULT_LADDER])
     // a documents-only plan owes neither the code nor the contract the code is held to
@@ -134,21 +140,22 @@ export function coverage(key, present, { code = true } = {}) {
       p.slots.map((s) => ({
         phase: p.phase,
         id: s.id,
-        requirement: s.requirement,
+        written: s.requirement,
+        requirement: effectiveRequirement(s.requirement, stage),
         docTypes: s.docTypes,
         covered: s.docTypes.filter((t) => has.has(t)),
       })),
     );
   const stepsToSeal = slots
-    .filter((s) => s.requirement === 'required' && !s.covered.length)
+    .filter((s) => blocks(s.written, stage) && !s.covered.length)
     .map((s) => s.id);
-  return { key, slots, stepsToSeal, covered: !stepsToSeal.length };
+  return { key, stage, slots, stepsToSeal, covered: !stepsToSeal.length };
 }
 
 // a one-line-per-slot view for a prompt or a digest
 export function coverageView(cov) {
   return [
-    `Ladder ${cov.key}. Required before the seal and still missing: ${cov.stepsToSeal.join(', ') || 'none'}.`,
+    `Ladder ${cov.key} at stage ${cov.stage}. Blocking the seal and still missing: ${cov.stepsToSeal.join(', ') || 'none'}.`,
     ...cov.slots.map(
       (s) =>
         `- ${s.phase} / ${s.id} (${s.requirement}): ${s.covered.length ? `covered by ${s.covered.join(', ')}` : 'missing'}`,

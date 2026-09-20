@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-20T13:54:00.209Z",
+  "generatedAt": "2026-09-20T15:29:16.902Z",
   "nodes": [
     {
       "id": "MAP",
@@ -501,7 +501,6 @@
       "label": "No data shape without a migration path once real records exist",
       "file": "canon/constitution.md",
       "tier": "constitutional",
-      "binds_from": "beta",
       "layer": "harness"
     },
     {
@@ -515,7 +514,6 @@
       "label": "Personal data never leaves its declared store",
       "file": "canon/constitution.md",
       "tier": "constitutional",
-      "binds_from": "beta",
       "layer": "harness"
     },
     {
@@ -529,7 +527,6 @@
       "label": "Every AWS resource is tagged from birth",
       "file": "canon/constitution.md",
       "tier": "governing",
-      "binds_from": "prototyping",
       "layer": "harness"
     },
     {

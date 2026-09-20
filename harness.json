@@ -2,7 +2,7 @@
   "$schema": "./scripts/harness/harness.schema.json",
   "app": {
     "name": "hlab-b",
-    "status": "prototyping"
+    "stage": "alpha"
   },
   "infra": {
     "region": "eu-central-1",
@@ -72,7 +72,7 @@
     ]
   },
   "pipeline": {
-    "required_statuses": ["seal", "ratchet", "canon-check"],
+    "required_statuses": ["seal", "ratchet", "canon-check", "constitution"],
     "review": {
       "lenses": ["correctness", "canon-sync"],
       "block_at": "high",
@@ -86,7 +86,7 @@
   },
   "bundle": {
     "version": "0.1.0-dev",
-    "sha": "6d0cbac",
+    "sha": "7fc5435",
     "installedAt": "2026-09-20"
   }
 }

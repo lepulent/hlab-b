@@ -64,6 +64,8 @@ import {
   DRIFT_HEADER,
 } from './drift.mjs';
 import { parseNode } from './canon-delta.mjs';
+import { stageOf, lawFor, stageView } from './stage.mjs';
+import { evaluate as evaluateConstitution, constitutionView } from './constitution.mjs';
 import {
   artifactMaturity,
   rollup,
@@ -101,6 +103,13 @@ const EXPECT_END = arg('expect-ending', null);
 const H = join(ROOT, '.harness');
 mkdirSync(H, { recursive: true });
 const harness = readJson(join(ROOT, 'harness.json'), {});
+// the app's stage: the dial the ladder is read at and the tier a constitution violation must reach
+// before it stops a seal (H-36, H-37)
+const { stage: STAGE, refusal: STAGE_REFUSAL } = stageOf(harness);
+if (STAGE_REFUSAL) {
+  console.error(`conduct: ${STAGE_REFUSAL}`);
+  process.exit(1);
+}
 const MODEL = harness.yolo?.model || null;
 // sessions at once; the laptop's limit (H-18: parallelism 2)
 const MAX_WAVE = harness.conduct?.max_wave || 2;
@@ -380,6 +389,22 @@ const driftNow = () => {
   const lines = ledgerLines();
   return driftEntries(stampsSoFar(lines), worldNow(lines));
 };
+// The constitution, evaluated rather than quoted (H-37). Pure inputs read fresh each time: the rules,
+// the stage, and whatever evidence a check needs. A violation that only blocks below the stage's tier
+// is flagged and carried as debt; one at or above it stops the seal.
+const constitutionNow = () => {
+  const f = join(ROOT, 'canon', 'constitution.md');
+  if (!existsSync(f)) return null;
+  return evaluateConstitution({
+    text: readFileSync(f, 'utf8'),
+    stage: STAGE,
+    evidence: {
+      manifest: readJson(join(ROOT, 'canon', 'generated', 'infra-manifest.json'), null),
+      requiredTags: harness.infra?.required_tags || [],
+    },
+  });
+};
+
 const changedUnder = (d) =>
   parsePorcelain(
     sh('git', ['diff', '--name-only', `${route.base}..HEAD`]).stdout.replace(/^/gm, '   '),
@@ -458,7 +483,7 @@ const maturityView = (m) =>
       .join(', ') || 'nothing produced yet'
   }; plan ${rollup(Object.values(m).filter((v) => v.rung !== 'absent'))}. Maturity never gates; ${MACHINE_CAP} is the most a document only machines have touched can reach.`;
 const ladderNow = () => {
-  const cov = coverage(LADDER, present(), { code: WANT_CODE });
+  const cov = coverage(LADDER, present(), { code: WANT_CODE, stage: STAGE });
   const slots = new Map(cov.slots.map((x) => [x.id, x]));
   const mustProduce = cov.stepsToSeal.flatMap((id) =>
     slots.get(id).docTypes.filter((t) => producible.has(t)),
@@ -624,6 +649,7 @@ async function master(n, attempt, refusals) {
   // drift is composed into the prompt from reads the run already holds, never fetched by a tool the
   // Master has to think to call: a finding that surfaces only when asked for is one it will never see
   const drift = driftNow();
+  const consti = constitutionNow();
   for (const a of staleArtifacts(drift))
     if (!driftSeen.some((x) => x.artifact === a && x.wave === n))
       driftSeen.push({ artifact: a, wave: n });
@@ -640,6 +666,9 @@ async function master(n, attempt, refusals) {
       `\n\n--- CATALOGUE (what can be produced) ---\n${JSON.stringify(catalogueView(), null, 2)}`,
       `\n\n--- IDS A PREMISE MAY CITE ---\n${citableView()}, or the path of any file in the repository`,
       drift.length ? `\n\n--- ${DRIFT_HEADER} ---\n${driftDigest(drift)}` : '',
+      consti && (consti.blocking.length || consti.flagged.length)
+        ? `\n\n--- CONSTITUTION ---\n${stageView(STAGE)}\n${constitutionView(consti)}`
+        : '',
       `\n\n--- SO FAR ---\n${digest.text || 'Nothing has been done on this plan yet.'}`,
       refusals
         ? `\n\n--- REFUSED ---\nYour previous decision was refused by the door for these reasons. Correct it once:\n${refusals.map((x) => `- ${x}`).join('\n')}`
@@ -1484,6 +1513,25 @@ const checks = {
     // required rung nothing in the catalogue can produce is a roster gap, named here
     ok: ending !== 'goal-closed' || endLadder.covered,
     msg: `${LADDER} (${intentKind}); required still missing: ${endLadder.stepsToSeal.join(', ') || 'none'}${endLadder.stepsToSeal.length && !endLadder.mustProduce.length ? ' (no catalogue artifact produces it)' : ''}; present ${present().join(', ') || 'none'}`,
+  },
+  'constitution-evaluated': {
+    // the constitution is run, not quoted. A violation whose tier blocks at this stage stops the plan
+    // closing; below it the violation is real, recorded as debt, and the plan proceeds carrying it
+    ok: (() => {
+      const c = constitutionNow();
+      return !c || ending !== 'goal-closed' || c.ok;
+    })(),
+    msg: (() => {
+      const c = constitutionNow();
+      if (!c) return 'no constitution in this app';
+      return `${STAGE} (${lawFor(STAGE).stakes}): ${c.blocking.length} blocking, ${c.flagged.length} flagged as debt, ${c.unenforced.length} unenforced of ${c.verdicts.length} rule(s)${
+        c.blocking.length
+          ? `; BLOCKS: ${c.blocking.map((v) => `${v.id} ${v.detail}`).join('; ')}`
+          : ''
+      }${c.flagged.length ? `; debt: ${c.flagged.map((v) => `${v.id} (${v.tier})`).join(', ')}` : ''}${
+        c.stale.length ? `; stale: ${c.stale.join('; ')}` : ''
+      }`;
+    })(),
   },
   'drift-repaired': {
     // drift outranks growth, so a plan may not close while an artifact of it contradicts a decision

@@ -7,7 +7,7 @@ A browser pacman with pixel art and keyboard control. This repo is one of two la
 - `canon/` is the as-is representation of what is merged on main. Generated files under `canon/generated/` are never hand-edited; regenerate them. Authored canon files carry frontmatter with `id`, `kind`, `assurance`, `valid_from`.
 - `intent/<slug>/` on a plan branch holds what is wanted: BMAD outputs, the sealed contract, proposed deltas. It becomes `records/<slug>/` at merge.
 - `ledger/<slug>.jsonl` is append-only and written only by `scripts/harness/ledger.mjs`.
-- `harness.json` holds the app status, the yolo dial, budgets and department policies.
+- `harness.json` holds the app stage, the yolo dial, budgets and department policies.
 - Source layout follows `canon/layer-map.json`. An unmapped path fails `npm run canon:check`.
 
 ## Rules for any agent working here

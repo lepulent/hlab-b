@@ -38,6 +38,8 @@ import {
   supersede,
   historyOk,
 } from './canon-delta.mjs';
+import { stageOf, lawFor } from './stage.mjs';
+import { evaluate as evaluateConstitution, debtRows, clearDebt } from './constitution.mjs';
 
 const argv = process.argv.slice(2);
 const cmd = argv[0];
@@ -49,6 +51,28 @@ const harness = readJson(join(ROOT, 'harness.json'), {});
 const APP = harness.app?.name || 'app';
 const PIPE = harness.pipeline || {};
 const RANK = { draft: 0, prototype: 1, mvp: 2, production: 3 };
+const { stage: STAGE, refusal: STAGE_REFUSAL } = stageOf(readJson(join(ROOT, 'harness.json'), {}));
+if (STAGE_REFUSAL) {
+  console.error(`pipeline: ${STAGE_REFUSAL}`);
+  process.exit(1);
+}
+const STAGE_LAW_NOW = lawFor(STAGE);
+
+// The constitution, evaluated against the app's stage. Read fresh: the rules, the stage and the
+// evidence each check needs. `ok` is false only when a violation reaches the tier that blocks here.
+function constitution() {
+  const f = join(ROOT, 'canon', 'constitution.md');
+  if (!existsSync(f)) return null;
+  const h = readJson(join(ROOT, 'harness.json'), {});
+  return evaluateConstitution({
+    text: readFileSync(f, 'utf8'),
+    stage: STAGE,
+    evidence: {
+      manifest: readJson(join(ROOT, 'canon', 'generated', 'infra-manifest.json'), null),
+      requiredTags: h.infra?.required_tags || [],
+    },
+  });
+}
 const H = join(ROOT, '.harness');
 mkdirSync(H, { recursive: true });
 const PLAN = arg(
@@ -159,14 +183,17 @@ function readSeal() {
   };
 }
 
-// the ratchet: a merge at rigor R may not lower the assurance of any touched node below what main holds
+// the ratchet: a merge at rigor R may not lower the assurance of any touched node below what main holds.
+// The stage decides whether it is armed at all: in a sandbox an app is still finding out what it is,
+// and a ratchet there locks in the first guess anyone happened to make.
 function ratchet(seal) {
   const q = readJson(join(ROOT, 'canon', 'quality.json'), { assurance: {} });
-  const lowered = (seal.touches || []).filter(
-    (n) => (RANK[q.assurance?.[n]] || 0) > RANK[seal.rigor],
-  );
+  const lowered = STAGE_LAW_NOW.ratchet
+    ? (seal.touches || []).filter((n) => (RANK[q.assurance?.[n]] || 0) > RANK[seal.rigor])
+    : [];
   return {
     ok: !lowered.length,
+    armed: STAGE_LAW_NOW.ratchet,
     lowered,
     floor: Math.max(0, ...(seal.touches || []).map((n) => RANK[q.assurance?.[n]] || 0)),
   };
@@ -215,8 +242,11 @@ function ci() {
   ]);
   const seal = isSpike ? { ok: false, reason: 'spike branch, never merges' } : readSeal();
   const rat = seal.ok ? ratchet(seal) : { ok: false, lowered: [] };
+  const consti = constitution();
   record.seal = seal;
   record.ratchet = rat;
+  record.constitution = consti;
+  record.stage = STAGE;
   status(
     'canon-check',
     checkOk && testOk && canonOk ? 'success' : 'failure',
@@ -233,16 +263,35 @@ function ci() {
     'ratchet',
     rat.ok ? 'success' : 'failure',
     rat.ok
-      ? `no touched node lowered (floor ${rat.floor})`
+      ? `${rat.armed ? `no touched node lowered (floor ${rat.floor})` : `not armed at ${STAGE}`}`
       : `would lower: ${rat.lowered.join(', ')}`,
   );
-  record.ok = checkOk && testOk && canonOk && seal.ok && rat.ok;
+  status(
+    'constitution',
+    !consti || consti.ok ? 'success' : 'failure',
+    !consti
+      ? 'no constitution in this app'
+      : consti.ok
+        ? `${STAGE}: ${consti.flagged.length} flagged as debt, ${consti.unenforced.length} unenforced of ${consti.verdicts.length}`
+        : `${STAGE}: ${consti.blocking.map((v) => `${v.id} ${v.detail}`).join('; ')}`,
+  );
+  if (consti && !consti.ok)
+    ledger('finding', {
+      station: 'ci',
+      kind: 'constitution',
+      stage: STAGE,
+      blocking: consti.blocking,
+    });
+  record.ok = checkOk && testOk && canonOk && seal.ok && rat.ok && (!consti || consti.ok);
   record.minutes = minutes();
   writeJson(join(H, 'ci.json'), record);
   ledger('seat-end', { station: 'ci', ok: record.ok, minutes: record.minutes, sha: record.sha });
   if (!record.ok)
     trip(
-      `ci:${Object.entries(record.steps).find(([, s]) => !s.ok)?.[0] || (!seal.ok ? 'seal' : 'ratchet')}`,
+      `ci:${
+        Object.entries(record.steps).find(([, s]) => !s.ok)?.[0] ||
+        (!seal.ok ? 'seal' : !rat.ok ? 'ratchet' : 'constitution')
+      }`,
     );
   console.log(`ci: ${record.ok ? 'GREEN' : 'RED'} in ${record.minutes} min`);
   process.exit(record.ok ? 0 : 1);
@@ -433,6 +482,11 @@ function merge() {
     const rat = ratchet(seal);
     if (!rat.ok) reasons.push(`ratchet would lower ${rat.lowered.join(', ')}`);
   }
+  const consti = constitution();
+  if (consti && !consti.ok)
+    reasons.push(
+      `constitution at ${STAGE}: ${consti.blocking.map((v) => `${v.id} (${v.tier}) ${v.detail}`).join('; ')}`,
+    );
   const st = safeJson(script('statuses.mjs', 'read', '--sha', sha).stdout || '');
   if (!st?.ok)
     reasons.push(
@@ -752,6 +806,38 @@ function land() {
         assurance: { before, after: seal.rigor },
       });
     }
+  }
+  // Constitutional debt: a violation the stage let through is recorded ON THE RULE, with the plan and
+  // the merge commit that carried it. A row already standing is updated, not duplicated — a violation
+  // that survives ten plans is one row, not ten saying the same thing more loudly — and a row whose
+  // violation is gone is dropped, because debt is cleared by the fact changing and not by anyone
+  // saying so.
+  const constiAtLand = constitution();
+  if (constiAtLand) {
+    const kept = clearDebt({ debt: q.debt || [], verdicts: constiAtLand.verdicts });
+    const next = debtRows({
+      flagged: constiAtLand.flagged,
+      plan: PLAN,
+      commit: mergeSha,
+      stage: STAGE,
+      at: new Date().toISOString(),
+      prior: kept,
+    });
+    const cleared = (q.debt || []).filter((d) => !kept.some((k) => k.rule === d.rule));
+    for (const d of cleared)
+      ledger('finding', { station: 'land', kind: 'debt-cleared', rule: d.rule });
+    for (const d of next)
+      if (!(q.debt || []).some((o) => o.rule === d.rule))
+        ledger('finding', {
+          station: 'land',
+          kind: 'debt-recorded',
+          rule: d.rule,
+          tier: d.tier,
+          stage: STAGE,
+          clearedBy: d.clearedBy,
+          detail: d.detail,
+        });
+    q.debt = next;
   }
   // write only when something changed: an unchanged rewrite gets reformatted by the pre-commit hook and shows up as a phantom delta (rm1, both apps)
   const qBefore = readJson(join(ROOT, 'canon', 'quality.json'), null);
