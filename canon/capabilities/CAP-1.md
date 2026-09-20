@@ -29,7 +29,7 @@ pointers:
 
 - src/game.ts#attemptMove
 
-### CAP-1.3 Moving onto a dot or power pellet eats it and adds to the score; a pellet also frightens every ghost
+### CAP-1.3 Moving onto a dot or power pellet eats it and adds to the score, a pellet being worth more than a dot; a pellet also frightens every ghost
 
 bindings: [P0-GAME-003]
 pointers:
