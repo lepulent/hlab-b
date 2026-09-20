@@ -70,6 +70,12 @@ export function rebuild(lines) {
     }
   }
   for (const q of questions) if (q.wave != null) wave(q.wave).questions.push(q);
+  // the gate a code artifact passed is a fact of the plan, not of the process that ran it: a resumed run
+  // reads the last verdict per artifact back, or it would treat proven code as unproven
+  const gates = {};
+  for (const l of lines)
+    if (l?.kind === 'decision' && l.data?.station === 'gate' && l.data.artifact)
+      gates[l.data.artifact] = { ok: !!l.data.ok, tail: l.data.tail || '', prior: true };
   // a commit for an artifact is recorded on the gap line that closed it
   for (const l of lines) {
     const d = l?.data || {};
@@ -88,6 +94,7 @@ export function rebuild(lines) {
     waves: ordered,
     gaps: [...gaps.values()],
     questions,
+    gates,
     lastWave: ordered.length ? ordered[ordered.length - 1].n : 0,
     agents: [...new Set(ordered.flatMap((w) => w.activations.map((a) => a.agent)))].sort(),
   };
