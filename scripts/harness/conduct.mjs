@@ -684,9 +684,17 @@ async function runWave(n, d) {
     const promptFile = join(ROOT, '.claude', 'roster', a.def.prompt);
     if (!existsSync(promptFile)) fail(`no ${promptFile}`, 2);
     a.session = randomUUID();
+    // A seat's shell allowlist is a fact in the roster, and a seat that is not told it infers the rule
+    // from the first denial: two dev seats in a row (hlab-a s12a w3, w4) were refused `npm run check`,
+    // concluded no command could be run, and delivered code they had never tested although the gate's
+    // three commands were theirs to run. The allowlist is derived here, never written into a prompt file.
+    const mayRun = (a.def.tools || []).filter((t) => /^Bash\(/.test(t)).map((t) => t.slice(5, -1));
     a.prompt = [
       readFileSync(promptFile, 'utf8'),
       `\n\n--- OWNS ---\n${a.owned.join('\n')}`,
+      `\n\n--- MAY RUN (exactly these commands; every other shell command is denied, and a denial says nothing about these) ---\n${
+        mayRun.length ? mayRun.map((c) => `- ${c}`).join('\n') : 'nothing: this seat has no shell'
+      }`,
       `\n\n--- TASK (from the Master) ---\n${a.task}`,
       `\n\n--- INTENT ---\n${intent}`,
       relay.sources.length
@@ -814,7 +822,17 @@ async function runWave(n, d) {
     Object.assign(
       a,
       failedGate
-        ? { terminal: 'abandoned', reason: `the quality gate failed for ${failedGate}` }
+        ? {
+            terminal: 'abandoned',
+            // the tail travels with the reason: the digest relays the reason, so the Master and the seat
+            // cast next read what failed instead of "the gate failed" (hlab-a s12a w4 changed nothing)
+            reason: `the quality gate failed for ${failedGate}: ${String(
+              gates[failedGate].tail || '',
+            )
+              .replace(/\s+/g, ' ')
+              .trim()
+              .slice(-400)}`,
+          }
         : terminalFor({
             ok: r.ok,
             timedOut: r.timedOut,

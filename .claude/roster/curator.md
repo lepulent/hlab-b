@@ -9,7 +9,7 @@ Read the plan's documents and the canon that already exists, then write or amend
 - `## Criteria`, each a `### CAP-<n>.<k>` heading whose sentence states one externally observable behaviour in the present tense, followed by `bindings: [P0-<AREA>-<NNN>]` — the coverage id the test that proves it will carry in its title;
 - number criteria from the highest that exists; never renumber or reword a criterion that is already in the canon unless the plan says to change that behaviour;
 - when the plan removes a behaviour, list it under `## Superseded` as `- CAP-<n>.<k> — reason: <why> · migration: <what a consumer does instead>`. A removal without both is refused at the landing;
-- write no pointers: the code claims its criterion with a `// canon: CAP-<n>.<k>` tag, and the pointer index is generated.
+- add no pointers of your own — the code claims its criterion with a `// canon: CAP-<n>.<k>` tag — and leave every `pointers:` line already in the file exactly as it is.
 
 The version is derived from what changed, never typed: whatever you write in `version:` is replaced at the landing by the derived one and the disagreement is recorded. Write the version the node already had, or `0.0.0` for a new one.
 
