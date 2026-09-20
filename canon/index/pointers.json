@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-20T06:55:26.943Z",
+  "generatedAt": "2026-09-20T07:13:48.217Z",
   "byFile": {
     "src/game.ts": [
       {
@@ -137,6 +137,51 @@
         "range": null,
         "blob": null,
         "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-2.1",
+        "file": "src/game.ts",
+        "symbol": "L168",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-2.5",
+        "file": "src/game.ts",
+        "symbol": "togglePause",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-2.2",
+        "file": "src/game.ts",
+        "symbol": "L175",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-2.3",
+        "file": "src/game.ts",
+        "symbol": "L176",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-2.4",
+        "file": "src/game.ts",
+        "symbol": "tick",
+        "range": null,
+        "blob": null,
+        "tag": true
       }
     ],
     "src/input.ts": [
@@ -153,6 +198,60 @@
         "criterion": "CAP-1.7",
         "file": "src/input.ts",
         "symbol": "keyToDirection",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-2.1",
+        "file": "src/input.ts",
+        "symbol": "isPauseKey",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-2.1",
+        "file": "src/input.ts",
+        "symbol": "L48",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-2.7",
+        "file": "src/input.ts",
+        "symbol": "L49",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-3.3",
+        "file": "src/input.ts",
+        "symbol": "L50",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-3.4",
+        "file": "src/input.ts",
+        "symbol": "L51",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-3.5",
+        "file": "src/input.ts",
+        "symbol": "handleKey",
         "range": null,
         "blob": null,
         "tag": true
@@ -188,6 +287,33 @@
       },
       {
         "node": null,
+        "criterion": "CAP-3.1",
+        "file": "src/render.ts",
+        "symbol": "L37",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-3.2",
+        "file": "src/render.ts",
+        "symbol": "drawScoreScreen",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-2.6",
+        "file": "src/render.ts",
+        "symbol": "statusText",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
         "criterion": "CAP-1.8",
         "file": "src/render.ts",
         "symbol": "drawFrame",
@@ -197,5 +323,5 @@
       }
     ]
   },
-  "count": 22
+  "count": 36
 }
