@@ -746,6 +746,8 @@ function land() {
       deltas.push({
         file: 'canon/quality.json',
         node: n,
+        // a criterion's assurance moves at the altitude of the node that carries it
+        altitude: deltas.find((d) => d.node === String(n).split('.')[0])?.altitude || null,
         op: 'ASSURANCE',
         assurance: { before, after: seal.rigor },
       });

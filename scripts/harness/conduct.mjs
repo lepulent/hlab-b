@@ -336,7 +336,15 @@ const changedUnder = (d) =>
   )
     .concat(porcelain())
     .filter((p) => owns([artifactPath(d)], p));
-const artifactPath = (d) => d.path.replaceAll('{plan}', PLAN);
+// A plan's documents live under intent/<plan>/ until the landing seals them into records/<plan>/, and
+// an artifact does not stop existing because it was sealed: the path follows it (hlab-a s12a read its
+// own tech spec back as "planted" the moment the plan landed).
+const artifactPath = (d) => {
+  const p = d.path.replaceAll('{plan}', PLAN);
+  if (p.includes('*') || existsSync(join(ROOT, p))) return p;
+  const sealed = p.replace(new RegExp(`^intent/${PLAN}/`), `records/${PLAN}/`);
+  return existsSync(join(ROOT, sealed)) ? sealed : p;
+};
 // An artifact whose path is a pattern (`src/**`, `canon/capabilities/**`) has no file until this plan
 // writes one, and what stood there before belongs to an earlier plan: its files are the ones this plan
 // changed. A plain path is the file at that path.
@@ -1472,15 +1480,31 @@ if (WANT_DELIVER && ending === 'goal-closed' && endLadder.covered) {
   const land = readJson(join(H, 'land.json'), null);
   // the top rung becomes reachable here and nowhere else: the plan landed, so its code is on main and
   // its documents are sealed; a document a later seat actually opened is now consumed (D3 1.00)
-  const openedPaths = [...new Set(agents.flatMap((a) => a.read || []))];
+  // every path any seat of this plan opened, from the ledger: a document read in a wave this run only
+  // rebuilt (a resume) was still read, and consumption is a fact about the plan, not about the session
+  const openedPaths = [
+    ...new Set([
+      ...agents.flatMap((a) => a.read || []),
+      ...(existsSync(ledgerFile) ? parseLedger(readFileSync(ledgerFile, 'utf8')) : [])
+        .filter((l) => l?.kind === 'record')
+        .flatMap((l) => (l.data?.toolFootprint || []).filter((t) => t.tool === 'Read'))
+        .map((t) => t.target)
+        .filter(Boolean),
+    ]),
+  ];
   const consumed = new Set(
     consumedArtifacts({
       landed: !!delivery?.ok,
       artifacts: catalogue.doctypes.map((d) => ({
         id: d.id,
         code: d.kind === 'code',
+        // both names of the artifact: the one a seat wrote it under, and the one the landing sealed it to
         paths: [
-          ...new Set(agents.filter((a) => a.artifacts.includes(d.id)).flatMap((a) => a.written)),
+          ...new Set([
+            ...agents.filter((a) => a.artifacts.includes(d.id)).flatMap((a) => a.written),
+            d.path.replaceAll('{plan}', PLAN),
+            artifactPath(d),
+          ]),
         ],
       })),
       openedPaths,
@@ -1501,7 +1525,7 @@ if (WANT_DELIVER && ending === 'goal-closed' && endLadder.covered) {
               )
                 .map(
                   (d) =>
-                    `${d.altitude || '?'} ${d.op} ${d.node || ''}${d.version ? ` → ${d.version}` : ''}`,
+                    `${d.altitude || '?'} ${d.op} ${d.node || (d.files ? `${d.files} file(s)` : d.file || '')}${d.version ? ` → ${d.version}` : ''}`,
                 )
                 .join(', ')}`
             : ''

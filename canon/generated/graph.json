@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-20T07:13:48.217Z",
+  "generatedAt": "2026-09-20T07:14:33.402Z",
   "nodes": [
     {
       "id": "MAP",
@@ -379,13 +379,6 @@
       "layer": "domain"
     },
     {
-      "id": "file:src/game.ts#togglePause",
-      "kind": "symbol",
-      "label": "togglePause",
-      "file": "src/game.ts",
-      "layer": "domain"
-    },
-    {
       "id": "file:src/game.ts#L175",
       "kind": "symbol",
       "label": "L175",
@@ -397,13 +390,6 @@
       "kind": "symbol",
       "label": "L176",
       "file": "src/game.ts",
-      "layer": "domain"
-    },
-    {
-      "id": "file:src/input.ts#isPauseKey",
-      "kind": "symbol",
-      "label": "isPauseKey",
-      "file": "src/input.ts",
       "layer": "domain"
     },
     {
@@ -435,30 +421,9 @@
       "layer": "domain"
     },
     {
-      "id": "file:src/input.ts#handleKey",
-      "kind": "symbol",
-      "label": "handleKey",
-      "file": "src/input.ts",
-      "layer": "domain"
-    },
-    {
       "id": "file:src/render.ts#L37",
       "kind": "symbol",
       "label": "L37",
-      "file": "src/render.ts",
-      "layer": "domain"
-    },
-    {
-      "id": "file:src/render.ts#drawScoreScreen",
-      "kind": "symbol",
-      "label": "drawScoreScreen",
-      "file": "src/render.ts",
-      "layer": "domain"
-    },
-    {
-      "id": "file:src/render.ts#statusText",
-      "kind": "symbol",
-      "label": "statusText",
       "file": "src/render.ts",
       "layer": "domain"
     },
@@ -473,7 +438,7 @@
       "kind": "function",
       "label": "buildMaze",
       "file": "src/game.test.ts",
-      "line": 17,
+      "line": 19,
       "exported": false
     },
     {
@@ -481,7 +446,7 @@
       "kind": "function",
       "label": "buildGhost",
       "file": "src/game.test.ts",
-      "line": 29,
+      "line": 31,
       "exported": false
     },
     {
@@ -489,7 +454,31 @@
       "kind": "function",
       "label": "buildState",
       "file": "src/game.test.ts",
-      "line": 40,
+      "line": 42,
+      "exported": false
+    },
+    {
+      "id": "func:src/game.test.ts#recordingContext",
+      "kind": "function",
+      "label": "recordingContext",
+      "file": "src/game.test.ts",
+      "line": 358,
+      "exported": false
+    },
+    {
+      "id": "func:src/game.test.ts#drawn",
+      "kind": "function",
+      "label": "drawn",
+      "file": "src/game.test.ts",
+      "line": 377,
+      "exported": false
+    },
+    {
+      "id": "func:src/game.test.ts#textsOf",
+      "kind": "function",
+      "label": "textsOf",
+      "file": "src/game.test.ts",
+      "line": 383,
       "exported": false
     },
     {
@@ -503,7 +492,7 @@
       "kind": "function",
       "label": "nextPosition",
       "file": "src/game.ts",
-      "line": 44,
+      "line": 45,
       "exported": true
     },
     {
@@ -511,7 +500,7 @@
       "kind": "function",
       "label": "createGameState",
       "file": "src/game.ts",
-      "line": 57,
+      "line": 58,
       "exported": true
     },
     {
@@ -519,7 +508,7 @@
       "kind": "function",
       "label": "attemptMove",
       "file": "src/game.ts",
-      "line": 78,
+      "line": 80,
       "exported": true
     },
     {
@@ -527,7 +516,7 @@
       "kind": "function",
       "label": "eatDot",
       "file": "src/game.ts",
-      "line": 84,
+      "line": 86,
       "exported": true
     },
     {
@@ -535,7 +524,7 @@
       "kind": "function",
       "label": "checkWin",
       "file": "src/game.ts",
-      "line": 105,
+      "line": 107,
       "exported": true
     },
     {
@@ -543,7 +532,7 @@
       "kind": "function",
       "label": "loseLife",
       "file": "src/game.ts",
-      "line": 111,
+      "line": 113,
       "exported": true
     },
     {
@@ -551,7 +540,7 @@
       "kind": "function",
       "label": "resolveGhostCollisions",
       "file": "src/game.ts",
-      "line": 123,
+      "line": 125,
       "exported": true
     },
     {
@@ -559,7 +548,7 @@
       "kind": "function",
       "label": "movePacman",
       "file": "src/game.ts",
-      "line": 137,
+      "line": 139,
       "exported": false
     },
     {
@@ -567,7 +556,7 @@
       "kind": "function",
       "label": "moveGhost",
       "file": "src/game.ts",
-      "line": 144,
+      "line": 146,
       "exported": false
     },
     {
@@ -575,7 +564,7 @@
       "kind": "arrow",
       "label": "distance",
       "file": "src/game.ts",
-      "line": 152,
+      "line": 154,
       "exported": false
     },
     {
@@ -583,15 +572,23 @@
       "kind": "function",
       "label": "moveGhosts",
       "file": "src/game.ts",
-      "line": 162,
+      "line": 164,
       "exported": false
+    },
+    {
+      "id": "func:src/game.ts#togglePause",
+      "kind": "function",
+      "label": "togglePause",
+      "file": "src/game.ts",
+      "line": 170,
+      "exported": true
     },
     {
       "id": "func:src/game.ts#tick",
       "kind": "function",
       "label": "tick",
       "file": "src/game.ts",
-      "line": 166,
+      "line": 178,
       "exported": true
     },
     {
@@ -599,6 +596,22 @@
       "kind": "file",
       "label": "src/input.test.ts",
       "file": "src/input.test.ts"
+    },
+    {
+      "id": "func:src/input.test.ts#press",
+      "kind": "function",
+      "label": "press",
+      "file": "src/input.test.ts",
+      "line": 6,
+      "exported": false
+    },
+    {
+      "id": "func:src/input.test.ts#ended",
+      "kind": "function",
+      "label": "ended",
+      "file": "src/input.test.ts",
+      "line": 10,
+      "exported": false
     },
     {
       "id": "file:src/input.ts",
@@ -611,7 +624,23 @@
       "kind": "function",
       "label": "keyToDirection",
       "file": "src/input.ts",
-      "line": 20,
+      "line": 21,
+      "exported": true
+    },
+    {
+      "id": "func:src/input.ts#isPauseKey",
+      "kind": "function",
+      "label": "isPauseKey",
+      "file": "src/input.ts",
+      "line": 27,
+      "exported": true
+    },
+    {
+      "id": "func:src/input.ts#handleKey",
+      "kind": "function",
+      "label": "handleKey",
+      "file": "src/input.ts",
+      "line": 53,
       "exported": true
     },
     {
@@ -641,7 +670,7 @@
       "kind": "function",
       "label": "render",
       "file": "src/main.ts",
-      "line": 55,
+      "line": 56,
       "exported": false
     },
     {
@@ -649,7 +678,7 @@
       "kind": "function",
       "label": "frame",
       "file": "src/main.ts",
-      "line": 64,
+      "line": 63,
       "exported": false
     },
     {
@@ -763,7 +792,7 @@
       "kind": "function",
       "label": "drawPacman",
       "file": "src/render.ts",
-      "line": 11,
+      "line": 13,
       "exported": false
     },
     {
@@ -771,15 +800,31 @@
       "kind": "function",
       "label": "drawGhost",
       "file": "src/render.ts",
-      "line": 26,
+      "line": 28,
       "exported": false
+    },
+    {
+      "id": "func:src/render.ts#drawScoreScreen",
+      "kind": "function",
+      "label": "drawScoreScreen",
+      "file": "src/render.ts",
+      "line": 39,
+      "exported": false
+    },
+    {
+      "id": "func:src/render.ts#statusText",
+      "kind": "function",
+      "label": "statusText",
+      "file": "src/render.ts",
+      "line": 60,
+      "exported": true
     },
     {
       "id": "func:src/render.ts#drawFrame",
       "kind": "function",
       "label": "drawFrame",
       "file": "src/render.ts",
-      "line": 35,
+      "line": 67,
       "exported": true
     },
     {
@@ -1248,7 +1293,7 @@
     },
     {
       "source": "CAP-2.5",
-      "target": "file:src/game.ts#togglePause",
+      "target": "func:src/game.ts#togglePause",
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
@@ -1288,7 +1333,7 @@
     },
     {
       "source": "CAP-2.1",
-      "target": "file:src/input.ts#isPauseKey",
+      "target": "func:src/input.ts#isPauseKey",
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
@@ -1328,7 +1373,7 @@
     },
     {
       "source": "CAP-3.5",
-      "target": "file:src/input.ts#handleKey",
+      "target": "func:src/input.ts#handleKey",
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
@@ -1352,7 +1397,7 @@
     },
     {
       "source": "CAP-3.2",
-      "target": "file:src/render.ts#drawScoreScreen",
+      "target": "func:src/render.ts#drawScoreScreen",
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
@@ -1360,7 +1405,7 @@
     },
     {
       "source": "CAP-2.6",
-      "target": "file:src/render.ts#statusText",
+      "target": "func:src/render.ts#statusText",
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
@@ -1389,6 +1434,24 @@
     {
       "source": "file:src/game.test.ts",
       "target": "func:src/game.test.ts#buildState",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.test.ts",
+      "target": "func:src/game.test.ts#recordingContext",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.test.ts",
+      "target": "func:src/game.test.ts#drawn",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.test.ts",
+      "target": "func:src/game.test.ts#textsOf",
       "type": "DEFINES",
       "confidence": "EXTRACTED"
     },
@@ -1460,13 +1523,43 @@
     },
     {
       "source": "file:src/game.ts",
+      "target": "func:src/game.ts#togglePause",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.ts",
       "target": "func:src/game.ts#tick",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/input.test.ts",
+      "target": "func:src/input.test.ts#press",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/input.test.ts",
+      "target": "func:src/input.test.ts#ended",
       "type": "DEFINES",
       "confidence": "EXTRACTED"
     },
     {
       "source": "file:src/input.ts",
       "target": "func:src/input.ts#keyToDirection",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/input.ts",
+      "target": "func:src/input.ts#isPauseKey",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/input.ts",
+      "target": "func:src/input.ts#handleKey",
       "type": "DEFINES",
       "confidence": "EXTRACTED"
     },
@@ -1574,6 +1667,18 @@
     },
     {
       "source": "file:src/render.ts",
+      "target": "func:src/render.ts#drawScoreScreen",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/render.ts",
+      "target": "func:src/render.ts#statusText",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/render.ts",
       "target": "func:src/render.ts#drawFrame",
       "type": "DEFINES",
       "confidence": "EXTRACTED"
@@ -1598,6 +1703,12 @@
     },
     {
       "source": "file:src/game.test.ts",
+      "target": "file:src/render.ts",
+      "type": "IMPORTS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.test.ts",
       "target": "file:src/game.ts",
       "type": "IMPORTS",
       "confidence": "EXTRACTED"
@@ -1605,6 +1716,12 @@
     {
       "source": "file:src/game.ts",
       "target": "file:src/maze.ts",
+      "type": "IMPORTS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/input.test.ts",
+      "target": "file:src/game.ts",
       "type": "IMPORTS",
       "confidence": "EXTRACTED"
     },
@@ -1723,6 +1840,42 @@
       "confidence": "EXTRACTED"
     },
     {
+      "source": "file:src/game.test.ts",
+      "target": "func:src/game.ts#togglePause",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/game.test.ts#drawn",
+      "target": "func:src/game.test.ts#recordingContext",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/game.test.ts#drawn",
+      "target": "func:src/render.ts#drawFrame",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.test.ts",
+      "target": "func:src/render.ts#statusText",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.test.ts",
+      "target": "func:src/game.test.ts#drawn",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.test.ts",
+      "target": "func:src/game.test.ts#textsOf",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
       "source": "func:src/game.ts#createGameState",
       "target": "func:src/maze.ts#createMaze",
       "type": "CALLS",
@@ -1819,7 +1972,73 @@
       "confidence": "EXTRACTED"
     },
     {
+      "source": "func:src/input.test.ts#ended",
+      "target": "func:src/game.ts#createGameState",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
       "source": "file:src/input.test.ts",
+      "target": "func:src/input.ts#keyToDirection",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/input.test.ts",
+      "target": "func:src/input.ts#isPauseKey",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/input.test.ts",
+      "target": "func:src/input.ts#handleKey",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/input.test.ts",
+      "target": "func:src/game.ts#createGameState",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/input.test.ts",
+      "target": "func:src/input.test.ts#press",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/input.test.ts",
+      "target": "func:src/game.ts#togglePause",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/input.test.ts",
+      "target": "func:src/input.test.ts#ended",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/input.ts#handleKey",
+      "target": "func:src/game.ts#createGameState",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/input.ts#handleKey",
+      "target": "func:src/input.ts#isPauseKey",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/input.ts#handleKey",
+      "target": "func:src/game.ts#togglePause",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/input.ts#handleKey",
       "target": "func:src/input.ts#keyToDirection",
       "type": "CALLS",
       "confidence": "EXTRACTED"
@@ -1838,13 +2057,19 @@
     },
     {
       "source": "file:src/main.ts",
-      "target": "func:src/input.ts#keyToDirection",
+      "target": "func:src/input.ts#handleKey",
       "type": "CALLS",
       "confidence": "EXTRACTED"
     },
     {
       "source": "func:src/main.ts#render",
       "target": "func:src/render.ts#drawFrame",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/main.ts#render",
+      "target": "func:src/render.ts#statusText",
       "type": "CALLS",
       "confidence": "EXTRACTED"
     },
@@ -1957,6 +2182,12 @@
       "confidence": "EXTRACTED"
     },
     {
+      "source": "func:src/render.ts#drawFrame",
+      "target": "func:src/render.ts#drawScoreScreen",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
       "source": "file:tests/e2e/app.spec.ts",
       "target": "arrow:tests/e2e/app.spec.ts#ratio",
       "type": "CALLS",
@@ -1977,6 +2208,18 @@
     {
       "source": "file:src/game.test.ts",
       "target": "file:src/maze.ts",
+      "type": "TESTS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.test.ts",
+      "target": "file:src/render.ts",
+      "type": "TESTS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/input.test.ts",
+      "target": "file:src/game.ts",
       "type": "TESTS",
       "confidence": "EXTRACTED"
     },
