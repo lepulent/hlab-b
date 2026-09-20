@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-20T07:45:40.450Z",
+  "generatedAt": "2026-09-20T13:53:54.014Z",
   "nodes": [
     {
       "id": "MAP",
@@ -18,8 +18,8 @@
       "label": "Pacman gameplay",
       "file": "canon/capabilities/CAP-1.md",
       "assurance": "draft",
-      "version": 1,
-      "valid_from": "b64b12b7901e256cb8c40c606f513a8f0fdce690",
+      "version": "2.0.0",
+      "valid_from": "18e2778f08822b567b864016a8252275b905082c",
       "valid_to": null,
       "layer": "harness"
     },
@@ -66,7 +66,7 @@
     {
       "id": "CAP-1.3",
       "kind": "criterion",
-      "label": "Moving onto a dot or power pellet eats it and adds to the score; a pellet also frightens every ghost",
+      "label": "Moving onto a dot or power pellet eats it and adds to the score, a pellet being worth more than a dot; a pellet also frightens every ghost",
       "file": "canon/capabilities/CAP-1.md",
       "parent": "CAP-1",
       "layer": "harness"
@@ -396,6 +396,95 @@
       "label": "P0-UI-008"
     },
     {
+      "id": "CAP-4",
+      "kind": "capability",
+      "label": "In-play score display",
+      "file": "canon/capabilities/CAP-4.md",
+      "assurance": "draft",
+      "version": "0.1.0",
+      "valid_from": "18e2778f08822b567b864016a8252275b905082c",
+      "valid_to": null,
+      "layer": "harness"
+    },
+    {
+      "id": "CAP-4.1",
+      "kind": "criterion",
+      "label": "While the game is being played, the score is visible on the page as Score followed by the current points, and reads Score: 0 before anything is eaten",
+      "file": "canon/capabilities/CAP-4.md",
+      "parent": "CAP-4",
+      "layer": "harness"
+    },
+    {
+      "id": "P0-UI-009",
+      "kind": "coverage-row",
+      "label": "P0-UI-009"
+    },
+    {
+      "id": "CAP-4.2",
+      "kind": "criterion",
+      "label": "The score is shown in the same row as the lives, next to them",
+      "file": "canon/capabilities/CAP-4.md",
+      "parent": "CAP-4",
+      "layer": "harness"
+    },
+    {
+      "id": "P0-UI-010",
+      "kind": "coverage-row",
+      "label": "P0-UI-010"
+    },
+    {
+      "id": "CAP-4.3",
+      "kind": "criterion",
+      "label": "Eating a dot raises the displayed score by the points scoring gives a dot",
+      "file": "canon/capabilities/CAP-4.md",
+      "parent": "CAP-4",
+      "layer": "harness"
+    },
+    {
+      "id": "P0-UI-011",
+      "kind": "coverage-row",
+      "label": "P0-UI-011"
+    },
+    {
+      "id": "CAP-4.4",
+      "kind": "criterion",
+      "label": "Eating a power pellet raises the displayed score by the points scoring gives a power pellet",
+      "file": "canon/capabilities/CAP-4.md",
+      "parent": "CAP-4",
+      "layer": "harness"
+    },
+    {
+      "id": "P0-UI-012",
+      "kind": "coverage-row",
+      "label": "P0-UI-012"
+    },
+    {
+      "id": "CAP-4.5",
+      "kind": "criterion",
+      "label": "Eating a frightened ghost raises the displayed score by the points scoring gives a caught ghost",
+      "file": "canon/capabilities/CAP-4.md",
+      "parent": "CAP-4",
+      "layer": "harness"
+    },
+    {
+      "id": "P0-UI-013",
+      "kind": "coverage-row",
+      "label": "P0-UI-013"
+    },
+    {
+      "id": "CAP-4.6",
+      "kind": "criterion",
+      "label": "The score on the win and game-over screens equals the score the display showed on the last step",
+      "file": "canon/capabilities/CAP-4.md",
+      "parent": "CAP-4",
+      "layer": "harness"
+    },
+    {
+      "id": "P0-UI-014",
+      "kind": "coverage-row",
+      "label": "P0-UI-014"
+    },
+    {
       "id": "CONSTITUTION",
       "kind": "constitution",
       "label": "CONSTITUTION",
@@ -447,6 +536,48 @@
       "id": "check:policy/tags-present",
       "kind": "check",
       "label": "policy/tags-present"
+    },
+    {
+      "id": "file:src/game.test.ts#L483",
+      "kind": "symbol",
+      "label": "L483",
+      "file": "src/game.test.ts",
+      "layer": "domain"
+    },
+    {
+      "id": "file:src/game.test.ts#html",
+      "kind": "symbol",
+      "label": "html",
+      "file": "src/game.test.ts",
+      "layer": "domain"
+    },
+    {
+      "id": "file:src/game.test.ts#before",
+      "kind": "symbol",
+      "label": "before",
+      "file": "src/game.test.ts",
+      "layer": "domain"
+    },
+    {
+      "id": "file:src/game.test.ts#maze",
+      "kind": "symbol",
+      "label": "maze",
+      "file": "src/game.test.ts",
+      "layer": "domain"
+    },
+    {
+      "id": "file:src/game.test.ts#ghost",
+      "kind": "symbol",
+      "label": "ghost",
+      "file": "src/game.test.ts",
+      "layer": "domain"
+    },
+    {
+      "id": "file:src/game.test.ts#lastDot",
+      "kind": "symbol",
+      "label": "lastDot",
+      "file": "src/game.test.ts",
+      "layer": "domain"
     },
     {
       "id": "file:src/game.ts#L168",
@@ -867,6 +998,78 @@
       "confidence": "EXTRACTED"
     },
     {
+      "source": "CAP-4",
+      "target": "CAP-4.1",
+      "type": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "P0-UI-009",
+      "target": "CAP-4.1",
+      "type": "tests",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-4",
+      "target": "CAP-4.2",
+      "type": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "P0-UI-010",
+      "target": "CAP-4.2",
+      "type": "tests",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-4",
+      "target": "CAP-4.3",
+      "type": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "P0-UI-011",
+      "target": "CAP-4.3",
+      "type": "tests",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-4",
+      "target": "CAP-4.4",
+      "type": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "P0-UI-012",
+      "target": "CAP-4.4",
+      "type": "tests",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-4",
+      "target": "CAP-4.5",
+      "type": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "P0-UI-013",
+      "target": "CAP-4.5",
+      "type": "tests",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-4",
+      "target": "CAP-4.6",
+      "type": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "P0-UI-014",
+      "target": "CAP-4.6",
+      "type": "tests",
+      "confidence": "EXTRACTED"
+    },
+    {
       "source": "CONSTITUTION",
       "target": "C-1",
       "type": "contains",
@@ -901,6 +1104,70 @@
       "target": "check:policy/tags-present",
       "type": "enforced_by",
       "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-4.1",
+      "target": "file:src/game.test.ts#L483",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 483
+    },
+    {
+      "source": "CAP-4.2",
+      "target": "file:src/game.test.ts#html",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 493
+    },
+    {
+      "source": "CAP-4.3",
+      "target": "file:src/game.test.ts#before",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 508
+    },
+    {
+      "source": "CAP-4.4",
+      "target": "file:src/game.test.ts#maze",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 518
+    },
+    {
+      "source": "CAP-4.5",
+      "target": "file:src/game.test.ts#ghost",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 529
+    },
+    {
+      "source": "CAP-4.5",
+      "target": "file:src/game.test.ts#before",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 545
+    },
+    {
+      "source": "CAP-4.6",
+      "target": "file:src/game.test.ts#lastDot",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 557
+    },
+    {
+      "source": "CAP-4.6",
+      "target": "file:src/game.test.ts#before",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 573
     },
     {
       "source": "CAP-1.1",

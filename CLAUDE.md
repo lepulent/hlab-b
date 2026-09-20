@@ -26,10 +26,11 @@ A browser pacman with pixel art and keyboard control. This repo is one of two la
 
 <!-- generated:start -->
 
-- capabilities: 3 · criteria: 21 · pointers: 36 · departments: Security, Platform, Testing
-- CAP-1 Pacman gameplay · v1 · prototype
+- capabilities: 4 · criteria: 27 · pointers: 44 · departments: Security, Platform, Testing
+- CAP-1 Pacman gameplay · v2.0.0 · prototype
 - CAP-2 Pause and resume · v0.1.0 · prototype
 - CAP-3 End-of-game score screen and restart · v0.1.0 · prototype
+- CAP-4 In-play score display · v0.1.0 · prototype
 - layers: composition, ui, domain, transport, persistence, infrastructure, tests, harness
 
 <!-- generated:end -->

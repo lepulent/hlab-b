@@ -2,9 +2,9 @@
 id: CAP-4
 kind: capability
 title: In-play score display
-version: 0.0.0
+version: 0.1.0
 assurance: draft
-valid_from: 238ab75
+valid_from: 18e2778f08822b567b864016a8252275b905082c
 ---
 
 ## Why

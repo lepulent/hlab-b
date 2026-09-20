@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-20T07:45:40.450Z",
+  "generatedAt": "2026-09-20T13:53:54.014Z",
   "byFile": {
     "src/game.ts": [
       {
@@ -321,7 +321,81 @@
         "blob": null,
         "tag": true
       }
+    ],
+    "src/game.test.ts": [
+      {
+        "node": null,
+        "criterion": "CAP-4.1",
+        "file": "src/game.test.ts",
+        "symbol": "L483",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-4.2",
+        "file": "src/game.test.ts",
+        "symbol": "html",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-4.3",
+        "file": "src/game.test.ts",
+        "symbol": "before",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-4.4",
+        "file": "src/game.test.ts",
+        "symbol": "maze",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-4.5",
+        "file": "src/game.test.ts",
+        "symbol": "ghost",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-4.5",
+        "file": "src/game.test.ts",
+        "symbol": "before",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-4.6",
+        "file": "src/game.test.ts",
+        "symbol": "lastDot",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-4.6",
+        "file": "src/game.test.ts",
+        "symbol": "before",
+        "range": null,
+        "blob": null,
+        "tag": true
+      }
     ]
   },
-  "count": 36
+  "count": 44
 }

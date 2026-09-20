@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-20T07:45:39.482Z",
+  "generatedAt": "2026-09-20T13:53:53.885Z",
   "root": ".",
   "nodes": [
     {
@@ -13,7 +13,7 @@
       "kind": "function",
       "label": "buildMaze",
       "file": "src/game.test.ts",
-      "line": 19,
+      "line": 20,
       "exported": false
     },
     {
@@ -21,7 +21,7 @@
       "kind": "function",
       "label": "buildGhost",
       "file": "src/game.test.ts",
-      "line": 31,
+      "line": 32,
       "exported": false
     },
     {
@@ -29,7 +29,7 @@
       "kind": "function",
       "label": "buildState",
       "file": "src/game.test.ts",
-      "line": 42,
+      "line": 43,
       "exported": false
     },
     {
@@ -37,7 +37,7 @@
       "kind": "function",
       "label": "recordingContext",
       "file": "src/game.test.ts",
-      "line": 358,
+      "line": 359,
       "exported": false
     },
     {
@@ -45,7 +45,7 @@
       "kind": "function",
       "label": "drawn",
       "file": "src/game.test.ts",
-      "line": 377,
+      "line": 378,
       "exported": false
     },
     {
@@ -53,7 +53,55 @@
       "kind": "function",
       "label": "textsOf",
       "file": "src/game.test.ts",
-      "line": 383,
+      "line": 384,
+      "exported": false
+    },
+    {
+      "id": "func:src/game.test.ts#dotPoints",
+      "kind": "function",
+      "label": "dotPoints",
+      "file": "src/game.test.ts",
+      "line": 451,
+      "exported": false
+    },
+    {
+      "id": "func:src/game.test.ts#pelletPoints",
+      "kind": "function",
+      "label": "pelletPoints",
+      "file": "src/game.test.ts",
+      "line": 456,
+      "exported": false
+    },
+    {
+      "id": "func:src/game.test.ts#ghostPoints",
+      "kind": "function",
+      "label": "ghostPoints",
+      "file": "src/game.test.ts",
+      "line": 461,
+      "exported": false
+    },
+    {
+      "id": "func:src/game.test.ts#hudScore",
+      "kind": "function",
+      "label": "hudScore",
+      "file": "src/game.test.ts",
+      "line": 469,
+      "exported": false
+    },
+    {
+      "id": "func:src/game.test.ts#scoreScreenText",
+      "kind": "function",
+      "label": "scoreScreenText",
+      "file": "src/game.test.ts",
+      "line": 473,
+      "exported": false
+    },
+    {
+      "id": "func:src/game.test.ts#pageHtml",
+      "kind": "function",
+      "label": "pageHtml",
+      "file": "src/game.test.ts",
+      "line": 477,
       "exported": false
     },
     {
@@ -477,6 +525,42 @@
       "confidence": "EXTRACTED"
     },
     {
+      "source": "file:src/game.test.ts",
+      "target": "func:src/game.test.ts#dotPoints",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.test.ts",
+      "target": "func:src/game.test.ts#pelletPoints",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.test.ts",
+      "target": "func:src/game.test.ts#ghostPoints",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.test.ts",
+      "target": "func:src/game.test.ts#hudScore",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.test.ts",
+      "target": "func:src/game.test.ts#scoreScreenText",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.test.ts",
+      "target": "func:src/game.test.ts#pageHtml",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
       "source": "file:src/game.ts",
       "target": "func:src/game.ts#nextPosition",
       "type": "DEFINES",
@@ -893,6 +977,102 @@
     {
       "source": "file:src/game.test.ts",
       "target": "func:src/game.test.ts#textsOf",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/game.test.ts#dotPoints",
+      "target": "func:src/game.test.ts#buildState",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/game.test.ts#dotPoints",
+      "target": "func:src/game.ts#eatDot",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/game.test.ts#pelletPoints",
+      "target": "func:src/game.test.ts#buildState",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/game.test.ts#pelletPoints",
+      "target": "func:src/game.test.ts#buildMaze",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/game.test.ts#pelletPoints",
+      "target": "func:src/game.ts#eatDot",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/game.test.ts#ghostPoints",
+      "target": "func:src/game.test.ts#buildGhost",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/game.test.ts#ghostPoints",
+      "target": "func:src/game.test.ts#buildState",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/game.test.ts#ghostPoints",
+      "target": "func:src/game.ts#resolveGhostCollisions",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/game.test.ts#scoreScreenText",
+      "target": "func:src/game.test.ts#textsOf",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/game.test.ts#scoreScreenText",
+      "target": "func:src/game.test.ts#drawn",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.test.ts",
+      "target": "func:src/game.test.ts#pageHtml",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.test.ts",
+      "target": "func:src/game.test.ts#hudScore",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.test.ts",
+      "target": "func:src/game.test.ts#dotPoints",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.test.ts",
+      "target": "func:src/game.test.ts#pelletPoints",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.test.ts",
+      "target": "func:src/game.test.ts#ghostPoints",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.test.ts",
+      "target": "func:src/game.test.ts#scoreScreenText",
       "type": "CALLS",
       "confidence": "EXTRACTED"
     },

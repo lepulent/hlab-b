@@ -23,7 +23,14 @@
     "CAP-3.2": "prototype",
     "CAP-3.3": "prototype",
     "CAP-3.4": "prototype",
-    "CAP-3.5": "prototype"
+    "CAP-3.5": "prototype",
+    "CAP-4": "prototype",
+    "CAP-4.1": "prototype",
+    "CAP-4.2": "prototype",
+    "CAP-4.3": "prototype",
+    "CAP-4.4": "prototype",
+    "CAP-4.5": "prototype",
+    "CAP-4.6": "prototype"
   },
   "bindings": {
     "criteria": 0,

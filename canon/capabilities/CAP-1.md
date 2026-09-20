@@ -2,9 +2,9 @@
 id: CAP-1
 kind: capability
 title: Pacman gameplay
-version: 1
+version: 2.0.0
 assurance: draft
-valid_from: b64b12b7901e256cb8c40c606f513a8f0fdce690
+valid_from: 18e2778f08822b567b864016a8252275b905082c
 ---
 
 ## Why
