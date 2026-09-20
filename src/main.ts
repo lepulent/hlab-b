@@ -1,7 +1,7 @@
 import type { Direction } from './game';
 import { createGameState, tick } from './game';
-import { keyToDirection } from './input';
-import { drawFrame, TILE } from './render';
+import { handleKey } from './input';
+import { drawFrame, statusText, TILE } from './render';
 
 function required<T>(value: T | null, message: string): T {
   if (value === null) throw new Error(message);
@@ -43,12 +43,13 @@ function applyScale(): void {
 }
 
 let currentDirection: Direction | null = null;
+let last = 0;
 window.addEventListener('keydown', (event) => {
-  const dir = keyToDirection(event.key);
-  if (dir) {
-    currentDirection = dir;
-    event.preventDefault();
-  }
+  const result = handleKey(state, currentDirection, event);
+  state = result.state;
+  currentDirection = result.direction;
+  if (result.restarted) last = 0;
+  if (result.consumed) event.preventDefault();
 });
 window.addEventListener('resize', applyScale);
 
@@ -56,13 +57,13 @@ function render(): void {
   drawFrame(ctx, state);
   scoreEl.textContent = `Score: ${state.score}`;
   livesEl.textContent = `Lives: ${state.lives}`;
-  statusEl.textContent =
-    state.status === 'won' ? 'You win!' : state.status === 'lost' ? 'Game over' : '';
+  statusEl.textContent = statusText(state);
 }
 
-let last = 0;
 function frame(timestamp: number): void {
-  if (state.status === 'playing' && timestamp - last >= STEP_MS) {
+  if (state.paused) {
+    last = timestamp;
+  } else if (state.status === 'playing' && timestamp - last >= STEP_MS) {
     state = tick(state, currentDirection);
     last = timestamp;
   }
