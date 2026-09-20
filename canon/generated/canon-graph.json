@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-20T06:55:26.943Z",
+  "generatedAt": "2026-09-20T07:14:51.850Z",
   "nodes": [
     {
       "id": "MAP",
@@ -218,6 +218,184 @@
       "layer": "domain"
     },
     {
+      "id": "CAP-2",
+      "kind": "capability",
+      "label": "Pause and resume",
+      "file": "canon/capabilities/CAP-2.md",
+      "assurance": "draft",
+      "version": "0.0.0",
+      "valid_from": "2aa73dc5c74c6b3db1b569d601074a4370b6bb00",
+      "valid_to": null,
+      "layer": "harness"
+    },
+    {
+      "id": "CAP-2.1",
+      "kind": "criterion",
+      "label": "Pressing P or p while the game is being played pauses it, and pressing it again resumes it",
+      "file": "canon/capabilities/CAP-2.md",
+      "parent": "CAP-2",
+      "layer": "harness"
+    },
+    {
+      "id": "P0-GAME-009",
+      "kind": "coverage-row",
+      "label": "P0-GAME-009"
+    },
+    {
+      "id": "CAP-2.2",
+      "kind": "criterion",
+      "label": "While the game is paused, pacman and every ghost stay on their tiles",
+      "file": "canon/capabilities/CAP-2.md",
+      "parent": "CAP-2",
+      "layer": "harness"
+    },
+    {
+      "id": "P0-GAME-010",
+      "kind": "coverage-row",
+      "label": "P0-GAME-010"
+    },
+    {
+      "id": "CAP-2.3",
+      "kind": "criterion",
+      "label": "While the game is paused, nothing is eaten and no life is lost, even with a ghost on pacman's tile, and the frightened timer does not count down",
+      "file": "canon/capabilities/CAP-2.md",
+      "parent": "CAP-2",
+      "layer": "harness"
+    },
+    {
+      "id": "P0-GAME-011",
+      "kind": "coverage-row",
+      "label": "P0-GAME-011"
+    },
+    {
+      "id": "CAP-2.4",
+      "kind": "criterion",
+      "label": "Once resumed, pacman and the ghosts move again on the next step",
+      "file": "canon/capabilities/CAP-2.md",
+      "parent": "CAP-2",
+      "layer": "harness"
+    },
+    {
+      "id": "P0-GAME-012",
+      "kind": "coverage-row",
+      "label": "P0-GAME-012"
+    },
+    {
+      "id": "CAP-2.5",
+      "kind": "criterion",
+      "label": "A game that has been won or lost cannot be paused",
+      "file": "canon/capabilities/CAP-2.md",
+      "parent": "CAP-2",
+      "layer": "harness"
+    },
+    {
+      "id": "P0-GAME-013",
+      "kind": "coverage-row",
+      "label": "P0-GAME-013"
+    },
+    {
+      "id": "CAP-2.6",
+      "kind": "criterion",
+      "label": "While the game is paused the status line reads Paused and the score, lives and canvas do not change, including when P is pressed before the first direction key",
+      "file": "canon/capabilities/CAP-2.md",
+      "parent": "CAP-2",
+      "layer": "harness"
+    },
+    {
+      "id": "P0-UI-002",
+      "kind": "coverage-row",
+      "label": "P0-UI-002"
+    },
+    {
+      "id": "CAP-2.7",
+      "kind": "criterion",
+      "label": "Direction keys pressed while the game is paused are ignored and do not steer pacman after it resumes",
+      "file": "canon/capabilities/CAP-2.md",
+      "parent": "CAP-2",
+      "layer": "harness"
+    },
+    {
+      "id": "P0-UI-003",
+      "kind": "coverage-row",
+      "label": "P0-UI-003"
+    },
+    {
+      "id": "CAP-3",
+      "kind": "capability",
+      "label": "End-of-game score screen and restart",
+      "file": "canon/capabilities/CAP-3.md",
+      "assurance": "draft",
+      "version": "0.0.0",
+      "valid_from": "2aa73dc5c74c6b3db1b569d601074a4370b6bb00",
+      "valid_to": null,
+      "layer": "harness"
+    },
+    {
+      "id": "CAP-3.1",
+      "kind": "criterion",
+      "label": "When the game is won, the canvas shows YOU WIN and the final score",
+      "file": "canon/capabilities/CAP-3.md",
+      "parent": "CAP-3",
+      "layer": "harness"
+    },
+    {
+      "id": "P0-UI-004",
+      "kind": "coverage-row",
+      "label": "P0-UI-004"
+    },
+    {
+      "id": "CAP-3.2",
+      "kind": "criterion",
+      "label": "When the game is lost, the canvas shows GAME OVER and the final score",
+      "file": "canon/capabilities/CAP-3.md",
+      "parent": "CAP-3",
+      "layer": "harness"
+    },
+    {
+      "id": "P0-UI-005",
+      "kind": "coverage-row",
+      "label": "P0-UI-005"
+    },
+    {
+      "id": "CAP-3.3",
+      "kind": "criterion",
+      "label": "On the score screen, pressing any key, P included, starts a fresh running game with the score, lives and dots back at their starting values",
+      "file": "canon/capabilities/CAP-3.md",
+      "parent": "CAP-3",
+      "layer": "harness"
+    },
+    {
+      "id": "P0-UI-006",
+      "kind": "coverage-row",
+      "label": "P0-UI-006"
+    },
+    {
+      "id": "CAP-3.4",
+      "kind": "criterion",
+      "label": "The key that restarts the game does not steer pacman",
+      "file": "canon/capabilities/CAP-3.md",
+      "parent": "CAP-3",
+      "layer": "harness"
+    },
+    {
+      "id": "P0-UI-007",
+      "kind": "coverage-row",
+      "label": "P0-UI-007"
+    },
+    {
+      "id": "CAP-3.5",
+      "kind": "criterion",
+      "label": "A held-down key repeating, or a key pressed with Ctrl, Meta or Alt, does not restart the game",
+      "file": "canon/capabilities/CAP-3.md",
+      "parent": "CAP-3",
+      "layer": "harness"
+    },
+    {
+      "id": "P0-UI-008",
+      "kind": "coverage-row",
+      "label": "P0-UI-008"
+    },
+    {
       "id": "CONSTITUTION",
       "kind": "constitution",
       "label": "CONSTITUTION",
@@ -269,6 +447,104 @@
       "id": "check:policy/tags-present",
       "kind": "check",
       "label": "policy/tags-present"
+    },
+    {
+      "id": "file:src/game.ts#L168",
+      "kind": "symbol",
+      "label": "L168",
+      "file": "src/game.ts",
+      "layer": "domain"
+    },
+    {
+      "id": "file:src/game.ts#togglePause",
+      "kind": "symbol",
+      "label": "togglePause",
+      "file": "src/game.ts",
+      "layer": "domain"
+    },
+    {
+      "id": "file:src/game.ts#L175",
+      "kind": "symbol",
+      "label": "L175",
+      "file": "src/game.ts",
+      "layer": "domain"
+    },
+    {
+      "id": "file:src/game.ts#L176",
+      "kind": "symbol",
+      "label": "L176",
+      "file": "src/game.ts",
+      "layer": "domain"
+    },
+    {
+      "id": "file:src/game.ts#tick",
+      "kind": "symbol",
+      "label": "tick",
+      "file": "src/game.ts",
+      "layer": "domain"
+    },
+    {
+      "id": "file:src/input.ts#isPauseKey",
+      "kind": "symbol",
+      "label": "isPauseKey",
+      "file": "src/input.ts",
+      "layer": "domain"
+    },
+    {
+      "id": "file:src/input.ts#L48",
+      "kind": "symbol",
+      "label": "L48",
+      "file": "src/input.ts",
+      "layer": "domain"
+    },
+    {
+      "id": "file:src/input.ts#L49",
+      "kind": "symbol",
+      "label": "L49",
+      "file": "src/input.ts",
+      "layer": "domain"
+    },
+    {
+      "id": "file:src/input.ts#L50",
+      "kind": "symbol",
+      "label": "L50",
+      "file": "src/input.ts",
+      "layer": "domain"
+    },
+    {
+      "id": "file:src/input.ts#L51",
+      "kind": "symbol",
+      "label": "L51",
+      "file": "src/input.ts",
+      "layer": "domain"
+    },
+    {
+      "id": "file:src/input.ts#handleKey",
+      "kind": "symbol",
+      "label": "handleKey",
+      "file": "src/input.ts",
+      "layer": "domain"
+    },
+    {
+      "id": "file:src/render.ts#L37",
+      "kind": "symbol",
+      "label": "L37",
+      "file": "src/render.ts",
+      "layer": "domain"
+    },
+    {
+      "id": "file:src/render.ts#drawScoreScreen",
+      "kind": "symbol",
+      "label": "drawScoreScreen",
+      "file": "src/render.ts",
+      "layer": "domain"
+    },
+    {
+      "id": "file:src/render.ts#statusText",
+      "kind": "symbol",
+      "label": "statusText",
+      "file": "src/render.ts",
+      "layer": "domain"
     }
   ],
   "edges": [
@@ -447,6 +723,150 @@
       "confidence": "EXTRACTED"
     },
     {
+      "source": "CAP-2",
+      "target": "CAP-2.1",
+      "type": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "P0-GAME-009",
+      "target": "CAP-2.1",
+      "type": "tests",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-2",
+      "target": "CAP-2.2",
+      "type": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "P0-GAME-010",
+      "target": "CAP-2.2",
+      "type": "tests",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-2",
+      "target": "CAP-2.3",
+      "type": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "P0-GAME-011",
+      "target": "CAP-2.3",
+      "type": "tests",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-2",
+      "target": "CAP-2.4",
+      "type": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "P0-GAME-012",
+      "target": "CAP-2.4",
+      "type": "tests",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-2",
+      "target": "CAP-2.5",
+      "type": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "P0-GAME-013",
+      "target": "CAP-2.5",
+      "type": "tests",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-2",
+      "target": "CAP-2.6",
+      "type": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "P0-UI-002",
+      "target": "CAP-2.6",
+      "type": "tests",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-2",
+      "target": "CAP-2.7",
+      "type": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "P0-UI-003",
+      "target": "CAP-2.7",
+      "type": "tests",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-3",
+      "target": "CAP-3.1",
+      "type": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "P0-UI-004",
+      "target": "CAP-3.1",
+      "type": "tests",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-3",
+      "target": "CAP-3.2",
+      "type": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "P0-UI-005",
+      "target": "CAP-3.2",
+      "type": "tests",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-3",
+      "target": "CAP-3.3",
+      "type": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "P0-UI-006",
+      "target": "CAP-3.3",
+      "type": "tests",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-3",
+      "target": "CAP-3.4",
+      "type": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "P0-UI-007",
+      "target": "CAP-3.4",
+      "type": "tests",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-3",
+      "target": "CAP-3.5",
+      "type": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "P0-UI-008",
+      "target": "CAP-3.5",
+      "type": "tests",
+      "confidence": "EXTRACTED"
+    },
+    {
       "source": "CONSTITUTION",
       "target": "C-1",
       "type": "contains",
@@ -488,7 +908,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 43
+      "line": 44
     },
     {
       "source": "CAP-1.2",
@@ -496,7 +916,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 77
+      "line": 79
     },
     {
       "source": "CAP-1.3",
@@ -504,7 +924,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 83
+      "line": 85
     },
     {
       "source": "CAP-1.5",
@@ -512,7 +932,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 104
+      "line": 106
     },
     {
       "source": "CAP-1.6",
@@ -520,7 +940,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 110
+      "line": 112
     },
     {
       "source": "CAP-1.4",
@@ -528,7 +948,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 122
+      "line": 124
     },
     {
       "source": "CAP-1.9",
@@ -536,7 +956,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 143
+      "line": 145
     },
     {
       "source": "CAP-1.9",
@@ -544,7 +964,47 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 161
+      "line": 163
+    },
+    {
+      "source": "CAP-2.1",
+      "target": "file:src/game.ts#L168",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 168
+    },
+    {
+      "source": "CAP-2.5",
+      "target": "file:src/game.ts#togglePause",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 169
+    },
+    {
+      "source": "CAP-2.2",
+      "target": "file:src/game.ts#L175",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 175
+    },
+    {
+      "source": "CAP-2.3",
+      "target": "file:src/game.ts#L176",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 176
+    },
+    {
+      "source": "CAP-2.4",
+      "target": "file:src/game.ts#tick",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 177
     },
     {
       "source": "CAP-1.7",
@@ -552,7 +1012,55 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 19
+      "line": 20
+    },
+    {
+      "source": "CAP-2.1",
+      "target": "file:src/input.ts#isPauseKey",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 26
+    },
+    {
+      "source": "CAP-2.1",
+      "target": "file:src/input.ts#L48",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 48
+    },
+    {
+      "source": "CAP-2.7",
+      "target": "file:src/input.ts#L49",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 49
+    },
+    {
+      "source": "CAP-3.3",
+      "target": "file:src/input.ts#L50",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 50
+    },
+    {
+      "source": "CAP-3.4",
+      "target": "file:src/input.ts#L51",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 51
+    },
+    {
+      "source": "CAP-3.5",
+      "target": "file:src/input.ts#handleKey",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 52
     },
     {
       "source": "CAP-1.8",
@@ -563,12 +1071,36 @@
       "line": 35
     },
     {
+      "source": "CAP-3.1",
+      "target": "file:src/render.ts#L37",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 37
+    },
+    {
+      "source": "CAP-3.2",
+      "target": "file:src/render.ts#drawScoreScreen",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 38
+    },
+    {
+      "source": "CAP-2.6",
+      "target": "file:src/render.ts#statusText",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 59
+    },
+    {
       "source": "CAP-1.8",
       "target": "file:src/render.ts#drawFrame",
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 34
+      "line": 66
     }
   ]
 }

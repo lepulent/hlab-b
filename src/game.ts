@@ -24,6 +24,7 @@ export type GameState = {
   dotsRemaining: number;
   frightenedTicks: number;
   status: GameStatus;
+  paused: boolean;
 };
 
 const DOT_SCORE = 10;
@@ -71,6 +72,7 @@ export function createGameState(): GameState {
     dotsRemaining: countRemaining(maze),
     frightenedTicks: 0,
     status: 'playing',
+    paused: false,
   };
 }
 
@@ -163,8 +165,18 @@ function moveGhosts(state: GameState): GameState {
   return { ...state, ghosts: state.ghosts.map((g) => moveGhost(state.maze, g, state.pacman.pos)) };
 }
 
-export function tick(state: GameState, dir: Direction | null): GameState {
+// canon: CAP-2.1
+// canon: CAP-2.5
+export function togglePause(state: GameState): GameState {
   if (state.status !== 'playing') return state;
+  return { ...state, paused: !state.paused };
+}
+
+// canon: CAP-2.2
+// canon: CAP-2.3
+// canon: CAP-2.4
+export function tick(state: GameState, dir: Direction | null): GameState {
+  if (state.status !== 'playing' || state.paused) return state;
   const afterPacman = dir ? movePacman(state, dir) : state;
   if (afterPacman.status !== 'playing') return afterPacman;
 
