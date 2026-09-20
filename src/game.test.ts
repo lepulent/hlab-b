@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import type { Cell, Maze } from './maze';
 import { PACMAN_START } from './maze';
@@ -439,5 +440,152 @@ describe('score screen', () => {
 
   it('P0-UI-004 draws a score screen only when the game has ended', () => {
     expect(textsOf(drawn(createGameState()))).toEqual([]);
+  });
+});
+
+// The point amounts belong to CAP-1.3 and CAP-1.4. game.ts does not export them, so each test reads
+// an amount from the rule that awards it and never writes it as a literal.
+const ROOM = ['#####', '#...#', '#.. #', '#...#', '#####'];
+const AT = { x: 2, y: 2 };
+
+function dotPoints(): number {
+  const state = buildState();
+  return eatDot(state, AT).score - state.score;
+}
+
+function pelletPoints(): number {
+  const state = buildState({ maze: buildMaze(['#####', '#...#', '#.o.#', '#...#', '#####']) });
+  return eatDot(state, AT).score - state.score;
+}
+
+function ghostPoints(): number {
+  const ghost = buildGhost({ pos: AT, mode: 'frightened' });
+  const state = buildState({ ghosts: [ghost] });
+  return resolveGhostCollisions(state).score - state.score;
+}
+
+// What main.ts render() writes into #score on every frame. main.ts reads the DOM when it loads, so
+// it cannot be imported here and the string is repeated.
+function hudScore(state: GameState): string {
+  return `Score: ${state.score}`;
+}
+
+function scoreScreenText(state: GameState): string[] {
+  return textsOf(drawn(state)).filter((entry) => entry.startsWith('fillText(Score: '));
+}
+
+function pageHtml(): string {
+  return readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+}
+
+describe('in-play score display', () => {
+  it('P0-UI-009 reads Score: 0 in the page and in a new game before anything is eaten', () => {
+    // canon: CAP-4.1
+    expect(/<span id="score">([^<]*)<\/span>/.exec(pageHtml())?.[1]).toBe('Score: 0');
+
+    const state = createGameState();
+    expect(hudScore(state)).toBe('Score: 0');
+    expect(hudScore(tick(state, null))).toBe('Score: 0');
+    expect(hudScore(tick(togglePause(state), 'left'))).toBe('Score: 0');
+  });
+
+  it('P0-UI-010 puts the score and the lives side by side in one flex row', () => {
+    // canon: CAP-4.2
+    const html = pageHtml();
+    const hud = /<div id="hud">([\s\S]*?)<\/div>/.exec(html)?.[1] ?? '';
+    const spans = [...hud.matchAll(/<span id="([^"]+)">([^<]*)<\/span>/g)].map((m) => [m[1], m[2]]);
+    expect(spans).toEqual([
+      ['score', 'Score: 0'],
+      ['lives', `Lives: ${createGameState().lives}`],
+    ]);
+
+    const rule = /#hud\s*\{([^}]*)\}/.exec(html)?.[1] ?? '';
+    expect(rule).toMatch(/display:\s*flex/);
+    expect(rule).not.toMatch(/flex-direction:\s*column/);
+  });
+
+  it('P0-UI-011 raises the displayed score by the dot amount when a dot is eaten', () => {
+    // canon: CAP-4.3
+    const before = buildState({ score: 70 });
+    const after = tick(before, 'right');
+    expect(before.maze.grid[2]?.[3]).toBe('dot');
+    expect(after.maze.grid[2]?.[3]).toBe('empty');
+    expect(dotPoints()).toBeGreaterThan(0);
+    expect(hudScore(after)).toBe(`Score: ${before.score + dotPoints()}`);
+  });
+
+  it('P0-UI-012 raises the displayed score by the pellet amount when a pellet is eaten', () => {
+    // canon: CAP-4.4
+    const maze = buildMaze(['#####', '#...#', '#..o#', '#...#', '#####']);
+    const before = buildState({ maze, score: 70 });
+    const after = tick(before, 'right');
+    expect(after.maze.grid[2]?.[3]).toBe('empty');
+    expect(after.frightenedTicks).toBeGreaterThan(0);
+    expect(pelletPoints()).toBeGreaterThan(dotPoints());
+    expect(hudScore(after)).toBe(`Score: ${before.score + pelletPoints()}`);
+  });
+
+  it('P0-UI-013 raises the displayed score by the ghost amount when a frightened ghost is caught', () => {
+    // canon: CAP-4.5
+    const ghost = buildGhost({ pos: { x: 3, y: 2 }, mode: 'frightened', home: { x: 1, y: 1 } });
+    const before = buildState({
+      maze: buildMaze(ROOM),
+      ghosts: [ghost],
+      frightenedTicks: 5,
+      score: 70,
+    });
+    const after = tick(before, 'right');
+    expect(after.lives).toBe(before.lives);
+    expect(after.ghosts[0]?.mode).toBe('chase');
+    expect(ghostPoints()).toBeGreaterThan(0);
+    expect(hudScore(after)).toBe(`Score: ${before.score + ghostPoints()}`);
+  });
+
+  it('P0-UI-013 leaves the displayed score alone when a chasing ghost costs a life', () => {
+    // canon: CAP-4.5
+    const before = buildState({
+      maze: buildMaze(ROOM),
+      ghosts: [buildGhost({ pos: { x: 3, y: 2 }, mode: 'chase' })],
+      score: 70,
+    });
+    const after = tick(before, 'right');
+    expect(after.lives).toBe(before.lives - 1);
+    expect(hudScore(after)).toBe(hudScore(before));
+  });
+
+  it('P0-UI-014 shows the last displayed score on the win screen', () => {
+    // canon: CAP-4.6
+    const lastDot = buildMaze(['#####', '#   #', '#  .#', '#   #', '#####']);
+    const before = buildState({ maze: lastDot, dotsRemaining: 1, score: 120 });
+    const won = tick(before, 'right');
+    const shown = before.score + dotPoints();
+
+    expect(won.status).toBe('won');
+    expect(hudScore(won)).toBe(`Score: ${shown}`);
+    expect(scoreScreenText(won)).toEqual([expect.stringMatching(`^fillText\\(Score: ${shown},`)]);
+
+    const later = tick(tick(won, 'left'), 'up');
+    expect(hudScore(later)).toBe(hudScore(won));
+    expect(scoreScreenText(later)).toEqual(scoreScreenText(won));
+  });
+
+  it('P0-UI-014 shows the last displayed score on the game-over screen', () => {
+    // canon: CAP-4.6
+    const before = buildState({
+      maze: buildMaze(ROOM),
+      ghosts: [buildGhost({ pos: { x: 3, y: 2 }, mode: 'chase' })],
+      lives: 1,
+      score: 120,
+    });
+    const lost = tick(before, 'right');
+
+    expect(lost.status).toBe('lost');
+    expect(hudScore(lost)).toBe(hudScore(before));
+    expect(scoreScreenText(lost)).toEqual([
+      expect.stringMatching(`^fillText\\(Score: ${before.score},`),
+    ]);
+
+    const later = tick(tick(lost, 'left'), 'up');
+    expect(scoreScreenText(later)).toEqual(scoreScreenText(lost));
   });
 });
