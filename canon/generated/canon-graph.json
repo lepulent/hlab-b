@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-20T07:14:51.850Z",
+  "generatedAt": "2026-09-20T07:17:34.916Z",
   "nodes": [
     {
       "id": "MAP",
@@ -223,8 +223,8 @@
       "label": "Pause and resume",
       "file": "canon/capabilities/CAP-2.md",
       "assurance": "draft",
-      "version": "0.0.0",
-      "valid_from": "2aa73dc5c74c6b3db1b569d601074a4370b6bb00",
+      "version": "0.1.0",
+      "valid_from": "a941f1ab393cc9c6ee8e05c49ea33f3d28e2a914",
       "valid_to": null,
       "layer": "harness"
     },
@@ -325,8 +325,8 @@
       "label": "End-of-game score screen and restart",
       "file": "canon/capabilities/CAP-3.md",
       "assurance": "draft",
-      "version": "0.0.0",
-      "valid_from": "2aa73dc5c74c6b3db1b569d601074a4370b6bb00",
+      "version": "0.1.0",
+      "valid_from": "a941f1ab393cc9c6ee8e05c49ea33f3d28e2a914",
       "valid_to": null,
       "layer": "harness"
     },

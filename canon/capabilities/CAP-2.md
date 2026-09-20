@@ -2,9 +2,9 @@
 id: CAP-2
 kind: capability
 title: Pause and resume
-version: 0.0.0
+version: 0.1.0
 assurance: draft
-valid_from: 2aa73dc5c74c6b3db1b569d601074a4370b6bb00
+valid_from: a941f1ab393cc9c6ee8e05c49ea33f3d28e2a914
 ---
 
 ## Why
