@@ -1,0 +1,21 @@
+{
+  "plan": "s13d",
+  "kind": "feature",
+  "appStatus": "prototyping",
+  "track": "vertical",
+  "matchedSignals": {
+    "vertical": ["game"],
+    "method": [],
+    "enterprise": []
+  },
+  "requestedRigor": "prototype",
+  "floor": "prototype",
+  "rigor": "prototype",
+  "touchedShards": [],
+  "rungs": ["tech-spec", "ux-if-screen", "build", "test"],
+  "seal": "required",
+  "hasCanon": true,
+  "base": "0fc54d8d6a1fe532536456ffa29068dfd213d99f",
+  "branch": "plan/s13d",
+  "plantedAt": "2026-09-20T08:09:22.801Z"
+}
