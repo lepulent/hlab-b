@@ -55,6 +55,16 @@ import {
 import { deriveTriggers, vetoHeld } from './department.mjs';
 import { rebuild, parseLedger } from './resume.mjs';
 import {
+  liveDecisions,
+  stampAtWrite,
+  driftEntries,
+  staleArtifacts,
+  driftDigest,
+  driftRefusals,
+  DRIFT_HEADER,
+} from './drift.mjs';
+import { parseNode } from './canon-delta.mjs';
+import {
   artifactMaturity,
   rollup,
   verifyClosure,
@@ -331,6 +341,33 @@ const LADDER = ladderKey(route.rigor, intentKind);
 // the artifacts that exist now, by catalogue path, non-empty
 // what the plan changed under a code artifact's paths, against the base it was planted from
 const gates = {};
+// ---------------------------------------------------------------- drift (FR-7, FR-22, FR-33, FR-34)
+// What binds now: every answer this plan has given, and every criterion the canon carries. Both are
+// read from state, never from a seat's word about its own work.
+const ledgerLines = () =>
+  existsSync(ledgerFile) ? parseLedger(readFileSync(ledgerFile, 'utf8')) : [];
+const canonCriteria = () => {
+  const dir = join(ROOT, 'canon', 'capabilities');
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir)
+    .filter((f) => /\.md$/.test(f) && f !== 'README.md')
+    .flatMap((f) => parseNode(readFileSync(join(dir, f), 'utf8')).criteria)
+    .map((c) => ({ id: c.id, text: c.sentence }));
+};
+const worldNow = (lines = ledgerLines()) =>
+  liveDecisions({
+    answers: lines
+      .filter((l) => l?.kind === 'answer' && l.data?.file && l.data?.valid)
+      .map((l) => ({ file: l.data.file, answer: l.data.answer })),
+    criteria: canonCriteria(),
+  });
+const stampsSoFar = (lines = ledgerLines()) =>
+  lines.filter((l) => l?.kind === 'stamp' && l.data?.artifact).map((l) => l.data);
+const driftSeen = []; // every artifact that stood stale at a decision, with the wave it was seen at
+const driftNow = () => {
+  const lines = ledgerLines();
+  return driftEntries(stampsSoFar(lines), worldNow(lines));
+};
 const changedUnder = (d) =>
   parsePorcelain(
     sh('git', ['diff', '--name-only', `${route.base}..HEAD`]).stdout.replace(/^/gm, '   '),
@@ -572,6 +609,12 @@ const citableView = () =>
 async function master(n, attempt, refusals) {
   const digest = buildDigest(waves, DIGEST_CHARS);
   const ladder = ladderNow();
+  // drift is composed into the prompt from reads the run already holds, never fetched by a tool the
+  // Master has to think to call: a finding that surfaces only when asked for is one it will never see
+  const drift = driftNow();
+  for (const a of staleArtifacts(drift))
+    if (!driftSeen.some((x) => x.artifact === a && x.wave === n))
+      driftSeen.push({ artifact: a, wave: n });
   const session = randomUUID();
   ledger('seat-start', { seat: 'master', session, station: 'conduct', wave: n, attempt });
   const r = await seat({
@@ -584,6 +627,7 @@ async function master(n, attempt, refusals) {
       `\n\n--- MATURITY ---\n${maturityView(maturityNow())}`,
       `\n\n--- CATALOGUE (what can be produced) ---\n${JSON.stringify(catalogueView(), null, 2)}`,
       `\n\n--- IDS A PREMISE MAY CITE ---\n${citableView()}, or the path of any file in the repository`,
+      drift.length ? `\n\n--- ${DRIFT_HEADER} ---\n${driftDigest(drift)}` : '',
       `\n\n--- SO FAR ---\n${digest.text || 'Nothing has been done on this plan yet.'}`,
       refusals
         ? `\n\n--- REFUSED ---\nYour previous decision was refused by the door for these reasons. Correct it once:\n${refusals.map((x) => `- ${x}`).join('\n')}`
@@ -618,6 +662,15 @@ async function master(n, attempt, refusals) {
     exists: citable,
     mustProduce: ladder.mustProduce,
   });
+  const stale = driftRefusals({
+    outcome: dec.outcome,
+    artifacts: (dec.gap?.artifacts || []).map((a) => a.artifact || a),
+    entries: drift,
+  });
+  if (stale.length) {
+    valid.ok = false;
+    valid.refusals = [...(valid.refusals || []), ...stale];
+  }
   ledger(
     'activation',
     {
@@ -974,6 +1027,24 @@ function recordWave(n, wave, record, stop) {
     ledger('record', a.record);
     const act = record.activations.find((x) => x.agent === a.agent);
     Object.assign(act, { terminal: a.terminal, reason: a.reason });
+  }
+  // the stamp (FR-22): every artifact this wave delivered is marked with the decisions that held when
+  // it was written — this wave's answers included, since they were given before the wave was recorded.
+  // Machine-written from state the run holds; no seat is asked whether its document is current.
+  const live = worldNow();
+  const stamp = stampAtWrite(live);
+  for (const a of wave) {
+    if (a.terminal !== 'complete') continue;
+    for (const id of a.artifacts) {
+      const d = catalogue.doctypes.find((x) => x.id === id);
+      ledger('stamp', {
+        artifact: id,
+        path: d ? artifactPath(d) : '',
+        wave: n,
+        decisions: stamp,
+        by: a.agent,
+      });
+    }
   }
   handoff(`${PLAN} wave ${n} records`);
 }
@@ -1402,6 +1473,16 @@ const checks = {
     ok: ending !== 'goal-closed' || endLadder.covered,
     msg: `${LADDER} (${intentKind}); required still missing: ${endLadder.stepsToSeal.join(', ') || 'none'}${endLadder.stepsToSeal.length && !endLadder.mustProduce.length ? ' (no catalogue artifact produces it)' : ''}; present ${present().join(', ') || 'none'}`,
   },
+  'drift-repaired': {
+    // drift outranks growth, so a plan may not close while an artifact of it contradicts a decision
+    // that holds now; when nothing ever drifted this passes and says so
+    ok: ending !== 'goal-closed' || !driftNow().length,
+    msg: driftSeen.length
+      ? `${driftSeen.map((d) => `${d.artifact} stale at decision ${d.wave}`).join(', ')}; now ${
+          staleArtifacts(driftNow()).join(', ') || 'nothing is stale'
+        }`
+      : 'nothing drifted on this plan',
+  },
   'plan-ended': {
     ok: ending === expectedEnding,
     msg: `expected ${expectedEnding}, ended ${ending} after ${decisions.length} decision(s): ${sequence.join(' → ')}`,
@@ -1553,6 +1634,7 @@ writeJson(join(H, `conduct-${PLAN}.json`), {
   sequence,
   chose,
   ladder: { key: LADDER, intent_kind: intentKind, landed_plans: landedPlans, end: endLadder },
+  drift: { seen: driftSeen, now: driftNow() },
   delivery,
   resumed: prior.lastWave ? { from_wave: prior.lastWave, agents: prior.agents } : null,
   maturity: maturityAfter || maturityNow(),
