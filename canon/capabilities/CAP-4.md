@@ -11,7 +11,8 @@ valid_from: 238ab75
 
 A player chasing a high score should see it grow as they play, not only once the game is over. The score
 is shown beside the lives for the whole run and follows every dot, pellet and ghost that scores. Only the
-showing is in scope: what things are worth and the end-of-game score stay as they are.
+showing is in scope: the display shows the score as scoring (CAP-1) defines it, and what things are worth
+is owned there, not here.
 
 ## Criteria
 
@@ -23,18 +24,18 @@ bindings: [P0-UI-009]
 
 bindings: [P0-UI-010]
 
-### CAP-4.3 Eating a dot raises the displayed score by 10
+### CAP-4.3 Eating a dot raises the displayed score by the points scoring gives a dot
 
 bindings: [P0-UI-011]
 
-### CAP-4.4 Eating a power pellet raises the displayed score by 50
+### CAP-4.4 Eating a power pellet raises the displayed score by the points scoring gives a power pellet
 
 bindings: [P0-UI-012]
 
-### CAP-4.5 Eating a frightened ghost raises the displayed score by 200
+### CAP-4.5 Eating a frightened ghost raises the displayed score by the points scoring gives a caught ghost
 
 bindings: [P0-UI-013]
 
-### CAP-4.6 The score on the win and game-over screens equals the score the display showed on the last step, and the values in CAP-4.3 to CAP-4.5 are the ones CAP-1 already scores
+### CAP-4.6 The score on the win and game-over screens equals the score the display showed on the last step
 
 bindings: [P0-UI-014]
