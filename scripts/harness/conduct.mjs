@@ -62,6 +62,7 @@ import {
   driftDigest,
   driftRefusals,
   DRIFT_HEADER,
+  hash,
 } from './drift.mjs';
 import { parseNode } from './canon-delta.mjs';
 import { stageOf, lawFor, stageView } from './stage.mjs';
@@ -726,7 +727,7 @@ async function master(n, attempt, refusals) {
       max_wave: MAX_WAVE,
       valid: valid.ok,
       refusals: valid.refusals,
-      digest: { chars: digest.chars, truncated: digest.truncated },
+      digest: { chars: digest.chars, truncated: digest.truncated, sha: hash(digest.text) },
       ladder: {
         key: ladder.key,
         steps_to_seal: ladder.stepsToSeal,
@@ -1715,6 +1716,13 @@ writeJson(join(H, `conduct-${PLAN}.json`), {
     refusals: d.valid.refusals,
     digest_chars: d.digest.chars,
     digest_truncated: d.digest.truncated,
+    // The digest is what the Master actually read, and until now only its length survived the run. A
+    // length cannot be replayed against: a row shadowing this decision would be fed a digest rebuilt
+    // from the ledger, which loses each activation's task and so truncates at a different wave
+    // (docs/14 §3). From here on the text and its hash are recorded, and every run is replayable by
+    // construction rather than by reconstruction.
+    digest_text: d.digest.text,
+    digest_sha: hash(d.digest.text),
     master: d.row,
   })),
   waves,

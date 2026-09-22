@@ -28,6 +28,9 @@ const KINDS = new Set([
   'seal',
   // step 13: the decisions an artifact was written against, stamped when its wave is recorded
   'stamp',
+  // J0: one typed judgment, with the vector that made it. Written even in shadow and even when the
+  // ruling is ignored, so the row's agreement with what was actually done is a fact, not a memory.
+  'jev',
 ]);
 const args = process.argv.slice(2);
 const cmd = args[0];

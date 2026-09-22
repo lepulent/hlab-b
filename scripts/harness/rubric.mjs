@@ -221,6 +221,24 @@ const REGISTRY = [
     () => ({ ok: false, msg: 'department trigger not built' }),
   ],
   [
+    // How well a row's vector matched what was actually decided on this plan. Pending until a row has
+    // run live on both apps (docs/14 §2 rule 8, §6): a one-app number parks the row, so this row is
+    // never green on the strength of one app's ledger, however many jev lines that ledger holds.
+    'jev-calibration',
+    'pending',
+    () => {
+      const lines = of('jev');
+      const shadow = lines.filter((l) => l.data?.mode === 'shadow').length;
+      const agreed = lines.filter((l) => l.data?.agreed === true).length;
+      return {
+        ok: false,
+        msg: lines.length
+          ? `${lines.length} jev line(s) on this plan (${shadow} in shadow, ${agreed} agreeing); calibration is pending until a row has run live on both apps`
+          : 'no jev line on this plan; no row has run',
+      };
+    },
+  ],
+  [
     'determinism-scan-run',
     'pending',
     () => ({ ok: false, msg: 'needs stream-json transcripts of the seats' }),

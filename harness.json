@@ -36,6 +36,11 @@
     "model": "sonnet",
     "floor": ["cost"]
   },
+  "jev": {
+    "model": "jev-1.13.0",
+    "enabled": true,
+    "budget_usd_per_plan": 0.5
+  },
   "departments": {
     "Testing": {
       "rounds": 3,
@@ -86,7 +91,7 @@
   },
   "bundle": {
     "version": "0.1.0-dev",
-    "sha": "7fc5435",
-    "installedAt": "2026-09-20"
+    "sha": "a035081",
+    "installedAt": "2026-09-22"
   }
 }

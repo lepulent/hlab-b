@@ -38,7 +38,8 @@
     "harness:decide": "node scripts/harness/decider.mjs",
     "harness:rubric": "node scripts/harness/rubric.mjs",
     "harness:observe": "node scripts/harness/round.mjs observe",
-    "harness:conduct": "node scripts/harness/conduct.mjs"
+    "harness:conduct": "node scripts/harness/conduct.mjs",
+    "harness:jev-replay": "node scripts/harness/jev-replay.mjs"
   },
   "repository": {
     "type": "git",
