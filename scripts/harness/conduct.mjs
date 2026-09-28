@@ -66,6 +66,8 @@ import {
 } from './drift.mjs';
 import { parseNode } from './canon-delta.mjs';
 import { stageOf, lawFor, stageView } from './stage.mjs';
+import { askRow, jevLine, makeBudget } from './jev.mjs';
+import { getRow } from './jev-registry.mjs';
 import { evaluate as evaluateConstitution, constitutionView } from './constitution.mjs';
 import {
   artifactMaturity,
@@ -121,6 +123,12 @@ const DIGEST_CHARS = harness.conduct?.digest_chars || 4000;
 // per-child deadlines (NFR-5; Mycelium's 180 s and 420 s): past it the seat is killed and recorded
 // abandoned
 const MASTER_DEADLINE = harness.conduct?.master_deadline_s || 180;
+// A row asked inside a live decision (docs/14 §6, runs/jev-shadow.md §4.4). The budget pauses the rows
+// and is a finding, never a kill; the deadline is short because a shadow reading that delays the Master
+// has made the harness worse in exchange for a number nobody acts on.
+const JEV = harness.jev || {};
+const jevBudget = makeBudget(JEV.budget_usd_per_plan ?? null);
+const JEV_DEADLINE_MS = JEV.deadline_ms ?? 8000;
 const AGENT_DEADLINE = harness.conduct?.agent_deadline_s || 420;
 const FORCE_DEADLINE = Number(arg('force-deadline', 0)) || null;
 const EXPECT_TERM = arg('expect-terminal', null);
@@ -594,6 +602,65 @@ const waves = []; // the relay's input: { n, activations: [...], questions: [...
 const agents = []; // every agent session of every wave, with its witnesses
 const qResults = [];
 const answerRows = [];
+const jevSeen = []; // every row asked on this plan, with the label it was measured against
+
+// Compare an answer to the Master's the way question.mjs does: the answer must be one of the listed
+// alternatives, so text equality after whitespace and case is the whole test.
+const norm = (x) =>
+  String(x ?? '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+
+// Ask `question.answer` in shadow, on the state the Master is about to see. Returns null when there is
+// nothing to record. Never throws and never blocks: a row that cannot answer is `unmeasured`, which is
+// the existing path running.
+async function askAnswerRow({ question, alternatives, document, file }) {
+  if (JEV.enabled === false) return null;
+  let row;
+  try {
+    row = getRow('question.answer');
+  } catch {
+    return null; // the row is not in this bundle's registry
+  }
+  const decided = qResults
+    .filter((x) => x.file && x.file !== file && x.answer)
+    .map((x) => ({ file: x.file, question: x.q?.question, answer: x.answer }));
+  try {
+    return await askRow(
+      row,
+      {
+        app: harness.app?.name ?? null,
+        plan: PLAN,
+        intent,
+        question: question.question,
+        why: question.why,
+        document,
+        decided,
+        alternatives,
+      },
+      {
+        model: JEV.model || 'jev-1.13.0',
+        enabled: JEV.enabled !== false,
+        budget: jevBudget,
+        deadlineMs: JEV_DEADLINE_MS,
+      },
+    );
+  } catch (e) {
+    // a row must never be the reason a plan stops
+    return {
+      row: row.id,
+      version: row.version,
+      mode: row.mode,
+      thresholds: row.thresholds,
+      stateHash: null,
+      unmeasured: true,
+      reason: `asking the row threw: ${String(e.message).slice(0, 120)}`,
+      usd: 0,
+      ms: 0,
+    };
+  }
+}
 let ending = null; // goal-closed | needs-input | refused | wave-cap
 // A plan that already has waves behind it (an interrupted run, resumed on its branch) is read back from
 // its ledger, so the Master sees the same history it would have seen had nothing stopped (NFR-1, NFR-2:
@@ -1201,6 +1268,17 @@ async function questions(n, wave, record) {
       .filter((p) => existsSync(join(ROOT, p)))
       .map((p) => `### ${p}\n${readFileSync(join(ROOT, p), 'utf8')}`)
       .join('\n\n');
+    // SHADOW: the row is asked BEFORE the Master answers, on the same state, in the same decision.
+    // Atlassinator measured what the alternative is worth: comparing two cohorts of the same system
+    // moved the median turn from 208 s to 270 s while the mean fell, so an A/B between runs measures
+    // noise. Same turn, same state, both answers recorded — then the Master's answer is used, always.
+    const shadow = await askAnswerRow({
+      question: r.q,
+      alternatives: alts,
+      document,
+      wave: n,
+      file: r.file,
+    });
     const session = randomUUID();
     ledger('seat-start', { seat: 'master', session, station: 'answer', wave: n, file: r.file });
     const m = await seat({
@@ -1258,6 +1336,31 @@ async function questions(n, wave, record) {
     answerRows.push(aRow);
     r.answered = m.ok && va.ok && authoringCalls(aRow.tools) === 0 && !aRow.changed.length;
     r.answer = ans?.answer ?? null;
+    // the line is written even in shadow and even when the ruling is ignored; a missing line is a
+    // finding (docs/14 §6). `agreed` is counted here, against the answer that actually stood.
+    if (shadow) {
+      const agreed = shadow.unmeasured
+        ? null
+        : norm(shadow.ruling?.answer) === norm(ans?.answer ?? null);
+      ledger(
+        'jev',
+        jevLine(shadow, { agreesWith: `master:answer=${ans?.answer ?? null}`, agreed }),
+        'script:jev',
+      );
+      jevSeen.push({
+        file: r.file,
+        wave: n,
+        ruled: shadow.ruling?.answer ?? null,
+        master: ans?.answer ?? null,
+        agreed,
+        confidence: shadow.ruling?.confidence ?? null,
+        closeCall: shadow.ruling?.closeCall ?? null,
+        unmeasured: shadow.unmeasured === true,
+        reason: shadow.reason ?? null,
+        usd: shadow.usd ?? 0,
+        ms: shadow.ms ?? null,
+      });
+    }
     r.answerRefusals = va.refusals;
     if (r.answered) {
       const text = setFields(readFileSync(qPath, 'utf8'), {
@@ -1515,6 +1618,30 @@ const checks = {
     ok: ending !== 'goal-closed' || endLadder.covered,
     msg: `${LADDER} (${intentKind}); required still missing: ${endLadder.stepsToSeal.join(', ') || 'none'}${endLadder.stepsToSeal.length && !endLadder.mustProduce.length ? ' (no catalogue artifact produces it)' : ''}; present ${present().join(', ') || 'none'}`,
   },
+  ...(jevSeen.length
+    ? {
+        'jev-shadowed': {
+          // A row in shadow can only fail this by leaving no record: the reading is evidence that was
+          // meant to exist (docs/14 §6). Agreement is REPORTED, never required — the row does not act,
+          // and a disagreement is a finding about the row, not about the plan.
+          ok: jevSeen.every((j) => j.unmeasured || j.ruled !== null),
+          msg: `${jevSeen.filter((j) => !j.unmeasured).length}/${jevSeen.length} measured, agreed ${
+            jevSeen.filter((j) => j.agreed).length
+          }/${jevSeen.filter((j) => !j.unmeasured).length}; ${jevSeen
+            .map(
+              (j) =>
+                `${j.file} ${
+                  j.unmeasured
+                    ? `unmeasured (${j.reason})`
+                    : `${j.agreed ? 'agreed' : 'DIFFERED'} conf ${j.confidence ?? '–'}${j.closeCall ? ' close' : ''}${j.agreed ? '' : ` — ruled "${String(j.ruled).slice(0, 40)}" vs master "${String(j.master).slice(0, 40)}"`}`
+                }`,
+            )
+            .join(
+              ' · ',
+            )}; $${jevSeen.reduce((a, j) => a + (j.usd || 0), 0).toFixed(6)} of the $${jevBudget.limit ?? '–'} plan budget`,
+        },
+      }
+    : {}),
   'constitution-evaluated': {
     // the constitution is run, not quoted. A violation whose tier blocks at this stage stops the plan
     // closing; below it the violation is real, recorded as debt, and the plan proceeds carrying it

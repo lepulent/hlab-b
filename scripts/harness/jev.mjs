@@ -8,6 +8,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
+import { setTimeout, clearTimeout } from 'node:timers';
 import { createHash } from 'node:crypto';
 import { ROOT } from './common.mjs';
 
@@ -349,11 +350,12 @@ async function echoTransport(req) {
 export const estimateTokens = (req) => Math.ceil(JSON.stringify(req.body ?? req).length / 4);
 
 function httpTransport(key) {
-  return async (req) => {
+  return async (req, signal) => {
     const res = await globalThis.fetch(ENDPOINT, {
       method: 'POST',
       headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
       body: JSON.stringify(req.body),
+      ...(signal ? { signal } : {}),
     });
     const text = await res.text();
     let body;
@@ -394,14 +396,35 @@ export async function ask({ model, state, questions, rowId = null }, opts = {}) 
   const body = { model, state, questions };
   const req = { body, model, state, questions, rowId, stateHash: stateHash(state) };
   const started = Date.now();
+  // A DEADLINE OVER THE WHOLE CALL, retries included. Measured on 2026-09-28: p50 438 ms but p95 84 s
+  // and a worst case of 138 s, because the vendor's 503 "high demand" arrives in bursts and four attempts
+  // with exponential backoff sit behind it. An offline replay is allowed to wait; a row asked inside a
+  // live decision is not — the Master's own deadline is 180 s, and a shadow reading that eats it has
+  // made the harness worse in exchange for a number nobody acts on. Past the deadline the call gives up
+  // and the caller records `unmeasured`, which is the existing path running (docs/14 §6).
+  const deadlineMs = opts.deadlineMs ?? null;
+  const left = () => (deadlineMs == null ? Infinity : started + deadlineMs - Date.now());
   let last = null;
   for (let attempt = 1; attempt <= RETRIES + 1; attempt++) {
+    if (left() <= 0) {
+      last = { status: 0, error: `gave up after ${deadlineMs} ms` };
+      break;
+    }
     let r;
+    const controller = deadlineMs == null ? null : new globalThis.AbortController();
+    const timer = controller ? setTimeout(() => controller.abort(), Math.max(1, left())) : null;
     try {
-      r = await transport(req);
+      r = await transport(req, controller?.signal);
     } catch (e) {
-      last = { status: 0, error: scrub(e.message, key) };
+      last = {
+        status: 0,
+        error: controller?.signal.aborted
+          ? `gave up after ${deadlineMs} ms`
+          : scrub(e.message, key),
+      };
       r = null;
+    } finally {
+      if (timer) clearTimeout(timer);
     }
     if (r && r.status >= 200 && r.status < 300 && r.body) {
       const tokens = num(r.body?.usage?.input_tokens);
@@ -421,7 +444,12 @@ export async function ask({ model, state, questions, rowId = null }, opts = {}) 
     if (r) last = { status: r.status, error: scrub(r.text ?? JSON.stringify(r.body), key) };
     const retryable = !r || r.status === 429 || r.status >= 500;
     if (!retryable || attempt > RETRIES) break;
-    await sleep((r?.retryAfter ? r.retryAfter * 1000 : BACKOFF_MS) * 2 ** (attempt - 1));
+    const wait = (r?.retryAfter ? r.retryAfter * 1000 : BACKOFF_MS) * 2 ** (attempt - 1);
+    if (wait >= left()) {
+      last = { status: last?.status ?? 0, error: `gave up after ${deadlineMs} ms` };
+      break;
+    }
+    await sleep(wait);
   }
   return {
     ok: false,
