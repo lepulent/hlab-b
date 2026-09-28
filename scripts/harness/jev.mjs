@@ -115,30 +115,169 @@ export function makeBudget(limitUsd) {
   };
 }
 
+// --------------------------------------------------------------------------- the request, validated
+// The API DROPS an unknown key in a question object: it does not reject it, does not charge for it and
+// does not read it. Measured on 2026-09-28 (docs/15 §2.1) — a 160-token string under `question:` costs
+// the same input tokens as omitting it entirely, while the same string under `instructions:` costs 162
+// more. So a misspelled field is a question silently asked without its question, and no status code will
+// ever tell us. The vendor cannot validate our spelling; this does.
+export const QUESTION_KEYS = ['type', 'instructions', 'criteria'];
+export const MAX_CHOICE_OPTIONS = 255; // 256 → HTTP 400 "at most 255 options" (Atlassinator, probed)
+export const SCORE_LEVELS = { min: 2, max: 10 };
+
+export function validateQuestions(questions) {
+  const refusals = [];
+  const entries = Object.entries(questions || {});
+  if (!entries.length) refusals.push('no questions were given');
+  for (const [id, q] of entries) {
+    if (!q || typeof q !== 'object') {
+      refusals.push(`${id}: not an object`);
+      continue;
+    }
+    for (const k of Object.keys(q))
+      if (!QUESTION_KEYS.includes(k))
+        refusals.push(
+          `${id}: unknown field "${k}" would be dropped silently; the field is one of ${QUESTION_KEYS.join(', ')}`,
+        );
+    if (!PRIMITIVES.includes(q.type))
+      refusals.push(`${id}: type "${q.type}" is not one of ${PRIMITIVES.join(', ')}`);
+    if (q.instructions == null || (typeof q.instructions === 'string' && !q.instructions.trim()))
+      refusals.push(`${id}: no instructions; the criteria alone would carry the whole decision`);
+    const c = q.criteria;
+    if (q.type === 'noul') {
+      // the documented shape is { true, false }; anything else is a key the API will drop
+      if (c != null && (typeof c !== 'object' || Array.isArray(c)))
+        refusals.push(`${id}: a noul's criteria is { true, false } or absent`);
+      else if (c)
+        for (const k of Object.keys(c))
+          if (!['true', 'false'].includes(k))
+            refusals.push(`${id}: a noul's criteria may only carry true and false, not "${k}"`);
+    } else if (q.type === 'choice') {
+      if (!c || typeof c !== 'object' || Array.isArray(c))
+        refusals.push(`${id}: a choice's criteria is a map of option id → description`);
+      else if (!Object.keys(c).length) refusals.push(`${id}: a choice with no options`);
+      else if (Object.keys(c).length > MAX_CHOICE_OPTIONS)
+        refusals.push(
+          `${id}: ${Object.keys(c).length} options is over the ${MAX_CHOICE_OPTIONS} the API accepts`,
+        );
+    } else if (q.type === 'score') {
+      if (!Array.isArray(c))
+        refusals.push(
+          `${id}: a score's criteria is an ordered array of level labels, lowest first`,
+        );
+      else if (c.length < SCORE_LEVELS.min || c.length > SCORE_LEVELS.max)
+        refusals.push(
+          `${id}: ${c.length} levels is outside the ${SCORE_LEVELS.min}–${SCORE_LEVELS.max} the API accepts`,
+        );
+    }
+  }
+  return refusals;
+}
+
 // --------------------------------------------------------------------------- reading a response
-// The response's field names are not in docs/14 (§1 records the request and the primitives, not the body
-// the vendor returns), so every shape the documented primitives could carry is accepted and the raw
-// answer is kept beside the reading. The first live call settles which of these is real.
-export function readAnswer(primitive, a) {
-  const conf = num(a?.confidence ?? a?.certainty);
+// VERIFIED against the live API on 2026-09-28; every shape below was returned by a real call and is
+// recorded in docs/15 §1 with its raw body. The previous version of this function guessed, and guessed
+// wrong for two of the three primitives.
+//
+//   noul   { "type": "noul", "noul": 0.04 }                                  — and NO confidence field
+//   choice { "type": "choice", "choice": k, "probabilities": {…}, "confidence": c }
+//   score  { "type": "score", "score": 1.05, "legend": {…}, "probabilities": {…}, "confidence": c }
+
+// Probabilities are rounded to two decimals and may sum to 0.99 (Atlassinator, measured). A reader that
+// does not divide by the sum reads a rounded distribution as a lower value than it is.
+export function normalise(vector) {
+  const sum = Object.values(vector).reduce((a, b) => a + b, 0);
+  if (!(sum > 0) || Math.abs(sum - 1) <= 0.005)
+    return { vector, sum: sum || 0, renormalised: false };
+  return {
+    vector: Object.fromEntries(Object.entries(vector).map(([k, v]) => [k, v / sum])),
+    sum,
+    renormalised: true,
+  };
+}
+
+export function readAnswer(primitive, a, criteria = null) {
   if (primitive === 'noul') {
-    const p = num(a?.p ?? a?.probability ?? a?.true ?? a?.yes ?? a);
+    // `noul` is the direct API's field; `probability` is the Vercel Gateway's name for the same number
+    const p = num(a?.noul ?? a?.probability);
+    if (p == null)
+      return {
+        vector: {},
+        pick: null,
+        confidence: null,
+        confidenceDerived: false,
+        closeCall: false,
+      };
     return {
-      vector: p == null ? {} : { true: p },
-      pick: p == null ? null : String(p >= 0.5),
-      confidence: conf,
+      // the recorded vector is the one number the API gave; `false` is its complement by construction,
+      // which is safe within ONE answer — what is NOT safe is comparing P(x) with 1−P(not x) across two
+      // separate nouls, which the vendor's own jaggedness page shows summing to 1.19
+      vector: { true: p, false: 1 - p },
+      pick: String(p >= 0.5),
+      // A NOUL CARRIES NO CONFIDENCE. Distance from the coin flip is the only signal it has, so that is
+      // what the bands read, and the flag says the number was derived here and not returned.
+      confidence: Math.max(p, 1 - p),
+      confidenceDerived: true,
+      closeCall: Math.abs(p - 0.5) < 0.05,
     };
   }
-  const probs = a?.probabilities ?? a?.options ?? a?.levels ?? a?.distribution ?? null;
-  const vector = {};
-  if (probs && typeof probs === 'object')
-    for (const [k, v] of Object.entries(probs)) {
-      const p = num(v?.p ?? v?.probability ?? v);
-      if (p != null) vector[k] = p;
+
+  const raw = {};
+  if (a?.probabilities && typeof a.probabilities === 'object')
+    for (const [k, v] of Object.entries(a.probabilities)) {
+      const p = num(v);
+      if (p != null) raw[k] = p;
     }
-  const named = a?.choice ?? a?.level ?? a?.answer ?? null;
+  const { vector, sum, renormalised } = normalise(raw);
+  const conf = num(a?.confidence);
+
+  if (primitive === 'score') {
+    // The live service keys score probabilities by level INDEX, not by criterion text (Atlassinator
+    // recorded `"reading": "index"` on every live row) — but the documented example keys them by text.
+    // Read both, and when neither matches fall back to the fractional `score`, which is the expected
+    // level and is the only thing that survives a keying we do not recognise.
+    const levels = Array.isArray(criteria) ? criteria : Object.values(a?.legend ?? {});
+    const keys = Object.keys(vector);
+    const byIndex = keys.length > 0 && keys.every((k) => /^\d+$/.test(k));
+    const byText = !byIndex && keys.length > 0 && keys.every((k) => levels.includes(k));
+    const reading = byIndex ? 'index' : byText ? 'text' : 'interpolated';
+    const score = num(a?.score);
+    let pick = null;
+    if (byIndex || byText) {
+      const top = Object.entries(vector).sort((x, y) => y[1] - x[1])[0];
+      pick = top?.[0] ?? null;
+    } else if (score != null) {
+      pick = String(Math.round(score));
+    }
+    return {
+      vector,
+      pick,
+      confidence: conf,
+      confidenceDerived: false,
+      // the expected level, which is what makes a score a score: it interpolates between levels
+      score,
+      legend: a?.legend ?? null,
+      reading,
+      sum,
+      renormalised,
+      closeCall: spread(vector).closeCall,
+    };
+  }
+
+  // choice: the API names the winner, and it is the argmax by definition — but read the name, not our
+  // own argmax, so a disagreement between the two is visible rather than smoothed over
+  const named = a?.choice ?? null;
   const top = Object.entries(vector).sort((x, y) => y[1] - x[1])[0];
-  return { vector, pick: named != null ? String(named) : (top?.[0] ?? null), confidence: conf };
+  return {
+    vector,
+    pick: named != null ? String(named) : (top?.[0] ?? null),
+    confidence: conf,
+    confidenceDerived: false,
+    argmax: top?.[0] ?? null,
+    sum,
+    renormalised,
+    closeCall: spread(vector).closeCall,
+  };
 }
 const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 // the top two and whether they are a close call (docs/14 §3: within 0.1)
@@ -174,14 +313,35 @@ export function mockTransport(spec) {
     return { status: 200, body: { answers, usage: { input_tokens: estimateTokens(req) } } };
   };
 }
+// The echo answers in the REAL response shapes (docs/15 §1), because a mock that shares the client's
+// guesses cannot catch the client's guesses — which is exactly how a noul reader that never read `.noul`
+// stayed green over nineteen tests.
 async function echoTransport(req) {
   const answers = {};
   for (const [id, q] of Object.entries(req.questions)) {
-    const keys = Object.keys(q.criteria || {});
-    if (q.type === 'noul') answers[id] = { p: 0.5, confidence: null };
-    else {
+    if (q.type === 'noul') {
+      answers[id] = { type: 'noul', noul: 0.5 };
+    } else if (q.type === 'score') {
+      const levels = Array.isArray(q.criteria) ? q.criteria : [];
+      const flat = Object.fromEntries(
+        levels.map((_, i) => [String(i), levels.length ? 1 / levels.length : 0]),
+      );
+      answers[id] = {
+        type: 'score',
+        score: levels.length ? (levels.length - 1) / 2 : 0,
+        legend: Object.fromEntries(levels.map((l, i) => [String(i), l])),
+        probabilities: flat,
+        confidence: null,
+      };
+    } else {
+      const keys = Object.keys(q.criteria || {});
       const flat = Object.fromEntries(keys.map((k) => [k, keys.length ? 1 / keys.length : 0]));
-      answers[id] = { probabilities: flat, choice: keys[0] ?? null, confidence: null };
+      answers[id] = {
+        type: 'choice',
+        choice: keys[0] ?? null,
+        probabilities: flat,
+        confidence: null,
+      };
     }
   }
   return { status: 200, body: { answers, usage: { input_tokens: estimateTokens(req) } } };
@@ -220,6 +380,17 @@ export async function ask({ model, state, questions, rowId = null }, opts = {}) 
   const transport = opts.transport ?? (mock ? mockTransport(mock) : httpTransport(key));
   if (!opts.transport && !mock && !key)
     return { ok: false, error: 'TYPESAFE_API_KEY is not set and no mock was given', usd: 0, ms: 0 };
+  // fail closed BEFORE the call: an unknown key would be dropped in silence and charged for as if the
+  // question had been asked properly (docs/15 §2.1)
+  const refusals = validateQuestions(questions);
+  if (refusals.length)
+    return {
+      ok: false,
+      error: `jev: the request was refused before it was sent: ${refusals.join('; ')}`,
+      usd: 0,
+      ms: 0,
+      refusals,
+    };
   const body = { model, state, questions };
   const req = { body, model, state, questions, rowId, stateHash: stateHash(state) };
   const started = Date.now();
@@ -298,7 +469,10 @@ export async function askRow(row, ctx, opts = {}) {
   budget?.charge(r.usd);
   if (!r.ok) return { ...base, unmeasured: true, reason: r.error, usd: r.usd, ms: r.ms };
   const read = Object.fromEntries(
-    Object.keys(questions).map((id) => [id, readAnswer(row.primitive, r.answers?.[id])]),
+    Object.keys(questions).map((id) => [
+      id,
+      readAnswer(row.primitive, r.answers?.[id], questions[id]?.criteria),
+    ]),
   );
   const ruling = row.combine(read, ctx);
   return {

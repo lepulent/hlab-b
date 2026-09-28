@@ -154,8 +154,61 @@ const norm = (s) =>
     .trim()
     .toLowerCase();
 
+// Caps, while this is still a prototype (owner, 2026-09-28). Not the vendor's ceiling — the direct API
+// publishes no rate-limit header at all — but our own, so a loop cannot run away and a burst of the
+// vendor's 503s cannot be mistaken for a prompt regression:
+//
+//   MAX_CALLS              at most this many decisions per run
+//   STOP_AFTER_FAILURES    three consecutive failures ends the run, and the report SAYS it stopped
+//
+// Atlassinator paid for the second one twice: a tuning round lost ten calls to 503 and the drop looked
+// like the prompt getting worse, and a live eval burned three calls on a missing key before stopping. A
+// run that stopped early is never tuned on.
+// Rebuild the table from the reports already on disk and make no call at all. A table is a projection
+// of the recorded runs, so regenerating it must never cost anything.
+const SUMMARISE_ONLY = argv.includes('--summarise-only');
+const MAX_CALLS = Number(arg('max-calls', 0)) || 60;
+const STOP_AFTER_FAILURES = 3;
+
+// The order the alternatives are shown in is not neutral: an asking agent tends to write the one it
+// prefers first, and the recorded answer is the first alternative in 24 of 38 cases — a trivial
+// "always pick the first" baseline scores 0.632. So a row that reads option ORDER rather than option
+// CONTENT would look almost as good as one that understands the question. `--alt-order reverse` shows
+// the same options in the opposite order: agreement that survives it is agreement about content.
+const ALT_ORDER = arg('alt-order', 'asis');
+const reorder = (alts) => (ALT_ORDER === 'reverse' ? [...alts].reverse() : alts);
+
+// `--criteria bare` asks the same question with each option described ONLY by the agent's own
+// alternative text, dropping the row's shared not_for / examples / signals guards. Those guards are
+// identical on every option — a question's alternatives are written fresh each time, so nothing
+// option-specific can be written in advance — and Atlassinator measured bare option names scoring near
+// random. This is the experiment that says whether the guards earn their tokens or only cost them.
+// It does not change the registry row; the summary records which criteria answered.
+const CRITERIA = arg('criteria', 'row');
+const asked =
+  CRITERIA === 'bare'
+    ? {
+        ...row,
+        criteria: (ctx) => ({
+          answer: {
+            instructions: row.criteria(ctx).answer.instructions,
+            criteria: Object.fromEntries(
+              (ctx.alternatives || []).map((alt, i) => [`opt${i + 1}`, String(alt).trim()]),
+            ),
+          },
+        }),
+      }
+    : row;
+
 const results = [];
+let consecutiveFailures = 0;
+let stoppedEarly = null;
 for (const q of points) {
+  if (SUMMARISE_ONLY) break; // the table is a projection; rebuilding it costs nothing
+  if (results.length >= MAX_CALLS) {
+    stoppedEarly = `the ${MAX_CALLS}-call cap for this run was reached`;
+    break;
+  }
   const why = whyOf(q.file);
   const doc = documentOf(q.wave, q.agent);
   // what this plan had already settled when the question was asked, and nothing it settled after
@@ -170,14 +223,18 @@ for (const q of points) {
     why: why.text,
     document: doc.text,
     decided,
-    alternatives: q.alternatives,
+    alternatives: reorder(q.alternatives),
   };
-  const r = await askRow(row, ctx, {
+  const r = await askRow(asked, ctx, {
     model: jev.model || 'jev-1.13.0',
     enabled: jev.enabled !== false,
     budget,
     mock: arg('mock', process.env.JEV_MOCK),
   });
+  if (r.unmeasured) {
+    consecutiveFailures++;
+    console.error(`jev-replay: ${q.file} unmeasured — ${r.reason}`);
+  } else consecutiveFailures = 0;
   const recorded = q.answer;
   const agreed = r.unmeasured ? null : norm(r.ruling?.answer) === norm(recorded);
   results.push({
@@ -196,6 +253,9 @@ for (const q of points) {
     probabilities: r.ruling?.probabilities ?? {},
     state_chars: r.state ? JSON.stringify(r.state).length : 0,
     state_cut: r.cut ?? [],
+    // docs/15 §6: the shape is load-bearing now, so a live replay keeps the bytes. Without them a
+    // vendor field rename and a client bug look exactly the same on a later reading.
+    raw: r.raw ?? null,
     sources: {
       intent: intent.source,
       why: why.source,
@@ -209,6 +269,11 @@ for (const q of points) {
     // the line this point would have written on a live run (docs/14 §2); no ledger is touched here
     line: jevLine(r, { agreesWith: `master:answer=${recorded}`, agreed }),
   });
+  if (consecutiveFailures >= STOP_AFTER_FAILURES) {
+    stoppedEarly = `${STOP_AFTER_FAILURES} consecutive calls failed; the run stopped rather than spend more`;
+    console.error(`jev-replay: ${stoppedEarly}`);
+    break;
+  }
 }
 
 // ------------------------------------------------------------------ the numbers docs/14 §3 asks for
@@ -241,7 +306,12 @@ const summary = {
   transport: arg('mock', process.env.JEV_MOCK)
     ? `mock:${arg('mock', process.env.JEV_MOCK)}`
     : 'live',
+  alt_order: ALT_ORDER,
+  criteria_variant: CRITERIA,
   n: results.length,
+  // a run that stopped early measured less than it looks like it did, and must never be tuned on
+  stopped_early: stoppedEarly,
+  points_available: points.length,
   measured: measured.length,
   unmeasured: results.length - measured.length,
   agreement_recorded: measured.length
@@ -266,10 +336,22 @@ const summary = {
 
 const runsRoot = join(ROOT, '..', 'runs');
 // A run limited to one decision is a probe, not a reading: it goes to its own file and touches no table.
-const reportName = AT ? `jev-replay-${row.id}-at${AT}.json` : `jev-replay-${row.id}.json`;
+// The variant belongs in the NAME. Without it a second run of the same row on the same plan overwrites
+// the first, which is how the reversed and bare-criteria runs silently replaced the as-is numbers in the
+// table below — the same defect already recorded about `.harness/conduct-<plan>.json` being per-plan
+// rather than per-run (runs/jev-shadow.md §2).
+const variantTag = [ALT_ORDER === 'asis' ? null : ALT_ORDER, CRITERIA === 'row' ? null : CRITERIA]
+  .filter(Boolean)
+  .join('-');
+const reportName = AT
+  ? `jev-replay-${row.id}-at${AT}.json`
+  : `jev-replay-${row.id}${variantTag ? `-${variantTag}` : ''}.json`;
 if (existsSync(runsRoot)) {
-  mkdirSync(join(runsRoot, APP, PLAN), { recursive: true });
-  writeJson(join(runsRoot, APP, PLAN, reportName), { summary, points: results });
+  // a summarise-only run measured nothing, so it must not overwrite a report that did
+  if (!SUMMARISE_ONLY) {
+    mkdirSync(join(runsRoot, APP, PLAN), { recursive: true });
+    writeJson(join(runsRoot, APP, PLAN, reportName), { summary, points: results });
+  }
   if (!AT) writeShadowTable();
 }
 
@@ -302,7 +384,15 @@ function writeShadowTable() {
         const r = readJson(join(dir, name));
         const s = r?.summary;
         if (!s) continue;
-        const k = [s.row, s.version, s.mode, app, s.transport].join('\u0000');
+        const k = [
+          s.row,
+          s.version,
+          s.mode,
+          app,
+          s.transport,
+          s.alt_order ?? 'asis',
+          s.criteria_variant ?? 'row',
+        ].join('\u0000');
         const g = groups.get(k) ?? { s, app, plans: [], points: [] };
         g.plans.push(s.plan);
         g.points.push(...(r.points || []));
@@ -321,9 +411,21 @@ function writeShadowTable() {
       g.s.mode,
       g.app,
       g.s.transport,
+      [
+        g.s.alt_order && g.s.alt_order !== 'asis' ? g.s.alt_order : null,
+        g.s.criteria_variant && g.s.criteria_variant !== 'row' ? g.s.criteria_variant : null,
+      ]
+        .filter(Boolean)
+        .join('+') || 'as written',
       g.plans.sort().join(' '),
       g.points.length,
       done.length ? (done.filter((p) => p.agreed).length / done.length).toFixed(3) : '–',
+      // the band that decides whether the row can ever act: a threshold is worthless if the high
+      // band is polluted, and accuracy overall says nothing about whether it is
+      (() => {
+        const hi = done.filter((p) => (p.confidence ?? -1) >= 0.95);
+        return hi.length ? `${hi.filter((p) => p.agreed).length}/${hi.length}` : '0/0';
+      })(),
       done.filter((p) => p.close_call).length,
       confs.length ? avg(confs).toFixed(3) : '–',
       `$${(avg(g.points.map((p) => p.usd || 0)) ?? 0).toFixed(6)}`,
@@ -332,8 +434,8 @@ function writeShadowTable() {
     lines.push(`| ${cells.join(' | ')} |`);
   }
   const head = [
-    '| row | v | mode | app | transport | plans | n | agreement (Master) | close calls | mean conf. | $/decision | ms/decision |',
-    '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
+    '| row | v | mode | app | transport | variant | plans | n | agreement (Master) | agree at conf ≥0.95 | close calls | mean conf. | $/decision | ms/decision |',
+    '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
   ];
   const body = lines.length ? lines.sort().join('\n') : '_no replay has been run_';
   writeFileSync(

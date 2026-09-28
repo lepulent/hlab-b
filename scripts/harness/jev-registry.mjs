@@ -49,6 +49,15 @@ export function validateRow(row) {
     );
   else if (t.act != null && t.confirm != null && t.confirm > t.act)
     refusals.push(`confirm ${t.confirm} is above act ${t.act}`);
+  // A NEVER-EXERCISED FALLBACK ROTS (Atlassinator lesson 14, their best mechanism). The moment a row has
+  // a band it can act on, the path it acts INSTEAD of has to be run on the same case by a named test, so
+  // the two can be compared and the fallback cannot quietly stop working while the row carries the load.
+  // Shadow rows owe nothing here: nothing is being replaced yet.
+  const banded = row.mode === 'act' || (t && t.act != null);
+  if (banded && (typeof row.pairTest !== 'string' || !row.pairTest.trim()))
+    refusals.push(
+      'a banded row must name a pairTest: the file that runs this row and its fallback on the same case',
+    );
   return refusals;
 }
 
@@ -122,7 +131,9 @@ const questionAnswer = {
     ),
   criteria: (ctx) => ({
     answer: {
-      question:
+      // `instructions` is the field the API reads. Under any other name it is DROPPED IN SILENCE and the
+      // criteria carry the whole decision alone (docs/15 §2.1) — which is what v1 of this row did.
+      instructions:
         'Which one of these alternatives should be the answer to the question in the state, on the evidence of the intent, the document and the decisions already answered?',
       criteria: Object.fromEntries(
         (ctx.alternatives || []).map((alt, i) => [
