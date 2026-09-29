@@ -97,14 +97,25 @@ export function transcriptUsage(jsonl) {
     }
     const u = j?.message?.usage;
     if (!u) continue;
-    seen.set(j.message.id || j.uuid || seen.size, u);
+    seen.set(j.message.id || j.uuid || seen.size, { u, model: j.message.model || 'unknown' });
   }
-  const t = { input: 0, output: 0, cache_read: 0, cache_creation: 0, messages: seen.size };
-  for (const u of seen.values()) {
-    t.input += u.input_tokens || 0;
-    t.output += u.output_tokens || 0;
-    t.cache_read += u.cache_read_input_tokens || 0;
-    t.cache_creation += u.cache_creation_input_tokens || 0;
+  // by_model splits the same series by the model that spent it, which is what a price is keyed on (cost.mjs)
+  const t = {
+    input: 0,
+    output: 0,
+    cache_read: 0,
+    cache_creation: 0,
+    messages: seen.size,
+    by_model: {},
+  };
+  for (const { u, model } of seen.values()) {
+    const m = (t.by_model[model] ||= { input: 0, output: 0, cache_read: 0, cache_creation: 0 });
+    for (const x of [t, m]) {
+      x.input += u.input_tokens || 0;
+      x.output += u.output_tokens || 0;
+      x.cache_read += u.cache_read_input_tokens || 0;
+      x.cache_creation += u.cache_creation_input_tokens || 0;
+    }
   }
   return t;
 }

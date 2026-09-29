@@ -19,6 +19,26 @@ export function parsePorcelainOps(text) {
     });
 }
 
+// What a seat changed is what differs between the tree it started on and the tree it left, never what
+// is dirty when it ends: a file an earlier killed seat left uncommitted is still dirty for every seat
+// after it (hlab-b t5b: the w4 dev seat's tests/e2e/app.spec.ts was charged to the w5-w6 dev seats, to
+// three Master decisions and to the answer seat, which only called StructuredOutput). A state maps each
+// dirty path to its op and content hash; a path clean on both sides is absent from both.
+export function treeDelta(before, after) {
+  const paths = new Set([...Object.keys(before || {}), ...Object.keys(after || {})]);
+  return [...paths].filter((p) => (before || {})[p] !== (after || {})[p]).sort();
+}
+// the wave's mutations: the porcelain entries that changed during it, plus a path the wave returned to
+// its committed state (dirty before, clean after), which is a change too
+export function mutationsSince(before, after, ops) {
+  const delta = new Set(treeDelta(before, after));
+  const seen = ops.filter((m) => delta.has(m.target));
+  const restored = [...delta]
+    .filter((p) => !seen.some((m) => m.target === p))
+    .map((p) => ({ target: p, op: 'restored' }));
+  return [...seen, ...restored];
+}
+
 // a footprint is the hook's lines; the paths a session wrote are its file-tool targets
 export function footprintWrites(footprint) {
   return [

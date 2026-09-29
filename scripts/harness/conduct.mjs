@@ -41,11 +41,15 @@ import {
   owns,
   overlapSeconds,
 } from './activation.mjs';
+import { seatCost } from './cost.mjs';
+import { acquireLock, releaseLock } from './lock.mjs';
 import { validateGap, castGap, gapKey, gapOptions, doctypeIds, overwrites } from './gap.mjs';
 import { ladderKey, intentKindFor, coverage, coverageView } from './ladder.mjs';
 import {
   TERMINALS,
   parsePorcelainOps,
+  treeDelta,
+  mutationsSince,
   footprintWrites,
   terminalFor,
   corroborate,
@@ -66,7 +70,7 @@ import {
 } from './drift.mjs';
 import { parseNode } from './canon-delta.mjs';
 import { stageOf, lawFor, stageView } from './stage.mjs';
-import { askRow, jevLine, makeBudget } from './jev.mjs';
+import { askRow, jevLine, makeBudget, gradeShadow, shadowCoverage, baselineText } from './jev.mjs';
 import { getRow } from './jev-registry.mjs';
 import { evaluate as evaluateConstitution, constitutionView } from './constitution.mjs';
 import {
@@ -145,6 +149,23 @@ const fail = (msg, code = 1) => {
   console.error(`conduct: ${msg}`);
   process.exit(code);
 };
+// one orchestrator per plan (lock.mjs): taken before anything is read or written, released on any exit
+if (!PLAN) fail('--plan required', 2);
+const LOCK = join(H, `conduct-${PLAN}.lock`);
+{
+  const l = acquireLock(LOCK);
+  if (!l.ok)
+    fail(
+      `plan ${PLAN} is already being conducted by pid ${l.holder?.pid} since ${l.holder?.started}; a second orchestrator would cast the same seats again`,
+      2,
+    );
+  if (l.tookOver)
+    console.error(
+      `conduct: took over the lock of pid ${l.tookOver.pid}, which is no longer running`,
+    );
+  process.on('exit', () => releaseLock(LOCK));
+  for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.on(sig, () => process.exit(130));
+}
 // The ledger is the evidence of record, so a line it refuses is not a small failure to shrug at: it is
 // evidence that was supposed to exist and does not. `stamp` and `seal` were written for two whole steps
 // against a registry that did not list them, and every one of those lines was dropped without a word.
@@ -179,6 +200,20 @@ const stat = (row) =>
 // raw stdout: common.mjs git() trims, and a trimmed first porcelain line loses its status column
 const porcelain = () =>
   parsePorcelain(sh('git', ['status', '--porcelain', '--untracked-files=all']).stdout);
+// the dirty tree as { path: "op:hash" }: the starting state a seat's changes are measured against
+const treeState = () => {
+  const ops = parsePorcelainOps(
+    sh('git', ['status', '--porcelain', '--untracked-files=all']).stdout,
+  ).filter((m) => !m.target.startsWith('ledger/'));
+  const present = ops.filter((m) => existsSync(join(ROOT, m.target)));
+  const hashes = present.length
+    ? String(sh('git', ['hash-object', '--', ...present.map((m) => m.target)]).stdout)
+        .trim()
+        .split('\n')
+    : [];
+  const h = Object.fromEntries(present.map((m, i) => [m.target, hashes[i]]));
+  return Object.fromEntries(ops.map((m) => [m.target, `${m.op}:${h[m.target] ?? 'absent'}`]));
+};
 const handoff = (label) => {
   if (!bookkeepingDirty()) return;
   sh('git', ['add', ...BOOKKEEPING.filter((p) => p !== '.harness')]);
@@ -306,23 +341,27 @@ function seat({ session, prompt, budget, schema, tools, permissionMode, deadline
     }),
   );
 }
-const row = (name, station, session, r, extra = {}) => ({
-  seat: name,
-  station,
-  session: r.out?.session_id || session,
-  ok: r.ok,
-  started: new Date(r.start).toISOString(),
-  ended: new Date(r.end).toISOString(),
-  minutes: r.minutes,
-  cost_usd: r.out?.total_cost_usd ?? null,
-  turns: r.out?.num_turns ?? null,
-  tokens: r.out?.usage ?? null,
-  tools: toolUses(transcript(session)),
-  // the token series, always from the transcript; USD only when the seat lived to report it
-  transcript_tokens: transcriptUsage(transcript(session)),
-  timed_out: !!r.timedOut,
-  ...extra,
-});
+const row = (name, station, session, r, extra = {}) => {
+  // the token series, always from the transcript; USD from the seat's own report, or, when it was killed
+  // before it could make one, priced from that series and flagged cost_derived (cost.mjs)
+  const transcript_tokens = transcriptUsage(transcript(session));
+  return {
+    seat: name,
+    station,
+    session: r.out?.session_id || session,
+    ok: r.ok,
+    started: new Date(r.start).toISOString(),
+    ended: new Date(r.end).toISOString(),
+    minutes: r.minutes,
+    ...seatCost(r.out?.total_cost_usd, transcript_tokens),
+    turns: r.out?.num_turns ?? null,
+    tokens: r.out?.usage ?? null,
+    tools: toolUses(transcript(session)),
+    transcript_tokens,
+    timed_out: !!r.timedOut,
+    ...extra,
+  };
+};
 const commitAs = (who, paths, msg) => {
   sh('git', ['add', '--', ...paths]);
   return sh('git', [
@@ -602,15 +641,6 @@ const waves = []; // the relay's input: { n, activations: [...], questions: [...
 const agents = []; // every agent session of every wave, with its witnesses
 const qResults = [];
 const answerRows = [];
-const jevSeen = []; // every row asked on this plan, with the label it was measured against
-
-// Compare an answer to the Master's the way question.mjs does: the answer must be one of the listed
-// alternatives, so text equality after whitespace and case is the whole test.
-const norm = (x) =>
-  String(x ?? '')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .toLowerCase();
 
 // Ask `question.answer` in shadow, on the state the Master is about to see. Returns null when there is
 // nothing to record. Never throws and never blocks: a row that cannot answer is `unmeasured`, which is
@@ -723,6 +753,7 @@ async function master(n, attempt, refusals) {
       driftSeen.push({ artifact: a, wave: n });
   const session = randomUUID();
   ledger('seat-start', { seat: 'master', session, station: 'conduct', wave: n, attempt });
+  const mStart = treeState();
   const r = await seat({
     session,
     prompt: [
@@ -750,7 +781,7 @@ async function master(n, attempt, refusals) {
   const mRow = row('master', 'conduct', session, r, {
     wave: n,
     attempt,
-    changed: porcelain().filter((p) => !p.startsWith('ledger/')),
+    changed: treeDelta(mStart, treeState()),
   });
   ledger('seat-end', mRow);
   stat({ tool: 'claude -p', ...mRow });
@@ -900,6 +931,7 @@ async function runWave(n, d) {
       sources: relay.sources,
     });
   handoff(`${PLAN} wave ${n}: ${wave.map((a) => a.agent).join(' + ')} start`);
+  const waveStart = treeState();
   const results = await Promise.all(
     wave.map((a) =>
       seat({
@@ -917,8 +949,10 @@ async function runWave(n, d) {
 
   // witnesses: the hook's footprint and git's state diff (neither written by a model), and each
   // transcript as a third; git sees the wave's changes together, the hook and the transcript per session
-  const mutations = parsePorcelainOps(
-    sh('git', ['status', '--porcelain', '--untracked-files=all']).stdout,
+  const mutations = mutationsSince(
+    waveStart,
+    treeState(),
+    parsePorcelainOps(sh('git', ['status', '--porcelain', '--untracked-files=all']).stdout),
   ).filter((m) => !m.target.startsWith('ledger/'));
   const changed = mutations.map((m) => m.target);
   const outsideWave = outsideJurisdiction(
@@ -1281,6 +1315,7 @@ async function questions(n, wave, record) {
     });
     const session = randomUUID();
     ledger('seat-start', { seat: 'master', session, station: 'answer', wave: n, file: r.file });
+    const aStart = treeState();
     const m = await seat({
       session,
       prompt: [
@@ -1315,7 +1350,7 @@ async function questions(n, wave, record) {
     const aRow = row('master', 'answer', session, m, {
       wave: n,
       file: r.file,
-      changed: porcelain().filter((p) => !p.startsWith('ledger/')),
+      changed: treeDelta(aStart, treeState()),
     });
     ledger('seat-end', aRow);
     stat({ tool: 'claude -p', ...aRow });
@@ -1337,29 +1372,19 @@ async function questions(n, wave, record) {
     r.answered = m.ok && va.ok && authoringCalls(aRow.tools) === 0 && !aRow.changed.length;
     r.answer = ans?.answer ?? null;
     // the line is written even in shadow and even when the ruling is ignored; a missing line is a
-    // finding (docs/14 §6). `agreed` is counted here, against the answer that actually stood.
+    // finding (docs/14 §6). It is graded against the answer that stood: a refused answer is no label.
     if (shadow) {
-      const agreed = shadow.unmeasured
-        ? null
-        : norm(shadow.ruling?.answer) === norm(ans?.answer ?? null);
+      const grade = gradeShadow(shadow, { answer: ans?.answer ?? null, answered: r.answered });
       ledger(
         'jev',
-        jevLine(shadow, { agreesWith: `master:answer=${ans?.answer ?? null}`, agreed }),
+        jevLine(shadow, {
+          agreesWith: `master:answer=${ans?.answer ?? null}`,
+          ...grade,
+          file: r.file,
+          wave: n,
+        }),
         'script:jev',
       );
-      jevSeen.push({
-        file: r.file,
-        wave: n,
-        ruled: shadow.ruling?.answer ?? null,
-        master: ans?.answer ?? null,
-        agreed,
-        confidence: shadow.ruling?.confidence ?? null,
-        closeCall: shadow.ruling?.closeCall ?? null,
-        unmeasured: shadow.unmeasured === true,
-        reason: shadow.reason ?? null,
-        usd: shadow.usd ?? 0,
-        ms: shadow.ms ?? null,
-      });
     }
     r.answerRefusals = va.refusals;
     if (r.answered) {
@@ -1618,30 +1643,27 @@ const checks = {
     ok: ending !== 'goal-closed' || endLadder.covered,
     msg: `${LADDER} (${intentKind}); required still missing: ${endLadder.stepsToSeal.join(', ') || 'none'}${endLadder.stepsToSeal.length && !endLadder.mustProduce.length ? ' (no catalogue artifact produces it)' : ''}; present ${present().join(', ') || 'none'}`,
   },
-  ...(jevSeen.length
-    ? {
-        'jev-shadowed': {
-          // A row in shadow can only fail this by leaving no record: the reading is evidence that was
-          // meant to exist (docs/14 §6). Agreement is REPORTED, never required — the row does not act,
-          // and a disagreement is a finding about the row, not about the plan.
-          ok: jevSeen.every((j) => j.unmeasured || j.ruled !== null),
-          msg: `${jevSeen.filter((j) => !j.unmeasured).length}/${jevSeen.length} measured, agreed ${
-            jevSeen.filter((j) => j.agreed).length
-          }/${jevSeen.filter((j) => !j.unmeasured).length}; ${jevSeen
-            .map(
-              (j) =>
-                `${j.file} ${
-                  j.unmeasured
-                    ? `unmeasured (${j.reason})`
-                    : `${j.agreed ? 'agreed' : 'DIFFERED'} conf ${j.confidence ?? '–'}${j.closeCall ? ' close' : ''}${j.agreed ? '' : ` — ruled "${String(j.ruled).slice(0, 40)}" vs master "${String(j.master).slice(0, 40)}"`}`
-                }`,
-            )
-            .join(
-              ' · ',
-            )}; $${jevSeen.reduce((a, j) => a + (j.usd || 0), 0).toFixed(6)} of the $${jevBudget.limit ?? '–'} plan budget`,
-        },
-      }
-    : {}),
+  ...(() => {
+    // A row in shadow fails this only by leaving no measurement: the reading is evidence that was meant
+    // to exist (docs/14 §6). Agreement is REPORTED, never required — the row does not act, and a
+    // disagreement is a finding about the row, not about the plan. Read from the ledger, not from memory.
+    const cov = shadowCoverage(ledgerLines(), { enabled: JEV.enabled !== false });
+    if (!cov) return {};
+    return {
+      'jev-shadowed': {
+        ok: cov.ok,
+        msg: !cov.answers
+          ? 'no question answered on this plan; nothing to shadow'
+          : `${cov.measured}/${cov.answers} answer(s) measured${cov.missing.length ? `; NO READING for ${cov.missing.join(', ')}` : ''}${cov.unmeasured.length ? `; UNMEASURED ${cov.unmeasured.join(', ')}` : ''}; ${baselineText({ hits: cov.agreed, n: cov.graded }, cov.baselines)} graded${cov.labelRejected ? ` (${cov.labelRejected} label(s) rejected by the harness, not graded)` : ''}; ${cov.pairs
+              .filter((p) => p.jev && !p.jev.unmeasured)
+              .map(
+                (p) =>
+                  `${p.answer.file} ${p.jev.label_rejected ? 'label rejected' : p.jev.agreed ? 'agreed' : 'DIFFERED'} conf ${p.jev.confidence ?? '–'}`,
+              )
+              .join(' · ')}; $${cov.usd.toFixed(6)} of the $${jevBudget.limit ?? '–'} plan budget`,
+      },
+    };
+  })(),
   'constitution-evaluated': {
     // the constitution is run, not quoted. A violation whose tier blocks at this stage stops the plan
     // closing; below it the violation is real, recorded as debt, and the plan proceeds carrying it
@@ -1715,22 +1737,29 @@ const checks = {
       }
     : {}),
   'cost-per-session': {
-    // two series (NFR-16): every session is metered in tokens from its transcript; USD comes from the
-    // seat's own report, which a killed seat never makes, so its USD is recorded as unknown, not zero
+    // two series (NFR-16): every session is metered in tokens from its transcript, and every session is
+    // priced — from its own report, or from those tokens when it was killed first (cost_derived). Cost is
+    // the lab's one human floor (H-34), so a seat the table cannot price fails here instead of reading $0.
     ok: [...masterCalls, ...agents.map((a) => a.row)].every(
-      (r) => r.transcript_tokens?.messages > 0 && (typeof r.cost_usd === 'number' || r.timed_out),
+      (r) => r.transcript_tokens?.messages > 0 && typeof r.cost_usd === 'number',
     ),
-    msg: `Master decisions $${masterCost.toFixed(3)} + answers $${answerCost.toFixed(3)}, agents $${agentCost.toFixed(3)}${
-      agents.some((a) => a.row.cost_usd == null)
-        ? ` (+ ${agents
-            .filter((a) => a.row.cost_usd == null)
-            .map(
-              (a) =>
-                `${a.agent} w${a.n}: ${a.row.transcript_tokens.output} output tokens, USD unknown`,
-            )
-            .join(', ')})`
-        : ''
-    }; Master share of agent spend ${agentCost ? Math.round(((masterCost + answerCost) / agentCost) * 100) : 0}%`,
+    msg: `Master decisions $${masterCost.toFixed(3)} + answers $${answerCost.toFixed(3)}, agents $${agentCost.toFixed(3)}${(() => {
+      const all = [
+        ...decisions.map((d) => ({ who: `master w${d.n}`, r: d.row })),
+        ...answerRows.map((r) => ({ who: 'answer', r })),
+        ...agents.map((a) => ({ who: `${a.agent} w${a.n}`, r: a.row })),
+      ];
+      const derived = all.filter((x) => x.r.cost_derived);
+      const unpriced = all.filter((x) => typeof x.r.cost_usd !== 'number');
+      return [
+        derived.length
+          ? ` (derived from transcript tokens: ${derived.map((x) => `${x.who} $${x.r.cost_usd.toFixed(3)}`).join(', ')})`
+          : '',
+        unpriced.length
+          ? `; UNPRICED: ${unpriced.map((x) => `${x.who} [${(x.r.cost_unpriced || ['no rate']).join(', ')}]`).join(', ')}`
+          : '',
+      ].join('');
+    })()}; Master share of agent spend ${agentCost ? Math.round(((masterCost + answerCost) / agentCost) * 100) : 0}%`,
   },
 };
 // ---------------------------------------------------------------- delivery (H-1, step 12)

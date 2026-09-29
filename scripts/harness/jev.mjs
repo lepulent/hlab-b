@@ -524,19 +524,123 @@ export async function askRow(row, ctx, opts = {}) {
 // line is a finding. `agreesWith` names the label the row was measured against — the Master's answer,
 // the agent's declaration, the observer's verdict — and `agreed` says whether it matched, so calibration
 // is counted from the ledger rather than re-derived from a vector whose options have since moved.
-export function jevLine(result, { agreesWith = null, agreed = null } = {}) {
+// Grade a reading against the label that actually stood. An answer is a label only when the harness
+// accepted it (question.mjs validated it, the seat authored nothing): grading against a refused answer
+// counts a rejected label as ground truth (hlab-b t5b Q-1, runs/t5-paired.md). A refused label is
+// recorded as `label_rejected`, never as a disagreement. Comparison is text after whitespace and case,
+// since the answer must be one of the listed alternatives.
+export const normAnswer = (x) =>
+  String(x ?? '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+export function gradeShadow(result, { answer, answered }) {
+  if (result?.unmeasured) return { agreed: null };
+  if (!answered) return { agreed: null, label_rejected: true };
+  return { agreed: normAnswer(result?.ruling?.answer) === normAnswer(answer) };
+}
+
+export function jevLine(
+  result,
+  { agreesWith = null, agreed = null, label_rejected = false, file = null, wave = null } = {},
+) {
   return {
     row: result.row,
+    // the decision this reading shadows: an answer line and its jev line pair on (wave, file)
+    ...(file ? { file, wave } : {}),
     version: result.version,
     stateHash: result.stateHash,
     vector: result.ruling?.probabilities ?? result.ruling?.vector ?? {},
+    // what the row ruled, and how close it was: without these the line cannot be re-graded, re-banded or
+    // told apart from a client bug later — the replay kept them and the live line did not (T5 review)
+    ruled: result.ruling?.answer ?? null,
+    option: result.ruling?.option ?? null,
     confidence: result.ruling?.confidence ?? null,
+    closeCall: result.ruling?.closeCall ?? null,
+    band: result.ruling?.band ?? null,
     threshold: result.thresholds ?? result.ruling?.thresholds ?? null,
     mode: result.mode,
     agreesWith,
     agreed,
+    ...(label_rejected ? { label_rejected: true } : {}),
+    // the state that was cut to fit, where the reading came from, and whether its price is an estimate
+    cut: result.cut ?? [],
+    source: result.source ?? null,
+    tokens: result.tokens ?? null,
+    tokens_estimated: result.tokens_estimated ?? null,
     usd: Number((result.usd ?? 0).toFixed(7)),
     ms: result.ms ?? null,
+    // docs/15 §6: the raw body, so a vendor rename and a client bug do not look the same on a later read
+    raw: result.raw ?? null,
     ...(result.unmeasured ? { unmeasured: true, reason: result.reason ?? null } : {}),
+  };
+}
+
+// What a row must beat before its agreement means anything (lab rule 1: counting is a script). Two
+// predicates cost nothing and read no content: "pick the first alternative", since the asking agent tends
+// to write its preference first, and "pick what the asking agent recommended". Over T5 the row agreed 2/6
+// on hlab-a while both predicates scored 4/6, and no report counted them. items: { alternatives,
+// recommend, answer } → hits and n per predicate, n being the items that carry what it reads.
+export function freeBaselines(items) {
+  const count = (pick) => {
+    const scored = items.filter((x) => pick(x) != null && x.answer != null);
+    return {
+      hits: scored.filter((x) => normAnswer(pick(x)) === normAnswer(x.answer)).length,
+      n: scored.length,
+    };
+  };
+  return {
+    first: count((x) => (x.alternatives?.length ? x.alternatives[0] : null)),
+    recommended: count((x) => x.recommend || null),
+  };
+}
+export const baselineText = (row, b) =>
+  `row ${row.hits}/${row.n} · first-alternative ${b.first.hits}/${b.first.n} · recommended ${b.recommended.hits}/${b.recommended.n}`;
+
+// Was every answer on this plan shadowed, and measured? Read from the plan's whole ledger, so a resumed
+// run counts the readings of the processes before it (hlab-a t5a resumed twice and its in-memory list
+// held none of the six readings, so the check vanished). Returns null only when the row is declared off
+// for the app; otherwise the check exists even when nothing was asked, and says so. An unmeasured
+// reading is not a measurement: no key, a spent budget or a dead API is red, never green.
+export function shadowCoverage(lines, { enabled = true, row = 'question.answer' } = {}) {
+  if (!enabled) return null;
+  const answers = lines.filter((l) => l?.kind === 'answer' && l.data?.file).map((l) => l.data);
+  const jevs = lines.filter((l) => l?.kind === 'jev' && l.data?.row === row).map((l) => l.data);
+  const free = [...jevs];
+  const take = (pred) => {
+    const i = free.findIndex(pred);
+    return i < 0 ? null : free.splice(i, 1)[0];
+  };
+  // lines written before `file` travelled on them pair on the answer they were compared against
+  const pairs = answers.map((a) => ({
+    answer: a,
+    jev:
+      take((j) => j.file === a.file && j.wave === a.wave) ??
+      take((j) => !j.file && j.agreesWith === `master:answer=${a.answer ?? null}`),
+  }));
+  const missing = pairs.filter((p) => !p.jev).map((p) => `w${p.answer.wave} ${p.answer.file}`);
+  const unmeasured = pairs.filter((p) => p.jev?.unmeasured);
+  const measured = pairs.filter((p) => p.jev && !p.jev.unmeasured);
+  const graded = measured.filter((p) => p.jev.agreed === true || p.jev.agreed === false);
+  // the same graded points, scored by the free predicates, from the question each answer answered
+  const asked = lines.filter((l) => l?.kind === 'question' && l.data?.file).map((l) => l.data);
+  const questionOf = (a) =>
+    asked.findLast((q) => q.file === a.file && q.wave === a.wave) ??
+    asked.findLast((q) => q.file === a.file);
+  const baselines = freeBaselines(
+    graded.map((p) => ({ ...(questionOf(p.answer) || {}), answer: p.answer.answer })),
+  );
+  return {
+    ok: !missing.length && !unmeasured.length,
+    answers: answers.length,
+    measured: measured.length,
+    graded: graded.length,
+    agreed: graded.filter((p) => p.jev.agreed).length,
+    labelRejected: measured.filter((p) => p.jev.label_rejected).length,
+    baselines,
+    missing,
+    unmeasured: unmeasured.map((p) => `w${p.answer.wave} ${p.answer.file} (${p.jev.reason})`),
+    usd: jevs.reduce((a, j) => a + (j.usd || 0), 0),
+    pairs,
   };
 }

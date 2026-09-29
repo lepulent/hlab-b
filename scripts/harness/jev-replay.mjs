@@ -14,7 +14,7 @@ import { existsSync, readFileSync, readdirSync, mkdirSync, statSync, writeFileSy
 import { join } from 'node:path';
 import { ROOT, readJson, writeJson, git, parseFrontmatter } from './common.mjs';
 import { getRow } from './jev-registry.mjs';
-import { askRow, jevLine, makeBudget } from './jev.mjs';
+import { askRow, jevLine, makeBudget, gradeShadow, freeBaselines, baselineText } from './jev.mjs';
 
 const argv = process.argv.slice(2);
 const arg = (name, def) => {
@@ -118,6 +118,20 @@ function whyOf(file) {
     .trim();
   return { text: body, source: q.source };
 }
+// what the asking agent recommended, for the free baseline: the ledger's question line, else the file's
+// frontmatter wherever the file stands
+function recommendOf(file) {
+  const fromLedger = ledgerOf('question', file)?.recommend;
+  if (fromLedger) return fromLedger;
+  for (const p of [
+    join('records', PLAN, 'questions', file),
+    join('intent', PLAN, 'questions', file),
+  ])
+    if (existsSync(join(ROOT, p)))
+      return parseFrontmatter(readFileSync(join(ROOT, p), 'utf8')).data?.recommend ?? null;
+  const branch = git(['show', `plan/${PLAN}:intent/${PLAN}/questions/${file}`]);
+  return branch ? (parseFrontmatter(branch).data?.recommend ?? null) : null;
+}
 // the document the question was asked about: what the asking seat wrote in that wave, at its commit
 function documentOf(wave, agent) {
   const w = (conduct.waves || []).find((x) => x.n === wave);
@@ -148,11 +162,6 @@ if (!points.length) {
 }
 const intent = intentText(PLAN);
 const budget = makeBudget(jev.budget_usd_per_plan ?? null);
-const norm = (s) =>
-  String(s ?? '')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .toLowerCase();
 
 // Caps, while this is still a prototype (owner, 2026-09-28). Not the vendor's ceiling — the direct API
 // publishes no rate-limit header at all — but our own, so a loop cannot run away and a burst of the
@@ -236,7 +245,8 @@ for (const q of points) {
     console.error(`jev-replay: ${q.file} unmeasured — ${r.reason}`);
   } else consecutiveFailures = 0;
   const recorded = q.answer;
-  const agreed = r.unmeasured ? null : norm(r.ruling?.answer) === norm(recorded);
+  // every point here was answered and accepted (the filter above), so the recorded answer is a label
+  const { agreed } = gradeShadow(r, { answer: recorded, answered: true });
   results.push({
     seq: q.seq,
     file: q.file,
@@ -244,6 +254,7 @@ for (const q of points) {
     agent: q.agent,
     question: q.question,
     alternatives: q.alternatives,
+    recommend: recommendOf(q.file),
     recorded,
     ruled: r.ruling?.answer ?? null,
     agreed,
@@ -317,6 +328,14 @@ const summary = {
   agreement_recorded: measured.length
     ? Number((measured.filter((r) => r.agreed).length / measured.length).toFixed(3))
     : null,
+  // what the row must beat, on the same measured points: rule 1 counts it, a judge does not remember it
+  baselines: freeBaselines(
+    measured.map((r) => ({
+      alternatives: r.alternatives,
+      recommend: r.recommend,
+      answer: r.recorded,
+    })),
+  ),
   // docs/14 §3: the observer's verdict and the human's answer are the better labels. Neither exists for
   // an answered question in this corpus — no run recorded a human overriding an answer — so the only
   // label here is the Master's own, and that is what the number above measures and all it measures.
@@ -420,6 +439,18 @@ function writeShadowTable() {
       g.plans.sort().join(' '),
       g.points.length,
       done.length ? (done.filter((p) => p.agreed).length / done.length).toFixed(3) : '–',
+      // the free predicates on the same points; a row below them has learned nothing they did not
+      (() => {
+        const b = freeBaselines(
+          done.map((p) => ({
+            alternatives: p.alternatives,
+            recommend: p.recommend,
+            answer: p.recorded,
+          })),
+        );
+        const r = (x) => (x.n ? (x.hits / x.n).toFixed(3) : '–');
+        return `${r(b.first)} / ${r(b.recommended)}`;
+      })(),
       // the band that decides whether the row can ever act: a threshold is worthless if the high
       // band is polluted, and accuracy overall says nothing about whether it is
       (() => {
@@ -434,8 +465,8 @@ function writeShadowTable() {
     lines.push(`| ${cells.join(' | ')} |`);
   }
   const head = [
-    '| row | v | mode | app | transport | variant | plans | n | agreement (Master) | agree at conf ≥0.95 | close calls | mean conf. | $/decision | ms/decision |',
-    '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
+    '| row | v | mode | app | transport | variant | plans | n | agreement (Master) | baseline first / recommended | agree at conf ≥0.95 | close calls | mean conf. | $/decision | ms/decision |',
+    '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
   ];
   const body = lines.length ? lines.sort().join('\n') : '_no replay has been run_';
   writeFileSync(
@@ -451,6 +482,6 @@ else {
       `${r.agreed === null ? 'unmeasured' : r.agreed ? 'agree ' : 'DIFFER'}  ${r.file.padEnd(8)} w${r.wave} ${String(r.agent).padEnd(12)} conf ${r.confidence ?? '–'}  ruled: ${String(r.ruled ?? r.reason).slice(0, 70)}`,
     );
   console.log(
-    `\n${summary.row} v${summary.version} (${summary.mode}) on ${APP}/${PLAN} via ${summary.transport}: ${summary.measured}/${summary.n} measured · agreement ${summary.agreement_recorded ?? '–'} · ${summary.close_calls} close call(s) · $${summary.usd_total} · ${summary.ms_per_decision} ms/decision`,
+    `\n${summary.row} v${summary.version} (${summary.mode}) on ${APP}/${PLAN} via ${summary.transport}: ${summary.measured}/${summary.n} measured · agreement ${summary.agreement_recorded ?? '–'} · ${baselineText({ hits: measured.filter((r) => r.agreed).length, n: measured.length }, summary.baselines)} · ${summary.close_calls} close call(s) · $${summary.usd_total} · ${summary.ms_per_decision} ms/decision`,
   );
 }
