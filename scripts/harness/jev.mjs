@@ -11,6 +11,7 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { setTimeout, clearTimeout } from 'node:timers';
 import { createHash } from 'node:crypto';
 import { ROOT } from './common.mjs';
+import { answerStood } from './resume.mjs';
 
 export const ENDPOINT = 'https://api.typesafe.ai/v1/systemone';
 // models.md: $0.042 per million input tokens, output free
@@ -604,7 +605,11 @@ export const baselineText = (row, b) =>
 // reading is not a measurement: no key, a spent budget or a dead API is red, never green.
 export function shadowCoverage(lines, { enabled = true, row = 'question.answer' } = {}) {
   if (!enabled) return null;
-  const answers = lines.filter((l) => l?.kind === 'answer' && l.data?.file).map((l) => l.data);
+  const answerLines = lines.filter((l) => l?.kind === 'answer' && l.data?.file);
+  const answers = answerLines.map((l) => l.data);
+  // an answer the harness refused is no label, whatever the reading line said when it was written
+  // (hlab-b t5b Q-1 was graded DIFFERED against a ruling that never stood)
+  const stood = new Map(answerLines.map((l) => [l.data, answerStood(l, lines)]));
   const jevs = lines.filter((l) => l?.kind === 'jev' && l.data?.row === row).map((l) => l.data);
   const free = [...jevs];
   const take = (pred) => {
@@ -621,7 +626,10 @@ export function shadowCoverage(lines, { enabled = true, row = 'question.answer' 
   const missing = pairs.filter((p) => !p.jev).map((p) => `w${p.answer.wave} ${p.answer.file}`);
   const unmeasured = pairs.filter((p) => p.jev?.unmeasured);
   const measured = pairs.filter((p) => p.jev && !p.jev.unmeasured);
-  const graded = measured.filter((p) => p.jev.agreed === true || p.jev.agreed === false);
+  const rejected = (p) => p.jev.label_rejected || !stood.get(p.answer);
+  const graded = measured.filter(
+    (p) => !rejected(p) && (p.jev.agreed === true || p.jev.agreed === false),
+  );
   // the same graded points, scored by the free predicates, from the question each answer answered
   const asked = lines.filter((l) => l?.kind === 'question' && l.data?.file).map((l) => l.data);
   const questionOf = (a) =>
@@ -636,11 +644,12 @@ export function shadowCoverage(lines, { enabled = true, row = 'question.answer' 
     measured: measured.length,
     graded: graded.length,
     agreed: graded.filter((p) => p.jev.agreed).length,
-    labelRejected: measured.filter((p) => p.jev.label_rejected).length,
+    labelRejected: measured.filter(rejected).length,
     baselines,
     missing,
     unmeasured: unmeasured.map((p) => `w${p.answer.wave} ${p.answer.file} (${p.jev.reason})`),
     usd: jevs.reduce((a, j) => a + (j.usd || 0), 0),
     pairs,
+    isRejected: rejected,
   };
 }

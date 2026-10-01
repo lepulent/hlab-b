@@ -32,6 +32,8 @@ import {
 import {
   rosterById,
   parsePorcelain,
+  branchChanges,
+  committedText,
   outsideJurisdiction,
   transcriptDir,
   toolUses,
@@ -41,8 +43,9 @@ import {
   owns,
   overlapSeconds,
 } from './activation.mjs';
-import { seatCost } from './cost.mjs';
-import { acquireLock, releaseLock } from './lock.mjs';
+import { seatCost, ledgerCost } from './cost.mjs';
+import { recordsDecision, compareToRecords } from './master-predicate.mjs';
+import { acquireLock, releaseLock, setLockSeats, recordRefusal, takeRefusals } from './lock.mjs';
 import { validateGap, castGap, gapKey, gapOptions, doctypeIds, overwrites } from './gap.mjs';
 import { ladderKey, intentKindFor, coverage, coverageView } from './ladder.mjs';
 import {
@@ -57,7 +60,7 @@ import {
   supersede,
 } from './record.mjs';
 import { deriveTriggers, vetoHeld } from './department.mjs';
-import { rebuild, parseLedger } from './resume.mjs';
+import { rebuild, parseLedger, openSeats, answerStood } from './resume.mjs';
 import {
   liveDecisions,
   stampAtWrite,
@@ -149,23 +152,56 @@ const fail = (msg, code = 1) => {
   console.error(`conduct: ${msg}`);
   process.exit(code);
 };
+// Seats run as process-group leaders so a kill reaches the CLI and every tool process under it. They used
+// to be killed by nobody when the orchestrator died: t5a dev a61390e6 and t5b dev 728c6136 kept writing
+// after theirs had gone, unwitnessed, with no seat-end and no price ($3.37 between them).
+const liveSeats = new Map(); // pid → child
+function killGroup(pid, signal) {
+  try {
+    process.kill(-pid, signal);
+  } catch {
+    /* already gone */
+  }
+}
+function killSeats() {
+  for (const pid of liveSeats.keys()) killGroup(pid, 'SIGKILL');
+}
 // one orchestrator per plan (lock.mjs): taken before anything is read or written, released on any exit
 if (!PLAN) fail('--plan required', 2);
 const LOCK = join(H, `conduct-${PLAN}.lock`);
+const LOCK_TAKEN = acquireLock(LOCK);
+const TOOK_OVER = LOCK_TAKEN.ok ? LOCK_TAKEN.tookOver : null;
 {
-  const l = acquireLock(LOCK);
-  if (!l.ok)
-    fail(
-      `plan ${PLAN} is already being conducted by pid ${l.holder?.pid} since ${l.holder?.started}; a second orchestrator would cast the same seats again`,
-      2,
-    );
+  const l = LOCK_TAKEN;
+  if (!l.ok) {
+    const why = l.orphans?.length
+      ? `plan ${PLAN}'s last orchestrator (pid ${l.holder?.pid}) is gone but its seat(s) ${l.orphans.join(', ')} are still running and writing; stop them before conducting this plan again`
+      : l.claimedBy
+        ? `plan ${PLAN}'s dead lock (pid ${l.holder?.pid}) was claimed by pid ${l.claimedBy.pid}, which died mid-takeover; remove ${l.claimedBy.claim} once you are sure no orchestrator runs`
+        : `plan ${PLAN} is already being conducted by pid ${l.holder?.pid} since ${l.holder?.started}; a second orchestrator would cast the same seats again`;
+    recordRefusal(LOCK, {
+      pid: process.pid,
+      at: new Date().toISOString(),
+      holder: l.holder?.pid ?? null,
+      orphans: l.orphans || [],
+      claimed_by: l.claimedBy?.pid ?? null,
+      why,
+    });
+    fail(why, 2);
+  }
   if (l.tookOver)
     console.error(
       `conduct: took over the lock of pid ${l.tookOver.pid}, which is no longer running`,
     );
-  process.on('exit', () => releaseLock(LOCK));
+  // every seat is killed with its orchestrator, on every exit this process can see (a SIGKILL it cannot
+  // see is what the pids in the lock are for); the signals exit through here too
+  process.on('exit', () => {
+    killSeats();
+    releaseLock(LOCK);
+  });
   for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.on(sig, () => process.exit(130));
 }
+const seatsChanged = () => setLockSeats(LOCK, liveSeats.keys());
 // The ledger is the evidence of record, so a line it refuses is not a small failure to shrug at: it is
 // evidence that was supposed to exist and does not. `stamp` and `seal` were written for two whole steps
 // against a registry that did not list them, and every one of those lines was dropped without a word.
@@ -215,6 +251,10 @@ const treeState = () => {
   return Object.fromEntries(ops.map((m) => [m.target, `${m.op}:${h[m.target] ?? 'absent'}`]));
 };
 const handoff = (label) => {
+  // every orchestrator the lock refused since the last handoff, moved from beside the lock into the record
+  const taken = takeRefusals(LOCK);
+  for (const r of taken.refusals) ledger('finding', { type: 'lock-refused', ...r });
+  taken.done();
   if (!bookkeepingDirty()) return;
   sh('git', ['add', ...BOOKKEEPING.filter((p) => p !== '.harness')]);
   sh('git', ['commit', '-q', '-m', `chore(ledger): ${label}`]);
@@ -303,14 +343,16 @@ function seat({ session, prompt, budget, schema, tools, permissionMode, deadline
       '--tools',
       [...new Set(tools.map((t) => t.split('(')[0]))].join(','),
     ],
-    { cwd: ROOT, stdio: ['pipe', 'pipe', 'pipe'], env: SEAT_ENV },
+    { cwd: ROOT, stdio: ['pipe', 'pipe', 'pipe'], env: SEAT_ENV, detached: true },
   );
+  liveSeats.set(child.pid, child);
+  seatsChanged();
   let timedOut = false;
   const timer = deadlineS
     ? setTimeout(() => {
         timedOut = true;
-        child.kill('SIGTERM');
-        setTimeout(() => child.kill('SIGKILL'), 5000).unref();
+        killGroup(child.pid, 'SIGTERM');
+        setTimeout(() => killGroup(child.pid, 'SIGKILL'), 5000).unref();
       }, deadlineS * 1000)
     : null;
   let stdout = '';
@@ -321,6 +363,8 @@ function seat({ session, prompt, budget, schema, tools, permissionMode, deadline
   return new Promise((resolve) =>
     child.on('close', (code) => {
       if (timer) clearTimeout(timer);
+      liveSeats.delete(child.pid);
+      seatsChanged();
       let out = null;
       try {
         out = JSON.parse(stdout);
@@ -392,6 +436,15 @@ const departments = readJson(join(ROOT, 'canon', 'departments.json'), { departme
 if (!catalogue?.doctypes?.length) fail('no .claude/roster/catalogue.json (install the bundle)', 2);
 const conductorPrompt = join(ROOT, '.claude', 'seats', 'conductor.md');
 if (!existsSync(conductorPrompt)) fail('no .claude/seats/conductor.md (install the bundle)', 2);
+// a takeover is a fact of the plan, recorded before anything can refuse the run: whose lock this
+// orchestrator took, and when that one had started
+if (TOOK_OVER)
+  ledger('finding', {
+    type: 'lock-taken-over',
+    pid: process.pid,
+    from: TOOK_OVER.pid ?? null,
+    started: TOOK_OVER.started ?? null,
+  });
 handoff(`${PLAN} conduct starts`);
 if (productDirty() || porcelain().length)
   fail('the tree is not clean; a conducted step starts from a whole branch', 2);
@@ -426,7 +479,7 @@ const canonCriteria = () => {
 const worldNow = (lines = ledgerLines()) =>
   liveDecisions({
     answers: lines
-      .filter((l) => l?.kind === 'answer' && l.data?.file && l.data?.valid)
+      .filter((l) => l?.kind === 'answer' && l.data?.file && answerStood(l, lines))
       .map((l) => ({ file: l.data.file, answer: l.data.answer })),
     criteria: canonCriteria(),
   });
@@ -453,12 +506,10 @@ const constitutionNow = () => {
   });
 };
 
+// Committed changes only (activation.mjs branchChanges, committedText): what sits in the tree
+// uncommitted is not on the branch, and a plan must not close on it, nor read or mature it.
 const changedUnder = (d) =>
-  parsePorcelain(
-    sh('git', ['diff', '--name-only', `${route.base}..HEAD`]).stdout.replace(/^/gm, '   '),
-  )
-    .concat(porcelain())
-    .filter((p) => owns([artifactPath(d)], p));
+  branchChanges(route.base, ROOT).filter((p) => owns([artifactPath(d)], p));
 // A plan's documents live under intent/<plan>/ until the landing seals them into records/<plan>/, and
 // an artifact does not stop existing because it was sealed: the path follows it (hlab-a s12a read its
 // own tech spec back as "planted" the moment the plan landed).
@@ -474,11 +525,11 @@ const artifactPath = (d) => {
 const artifactFiles = (d) => {
   const path = artifactPath(d);
   if (path.includes('*')) return changedUnder(d);
-  return existsSync(join(ROOT, path)) ? [path] : [];
+  return committedText(path, ROOT) !== null ? [path] : [];
 };
 const artifactText = (d) =>
   artifactFiles(d)
-    .map((p) => (existsSync(join(ROOT, p)) ? readFileSync(join(ROOT, p), 'utf8') : ''))
+    .map((p) => committedText(p, ROOT) ?? '')
     .join('\n\n')
     .trim() || null;
 // A code artifact exists as files, but it covers its rung only when the app's own gate passed on it:
@@ -696,6 +747,43 @@ let ending = null; // goal-closed | needs-input | refused | wave-cap
 // its ledger, so the Master sees the same history it would have seen had nothing stopped (NFR-1, NFR-2:
 // the digest is a fold over recorded state, and the Master is re-read, never resumed).
 const ledgerFile = join(ROOT, 'ledger', `${PLAN}.jsonl`);
+// A seat the ledger opened and never closed belongs to an orchestrator that died (the lock has already
+// checked that none of them is still running). Each is closed now as abandoned and priced from its
+// transcript, so the history the Master is re-read from, and the plan's cost, both include it.
+if (existsSync(ledgerFile)) {
+  const open = openSeats(parseLedger(readFileSync(ledgerFile, 'utf8')));
+  for (const o of open) {
+    const tt = transcriptUsage(transcript(o.session));
+    ledger('seat-end', {
+      seat: o.seat,
+      station: o.station,
+      session: o.session,
+      ok: false,
+      started: o.started,
+      ended: null,
+      minutes: null,
+      ...seatCost(null, tt),
+      turns: null,
+      tokens: null,
+      tools: toolUses(transcript(o.session)),
+      transcript_tokens: tt,
+      timed_out: false,
+      orphaned: true,
+      wave: o.wave,
+      ...(o.attempt != null ? { attempt: o.attempt } : {}),
+      ...(o.file ? { file: o.file } : {}),
+      artifacts: [],
+      authored: [],
+      terminal: 'abandoned',
+      reason:
+        'its orchestrator died before the seat ended; closed on resume, its writes unwitnessed',
+    });
+  }
+  if (open.length) {
+    console.error(`conduct: closed ${open.length} seat(s) left open by a dead orchestrator`);
+    handoff(`${PLAN} ${open.length} orphaned seat(s) closed`);
+  }
+}
 const prior = existsSync(ledgerFile)
   ? rebuild(parseLedger(readFileSync(ledgerFile, 'utf8')))
   : { waves: [], gaps: [], questions: [], gates: {}, lastWave: 0, agents: [] };
@@ -811,6 +899,23 @@ async function master(n, attempt, refusals) {
     valid.ok = false;
     valid.refusals = [...(valid.refusals || []), ...stale];
   }
+  // J5 in shadow: what the ladder alone would have decided, and where the Master parted from it
+  // (master-predicate.mjs). Nothing acts on it; the record counts it.
+  const pred = recordsDecision(ladder, {
+    wavesLeft: MAX_WAVES - n + 1,
+    stale: staleArtifacts(drift),
+  });
+  const records = {
+    outcome: pred.outcome,
+    artifacts: pred.artifacts,
+    why: pred.why,
+    optional: pred.optional.map((o) => o.id),
+    category: compareToRecords(
+      pred,
+      { outcome: dec.outcome, artifacts: dec.gap?.artifacts || [] },
+      ladder,
+    ).category,
+  };
   ledger(
     'activation',
     {
@@ -831,12 +936,13 @@ async function master(n, attempt, refusals) {
         steps_to_seal: ladder.stepsToSeal,
         must_produce: ladder.mustProduce,
       },
+      records,
       master_session: mRow.session,
     },
     'agent:master',
   );
   handoff(`${PLAN} wave ${n} decision ${attempt} recorded`);
-  return { n, attempt, dec, valid, row: mRow, digest };
+  return { n, attempt, dec, valid, row: mRow, digest, records };
 }
 async function decide(n) {
   let d = await master(n, 1, null);
@@ -1177,7 +1283,8 @@ function recordWave(n, wave, record, stop) {
   const live = worldNow();
   const stamp = stampAtWrite(live);
   for (const a of wave) {
-    if (a.terminal !== 'complete') continue;
+    // a seat whose writes stayed uncommitted delivered nothing to the branch, so nothing is stamped
+    if (a.terminal !== 'complete' || (a.written.length && !a.commit)) continue;
     for (const id of a.artifacts) {
       const d = catalogue.doctypes.find((x) => x.id === id);
       ledger('stamp', {
@@ -1354,6 +1461,9 @@ async function questions(n, wave, record) {
     });
     ledger('seat-end', aRow);
     stat({ tool: 'claude -p', ...aRow });
+    // whether the ruling stood is decided before the line is written and persisted on it, so a resume,
+    // the drift world and a replay read the same fact this run acted on
+    r.answered = m.ok && va.ok && authoringCalls(aRow.tools) === 0 && !aRow.changed.length;
     ledger(
       'answer',
       {
@@ -1363,13 +1473,13 @@ async function questions(n, wave, record) {
         reason: ans?.reason ?? null,
         rejected: ans?.rejected || [],
         valid: m.ok && va.ok,
+        stood: r.answered,
         refusals: va.refusals,
         master_session: aRow.session,
       },
       'agent:master',
     );
     answerRows.push(aRow);
-    r.answered = m.ok && va.ok && authoringCalls(aRow.tools) === 0 && !aRow.changed.length;
     r.answer = ans?.answer ?? null;
     // the line is written even in shadow and even when the ruling is ignored; a missing line is a
     // finding (docs/14 §6). It is graded against the answer that stood: a refused answer is no label.
@@ -1465,9 +1575,6 @@ const sequence = final.map((d) => gapKey(d.dec));
 const chose = sequence[0];
 const outcome = questionOutcome(qResults.filter((r) => r.file));
 const masterCalls = [...decisions.map((d) => d.row), ...answerRows];
-const agentCost = agents.reduce((s, a) => s + (a.row.cost_usd || 0), 0);
-const masterCost = decisions.reduce((s, d) => s + (d.row.cost_usd || 0), 0);
-const answerCost = answerRows.reduce((s, r) => s + (r.cost_usd || 0), 0);
 const ranAgents = [...new Set([...prior.agents, ...agents.map((a) => a.agent)])].sort();
 const relayWaves = agents.filter((a) => a.relay.needed && a.terminal === 'complete');
 const multi = waves.filter((w) => !w.prior && w.activations.length > 1);
@@ -1658,7 +1765,7 @@ const checks = {
               .filter((p) => p.jev && !p.jev.unmeasured)
               .map(
                 (p) =>
-                  `${p.answer.file} ${p.jev.label_rejected ? 'label rejected' : p.jev.agreed ? 'agreed' : 'DIFFERED'} conf ${p.jev.confidence ?? '–'}`,
+                  `${p.answer.file} ${cov.isRejected(p) ? 'label rejected' : p.jev.agreed ? 'agreed' : 'DIFFERED'} conf ${p.jev.confidence ?? '–'}`,
               )
               .join(' · ')}; $${cov.usd.toFixed(6)} of the $${jevBudget.limit ?? '–'} plan budget`,
       },
@@ -1736,31 +1843,18 @@ const checks = {
           : {}),
       }
     : {}),
-  'cost-per-session': {
-    // two series (NFR-16): every session is metered in tokens from its transcript, and every session is
-    // priced — from its own report, or from those tokens when it was killed first (cost_derived). Cost is
-    // the lab's one human floor (H-34), so a seat the table cannot price fails here instead of reading $0.
-    ok: [...masterCalls, ...agents.map((a) => a.row)].every(
-      (r) => r.transcript_tokens?.messages > 0 && typeof r.cost_usd === 'number',
-    ),
-    msg: `Master decisions $${masterCost.toFixed(3)} + answers $${answerCost.toFixed(3)}, agents $${agentCost.toFixed(3)}${(() => {
-      const all = [
-        ...decisions.map((d) => ({ who: `master w${d.n}`, r: d.row })),
-        ...answerRows.map((r) => ({ who: 'answer', r })),
-        ...agents.map((a) => ({ who: `${a.agent} w${a.n}`, r: a.row })),
-      ];
-      const derived = all.filter((x) => x.r.cost_derived);
-      const unpriced = all.filter((x) => typeof x.r.cost_usd !== 'number');
-      return [
-        derived.length
-          ? ` (derived from transcript tokens: ${derived.map((x) => `${x.who} $${x.r.cost_usd.toFixed(3)}`).join(', ')})`
-          : '',
-        unpriced.length
-          ? `; UNPRICED: ${unpriced.map((x) => `${x.who} [${(x.r.cost_unpriced || ['no rate']).join(', ')}]`).join(', ')}`
-          : '',
-      ].join('');
-    })()}; Master share of agent spend ${agentCost ? Math.round(((masterCost + answerCost) / agentCost) * 100) : 0}%`,
-  },
+  'cost-per-session': (() => {
+    // two series (NFR-16), read from the plan's WHOLE ledger — every process that ever ran it, every seat
+    // it opened. A seat's USD is its own report, or its transcript tokens priced (cost_derived); an open
+    // seat or an unpriced one fails here, because cost is the lab's one human floor (H-34).
+    const c = ledgerCost(ledgerLines(), (session) =>
+      seatCost(null, transcriptUsage(transcript(session))),
+    );
+    return {
+      ok: c.ok,
+      msg: `${c.seats} seat(s) from the ledger: Master decisions $${c.master.toFixed(3)} + answers $${c.answers.toFixed(3)}, agents $${c.agents.toFixed(3)}${c.derived.length ? ` (derived from transcript tokens: ${c.derived.join(', ')})` : ''}${c.unpriced.length ? `; UNPRICED: ${c.unpriced.join(', ')}` : ''}${c.open.length ? `; OPEN (started, never ended): ${c.open.join(', ')}` : ''}; Master share of agent spend ${c.agents ? Math.round(((c.master + c.answers) / c.agents) * 100) : 0}%`,
+    };
+  })(),
 };
 // ---------------------------------------------------------------- delivery (H-1, step 12)
 // A closed plan with a covered ladder is not finished: its contract and its code still have to reach
@@ -1879,6 +1973,7 @@ writeJson(join(H, `conduct-${PLAN}.json`), {
     // construction rather than by reconstruction.
     digest_text: d.digest.text,
     digest_sha: hash(d.digest.text),
+    records: d.records ?? null,
     master: d.row,
   })),
   waves,
@@ -1913,4 +2008,12 @@ handoff(`${PLAN} conduct ${pass ? 'passed' : 'failed'}`);
 for (const [k, v] of Object.entries(checks))
   console.log(`${v.ok ? 'pass' : 'FAIL'}  ${k.padEnd(24)} ${v.msg}`);
 console.log(`conduct: ${pass ? 'PASSED' : 'FAILED'} · ${sequence.join(' → ')} · ended ${ending}`);
+// J5 shadow, reported and never a check: a number with no fail path is not a check (T5 review, finding 6)
+{
+  const r = final.map((d) => d.records?.category).filter(Boolean);
+  if (r.length)
+    console.log(
+      `conduct: records settle ${r.filter((c) => c === 'agree').length}/${r.length} Master decision(s)${r.some((c) => c !== 'agree') ? `; parted: ${r.filter((c) => c !== 'agree').join(', ')}` : ''}`,
+    );
+}
 process.exit(pass ? 0 : 1);

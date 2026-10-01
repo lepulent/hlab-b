@@ -3,6 +3,24 @@
 // rebuilds them from the ledger — what each wave produced, how it ended, which gaps stand, which
 // questions were answered — instead of starting blind. Pure: the caller passes the ledger's lines.
 
+import { authoringCalls } from './activation.mjs';
+
+// Whether an answer stood: a valid ruling the harness then refused (the answerer authored, or the tree
+// changed under it) is no answer. Lines written since this was recorded carry `stood`; older ones are
+// read from the answerer's own seat-end, as conduct decided it then (hlab-b t5b Q-1: valid, refused,
+// and still read back as the answer and as a JEV disagreement).
+export function answerStood(answer, lines) {
+  const d = answer?.data || {};
+  if (typeof d.stood === 'boolean') return d.stood;
+  if (!d.valid) return false;
+  // no answerer session named: nothing shows the ruling stood (no lab ledger has such a line)
+  if (!d.master_session) return false;
+  const end = lines.find(
+    (l) => l?.kind === 'seat-end' && l.data?.session === d.master_session,
+  )?.data;
+  return !!end && authoringCalls(end.tools || {}) === 0 && !(end.changed || []).length;
+}
+
 // lines: the plan's ledger, oldest first, already parsed
 export function rebuild(lines) {
   const waves = new Map(); // n → { n, gap, activations, questions }
@@ -62,7 +80,7 @@ export function rebuild(lines) {
     }
     if (l?.kind === 'answer' && d.file) {
       const q = questions.find((x) => x.file === d.file);
-      if (q && d.valid) q.answer = d.answer;
+      if (q && answerStood(l, lines)) q.answer = d.answer;
     }
     if (l?.kind === 'decision' && d.station === 'decider' && d.file) {
       const q = questions.find((x) => x.file === d.file);
@@ -101,6 +119,26 @@ export function rebuild(lines) {
 }
 
 // the ledger of a plan, oldest first, from its JSONL text
+// Seats the ledger opened and never closed: their orchestrator died before it could write the end
+// (hlab-a t5a dev a61390e6 and master 11f137bc, hlab-b t5b dev 728c6136 — $3.44 that no cost line
+// carried). A resumed conduct closes each as abandoned, priced from its transcript, before it goes on.
+export function openSeats(lines) {
+  const ended = new Set(
+    lines.filter((l) => l?.kind === 'seat-end' && l.data?.session).map((l) => l.data.session),
+  );
+  return lines
+    .filter((l) => l?.kind === 'seat-start' && l.data?.session && !ended.has(l.data.session))
+    .map((l) => ({
+      seat: l.data.seat,
+      session: l.data.session,
+      station: l.data.station ?? null,
+      wave: l.data.wave ?? null,
+      attempt: l.data.attempt ?? null,
+      file: l.data.file ?? null,
+      started: l.ts ?? null,
+    }));
+}
+
 export function parseLedger(text) {
   return String(text || '')
     .split('\n')

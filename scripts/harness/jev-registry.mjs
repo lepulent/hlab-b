@@ -176,7 +176,67 @@ const questionAnswer = {
   },
 };
 
-const ROWS = [questionAnswer];
+// docs/14 §5 J5, §9. The one atom of the Master's decision the records do not settle (master-predicate.mjs):
+// whether a rung that does not block the seal — recommended, optional, conditional — is worth a wave. The
+// ladder answers every blocking rung by itself; this row is asked only for the others, one call per rung.
+// Why a predicate cannot answer it: the ladder says the rung MAY be written, not whether THIS intent needs
+// it; that turns on what the intent asks and what the plan's other documents already settle, which is
+// reading, not counting. The free baseline it must beat is "never": over 211 such cases on both apps the
+// Master spent a wave on 22, so never is right 0.896 (runs/hlab-*/master-replay.json).
+// The criteria state the rule and quote no case: the corpus is the test set (T5 review, the label leak).
+const gapArtifactNeeded = {
+  id: 'gap.artifact.needed',
+  primitive: 'noul',
+  version: 1,
+  mode: 'shadow',
+  thresholds: { act: null, confirm: null },
+  // REPLAYED AND FAILED, both apps (2026-09-29): hlab-a (tune half) agreed 49/113 against "never"
+  // 100/113, AUC 0.68; hlab-b (held out, untouched) 24/98 against 89/98, AUC 0.58. Its probabilities sit
+  // in 0.3–0.7 and it rates ux and brief above 0.5 though the Master built neither once. Kept so the
+  // result can be rerun; not wired into conduct, and not to be until a version beats "never" on hlab-b.
+  evidence:
+    'runs/hlab-*/master-replay.json (211 cases, 22 given a wave); runs/hlab-*/master-replay-gap.artifact.needed.json (v1 replayed live: loses to "never" on both apps)',
+  // the rung, the intent it would serve, and what the plan already has and still owes — not the digest,
+  // not maturity, not the catalogue's other entries
+  state: (ctx) =>
+    fitState(
+      {
+        rung: `${ctx.rung?.title || ctx.rung?.id} (${ctx.rung?.requirement || 'not required'}): ${ctx.rung?.purpose || ''}`.trim(),
+        rigor: String(ctx.rigor || ''),
+        intent: String(ctx.intent || '').trim(),
+        has: (ctx.has || []).join(', ') || 'nothing yet',
+        still_owes: (ctx.owes || []).join(', ') || 'nothing',
+      },
+      STATE_CAP,
+      ['rung', 'rigor', 'has', 'still_owes'],
+    ),
+  criteria: () => ({
+    needed: {
+      instructions:
+        "Does this plan need the rung described in the state, in addition to what it has and still owes, to deliver what its intent asks at the plan's rigor?",
+      criteria: {
+        true: 'the intent asks for something this rung exists to settle, and nothing the plan has or still owes settles it; leaving it out would leave that part of the intent undecided',
+        false:
+          "what the intent asks is settled by what the plan has or still owes, so this rung would restate it; or the plan's rigor does not call for this rung",
+      },
+    },
+  }),
+  combine: (read) => {
+    const a = read.needed || {};
+    const p = a.vector?.true ?? null;
+    return {
+      answer: p == null ? null : p >= 0.5,
+      option: a.pick ?? null,
+      probabilities: a.vector || {},
+      confidence: a.confidence ?? null,
+      closeCall: !!a.closeCall,
+      band: 'shadow',
+      acts: false,
+    };
+  },
+};
+
+const ROWS = [questionAnswer, gapArtifactNeeded];
 
 // loaded, not called: a bad row stops the module that imports it, at the import
 const bad = ROWS.flatMap((r) => validateRow(r).map((x) => `${r?.id ?? '(no id)'}: ${x}`));

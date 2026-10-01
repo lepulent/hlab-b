@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { globToRegex } from './common.mjs';
 
 // Pure rules for conducted activations (H-32, H-33): an agent's jurisdiction is checked and transcripts
@@ -123,4 +124,27 @@ export function transcriptUsage(jsonl) {
 export const AUTHORING_TOOLS = ['Write', 'Edit', 'MultiEdit', 'NotebookEdit', 'Bash'];
 export function authoringCalls(counts) {
   return AUTHORING_TOOLS.reduce((n, t) => n + (counts[t] || 0), 0);
+}
+
+// What is on the branch, not in the tree: a plan is covered, and its artifacts read and matured, only by
+// what it committed (hlab-b t6b: code stranded uncommitted by one outside write still covered the
+// implementation rung, and the plan ended goal-closed).
+const gitRaw = (args, cwd) => {
+  try {
+    return execFileSync('git', args, {
+      cwd,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+  } catch {
+    return null;
+  }
+};
+// the files this branch changed since base, committed
+export function branchChanges(base, cwd) {
+  return (gitRaw(['diff', '--name-only', `${base}..HEAD`], cwd) || '').split('\n').filter(Boolean);
+}
+// a file's text as HEAD has it, or null when HEAD does not hold it
+export function committedText(path, cwd) {
+  return gitRaw(['show', `HEAD:${path}`], cwd);
 }
