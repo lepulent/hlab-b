@@ -39,7 +39,10 @@
     "harness:rubric": "node scripts/harness/rubric.mjs",
     "harness:observe": "node scripts/harness/round.mjs observe",
     "harness:conduct": "node scripts/harness/conduct.mjs",
-    "harness:jev-replay": "node scripts/harness/jev-replay.mjs"
+    "harness:jev-replay": "node scripts/harness/jev-replay.mjs",
+    "harness:grant": "node scripts/harness/grants.mjs grant",
+    "harness:revoke": "node scripts/harness/grants.mjs revoke",
+    "harness:jev-probe": "node scripts/harness/jev-probe.mjs"
   },
   "repository": {
     "type": "git",

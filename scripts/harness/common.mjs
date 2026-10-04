@@ -1,7 +1,7 @@
 // Shared helpers for the harness scripts. Node stdlib only. Deterministic.
 import { readFileSync, readdirSync, statSync, existsSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join, relative, dirname } from 'node:path';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 
 export const ROOT = process.env.HARNESS_ROOT || process.env.CLAUDE_PROJECT_DIR || process.cwd();
@@ -87,6 +87,85 @@ export function git(args, cwd = ROOT) {
     return '';
   }
 }
+// The environment a model process the harness spawns gets: an allowlist, so no ANTHROPIC_*, Bedrock,
+// Vertex or AWS credential inherited from the operator's shell can turn a CLI-login run into a billed one
+// (NFR-5..7). Seats have had it since step 4; the review lenses inherited the whole environment.
+export const MODEL_ENV_KEYS = [
+  'PATH',
+  'HOME',
+  'USER',
+  'LOGNAME',
+  'SHELL',
+  'LANG',
+  'TERM',
+  'TMPDIR',
+];
+export function modelEnv(env = process.env, extra = {}) {
+  return {
+    ...Object.fromEntries(MODEL_ENV_KEYS.filter((k) => env[k]).map((k) => [k, env[k]])),
+    ...extra,
+  };
+}
+
+// What in the user settings a `--setting-sources user` model process loads that would bill it: an
+// apiKeyHelper, or a credential in its env block. The allowlisted environment cannot see these; so a
+// model process the harness starts is preceded by this read, and refused on any finding, rather than
+// "on the CLI login" being an assumption about today's settings (Ludwig 2026-10-02, on 82faaab).
+export const BILLED_ENV =
+  /^(ANTHROPIC_|AWS_|CLAUDE_CODE_USE_(BEDROCK|VERTEX)$|GOOGLE_APPLICATION_CREDENTIALS$)/;
+export function billedSettings(home = process.env.HOME || '') {
+  const out = [];
+  for (const f of ['settings.json', 'settings.local.json']) {
+    const file = join(home, '.claude', f);
+    if (!existsSync(file)) continue;
+    let s;
+    try {
+      s = JSON.parse(readFileSync(file, 'utf8'));
+    } catch {
+      out.push(`~/.claude/${f} does not parse, so what it would bill cannot be read`);
+      continue;
+    }
+    if (s.apiKeyHelper) out.push(`~/.claude/${f} sets apiKeyHelper`);
+    for (const k of Object.keys(s.env || {}))
+      if (BILLED_ENV.test(k)) out.push(`~/.claude/${f} env sets ${k}`);
+  }
+  return out;
+}
+
+// Everything that would make a model run billed: the settings above, and the login itself — a Console
+// login bills whatever the settings say. `claude auth status` is read under the same allowlisted
+// environment a seat gets; anything but a claude.ai subscription login is a finding (Ludwig 2026-10-02).
+export function billingFindings(home = process.env.HOME || '') {
+  const out = billedSettings(home);
+  const r = spawnSync('claude', ['auth', 'status'], { encoding: 'utf8', env: modelEnv() });
+  let st = null;
+  try {
+    st = JSON.parse(r.stdout);
+  } catch {
+    // not JSON: the login cannot be read
+  }
+  if (!st)
+    out.push('`claude auth status` could not be read, so the login cannot be shown unbilled');
+  else if (st.authMethod !== 'claude.ai' || st.apiProvider !== 'firstParty')
+    out.push(`the CLI login is ${st.authMethod}/${st.apiProvider}, not a claude.ai subscription`);
+  return out;
+}
+
+// A commit carries exactly the paths it names. A bare `git commit` takes the whole index, so the work of a
+// seat whose own commit was refused by the app's hook stayed staged and was swept into the next
+// "chore(ledger)" commit, where HEAD then counted it delivered (hlab-b t7b2 w4, s12b w3, s11b w3, s10 w2;
+// hlab-a t5a w3, s12a w3, s11b w3, s11 w3). A refused commit unstages its paths, so nothing it added is
+// left for a later commit to carry. → the spawnSync result of the commit.
+export function commitOnly(paths, msg, { cwd = ROOT, who = null } = {}) {
+  const run = (args) =>
+    spawnSync('git', args, { cwd, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 });
+  run(['add', '--', ...paths]);
+  const id = who ? ['-c', `user.name=${who}`, '-c', 'user.email=seat@harness.local'] : [];
+  const r = run([...id, 'commit', '-q', '-m', msg, '--', ...paths]);
+  if (r.status !== 0) run(['reset', '-q', '--', ...paths]);
+  return r;
+}
+
 // The harness writes its own bookkeeping into the tracked tree: ledger lines, regenerated canon,
 // .harness records. That churn says nothing about whether the working tree matches the code at HEAD,
 // and it must never be mistaken for uncommitted product work — nor handed to a tool that refuses a

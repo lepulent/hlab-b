@@ -7,32 +7,70 @@
 // it (`optional`) so the row is asked exactly there and nowhere else.
 //
 // cov is ladder.mjs coverage(): { slots: [{ phase, id, docTypes, covered }], stepsToSeal }.
+import { LADDERS } from './ladder.mjs';
 
 const missing = (s) => !(s.covered || []).length;
 
-export function recordsDecision(cov, { wavesLeft = 1, stale = [] } = {}) {
+export function recordsDecision(cov, { wavesLeft = 1, stale = [], producible = null } = {}) {
   const slots = cov?.slots || [];
-  const blocking = new Set(cov?.stepsToSeal || []);
+  // a rung blocks only where the catalogue can produce it: the door's mustProduce (conduct.mjs ladderNow)
+  // drops a blocking rung no artifact fills, and lets the plan close past it
+  const canMake = (s) => !producible || (s.docTypes || [s.id]).some((t) => producible.has(t));
+  const blocking = new Set(
+    (cov?.stepsToSeal || []).filter((id) => {
+      const s = slots.find((x) => x.id === id);
+      return !s || canMake(s);
+    }),
+  );
   const optional = slots
-    .filter((s) => missing(s) && !blocking.has(s.id))
-    .map((s) => ({ id: s.id, requirement: s.requirement ?? null, docTypes: s.docTypes || [s.id] }));
-  if (wavesLeft <= 0) return { outcome: 'no-move', artifacts: [], optional, why: 'no waves left' };
-  // drift outranks growth (drift.mjs DRIFT_HEADER, "Repair these BEFORE you grow", and the door's
-  // driftRefusals): a stale artifact is repaired before any missing rung, blocking or not (hlab-b s13d w2
-  // was scored against a predicate that grew first)
-  if (stale.length)
-    return { outcome: 'move', artifacts: [...new Set(stale)].sort(), optional, why: 'drift' };
+    .filter((s) => missing(s) && !(cov?.stepsToSeal || []).includes(s.id))
+    .map((s) => ({
+      id: s.id,
+      requirement: s.requirement ?? null,
+      docTypes: s.docTypes || [s.id],
+      producible: canMake(s),
+    }));
+  const repair = [...new Set(stale)].sort();
   const need = slots.filter((s) => blocking.has(s.id));
-  if (need.length) {
-    // phases are ordered in the ladder; the earliest phase with a blocking gap is the frontier
-    const frontier = need.filter((s) => s.phase === need[0].phase);
+  // phases are ordered in the ladder; the earliest phase with a blocking gap is the frontier
+  const frontier = need
+    .filter((s) => s.phase === need[0]?.phase)
+    .flatMap((s) => s.docTypes || [s.id])
+    .sort();
+  // drift outranks growth (drift.mjs DRIFT_HEADER, "Repair these BEFORE you grow"). The door
+  // (driftRefusals) accepts any move that produces at least one stale artifact, growth alongside it
+  // allowed, so the records settle "repair one of these", not "repair all of them" (Ludwig 2026-10-01,
+  // hlab-a s13c w4 mislabelled by the stricter rule)
+  if (wavesLeft <= 0) {
+    // the door refuses closing while drift or a producible blocking rung stands (drift.mjs driftRefusals,
+    // gap.mjs mustProduce), whatever the wave count; only a move (ending wave-cap) or a clarify is
+    // accepted then, so the records cannot say no-move there
+    if (repair.length)
+      return {
+        outcome: 'move',
+        artifacts: repair,
+        anyOf: true,
+        optional,
+        why: 'no waves left; drift stands',
+      };
+    if (need.length)
+      return {
+        outcome: 'move',
+        artifacts: frontier,
+        optional,
+        why: 'no waves left; a blocking rung stands',
+      };
+    return { outcome: 'no-move', artifacts: [], optional, why: 'no waves left' };
+  }
+  if (repair.length)
+    return { outcome: 'move', artifacts: repair, anyOf: true, optional, why: 'drift' };
+  if (need.length)
     return {
       outcome: 'move',
-      artifacts: frontier.flatMap((s) => s.docTypes || [s.id]).sort(),
+      artifacts: frontier,
       optional,
       why: `blocking rungs missing in ${need[0].phase}`,
     };
-  }
   return { outcome: 'no-move', artifacts: [], optional, why: 'ladder covered' };
 }
 
@@ -50,7 +88,13 @@ export function recordsDecision(cov, { wavesLeft = 1, stale = [] } = {}) {
 export function compareToRecords(pred, dec, cov, { retried = [] } = {}) {
   const arts = [...new Set((dec?.artifacts || []).map((a) => a.artifact || a))].sort();
   const outcome = pred.outcome === dec?.outcome;
-  const full = outcome && (pred.outcome !== 'move' || arts.join('+') === pred.artifacts.join('+'));
+  // a drift repair agrees when it repairs at least one stale artifact, as the door accepts it
+  const full =
+    outcome &&
+    (pred.outcome !== 'move' ||
+      (pred.anyOf
+        ? arts.some((a) => pred.artifacts.includes(a))
+        : arts.join('+') === pred.artifacts.join('+')));
   const movedWhereRecordsClose = dec?.outcome === 'move' && pred.outcome === 'no-move';
   if (full) return { outcome, full, movedWhereRecordsClose, category: 'agree' };
   if (dec?.outcome === 'clarify')
@@ -80,30 +124,59 @@ export function compareToRecords(pred, dec, cov, { retried = [] } = {}) {
   return { outcome, full, movedWhereRecordsClose, category };
 }
 
-// What a plan's ledger says had been attempted and not delivered before wave n: artifacts of a gap whose
-// last status was linked (a seat abandoned or its closure failed), and code whose last gate failed.
-export function retriedBefore(lines, n) {
-  const arts = new Map(); // gap id → artifacts, from the Master's declaration
-  const status = new Map(); // gap id → last status before n
-  const gate = new Map(); // artifact → last gate verdict before n
-  for (const l of lines) {
+// Each gap status line of a ledger, resolved to the artifacts of the gap it is about. A gap id alone is
+// not a key: two orchestrators on one plan reuse ids (hlab-b t5b: line 36 `G-2 closed wave 1` is the
+// technical_spec gap of one run, declared at line 12, while the latest G-2 before it, line 22, is the
+// other run's dev_plan+capability gap). A declaration and its linked and closed lines carry the wave of
+// their own run, so the key is (id, wave); an id with no declaration at that wave falls back to its latest
+// declaration. A superseded line credits nothing of its own: the gap that superseded it closed, and that
+// close already credited the artifacts it covered (record.mjs supersede) — Ludwig 2026-10-02.
+export function gapOutcomes(lines, upTo = lines.length) {
+  const byKey = new Map(); // `${id}@${wave}` → artifacts
+  const latest = new Map(); // id → artifacts of its latest declaration
+  const out = [];
+  lines.slice(0, upTo).forEach((l, i) => {
     const d = l?.data || {};
-    if (d.wave != null && d.wave >= n) continue;
-    if (l.kind === 'gap' && d.id) {
-      if (d.status === 'declared')
-        arts.set(
-          d.id,
-          (d.artifacts || []).map((a) => a.artifact || a),
-        );
-      if (d.status) status.set(d.id, d.status);
+    if (l?.kind !== 'gap' || !d.id) return;
+    if (d.status === 'declared') {
+      const arts = (d.artifacts || []).map((a) => a.artifact || a);
+      byKey.set(`${d.id}@${d.wave}`, arts);
+      latest.set(d.id, arts);
+      return;
     }
-    if (l.kind === 'decision' && d.station === 'gate' && d.artifact) gate.set(d.artifact, !!d.ok);
-  }
-  const out = new Set();
-  for (const [id, st] of status)
-    if (st === 'linked') for (const a of arts.get(id) || []) out.add(a);
-  for (const [a, ok] of gate) if (!ok) out.add(a);
-  return [...out].sort();
+    if (d.status !== 'closed' && d.status !== 'linked') return;
+    out.push({
+      i,
+      id: d.id,
+      delivered: d.status === 'closed',
+      artifacts: byKey.get(`${d.id}@${d.wave}`) || latest.get(d.id) || [],
+    });
+  });
+  return out;
+}
+
+// What a plan's ledger says had been attempted and not delivered before a decision: each artifact's LAST
+// outcome in ledger order up to the decision's own line (`upTo`, an index into lines). An artifact counts
+// when its last outcome was a gap left linked (a seat abandoned or its closure failed) or a failed gate;
+// a later close of the same artifact clears it. Ledger order, not wave labels: two orchestrators on one
+// plan interleave their waves (hlab-b t5b; Ludwig 2026-10-01, point 3).
+export function retriedBefore(lines, upTo = lines.length) {
+  const last = new Map(); // artifact → delivered?, as last seen
+  const events = [
+    ...gapOutcomes(lines, upTo),
+    ...lines
+      .slice(0, upTo)
+      .flatMap((l, i) =>
+        l?.kind === 'decision' && l.data?.station === 'gate' && l.data.artifact && !l.data.ok
+          ? [{ i, delivered: false, artifacts: [l.data.artifact] }]
+          : [],
+      ),
+  ].sort((x, y) => x.i - y.i);
+  for (const e of events) for (const a of e.artifacts) last.set(a, e.delivered);
+  return [...last]
+    .filter(([, ok]) => !ok)
+    .map(([a]) => a)
+    .sort();
 }
 
 // The LADDER block of a Master prompt, back into a coverage shape, for replaying decisions made before
@@ -116,16 +189,26 @@ export function parseLadderView(prompt) {
   );
   if (!m) return null;
   const stepsToSeal = m[1] === 'none' ? [] : m[1].split(', ');
+  // the view prints a slot's id, not the doc types that fill it (ux ← ux_spec); they are read back from
+  // the ladder the view names, so a slot is matched to the catalogue as the live ladder matches it. This
+  // is TODAY's LADDERS table, a reconstruction the replay's header otherwise refuses: it holds only while
+  // no slot's doc types have changed since the prompt was shown (true on 2026-10-02: since f9971ce
+  // ladder.mjs has only added slots; ux ← ux_spec is the one slot whose doc types differ from its id). Change a slot's docTypes and this must
+  // read the table at the prompt's bundle commit instead.
+  const key = (text.match(/Ladder ([\w-]+)/) || [])[1];
+  const defined = new Map(
+    (LADDERS[key] || []).flatMap((p) => p.slots.map((s) => [`${p.phase}/${s.id}`, s.docTypes])),
+  );
   const slots = [
     ...text.matchAll(/^- ([\w-]+) \/ ([\w-]+) \(([\w-]+)\): (missing|covered by ([^\n]*))$/gm),
   ].map((x) => ({
     phase: x[1],
     id: x[2],
     requirement: x[3],
-    docTypes: [x[2]],
+    docTypes: defined.get(`${x[1]}/${x[2]}`) || [x[2]],
     covered: x[5] ? x[5].split(', ') : [],
   }));
   const stale = [...new Set([...text.matchAll(/\[drift:([\w-]+)\]/g)].map((x) => x[1]))];
   const wavesLeft = text.includes('no waves of work are left') ? 0 : 1;
-  return { cov: { slots, stepsToSeal }, stale, wavesLeft };
+  return { cov: { key: key || null, slots, stepsToSeal }, stale, wavesLeft };
 }

@@ -396,6 +396,28 @@ export async function ask({ model, state, questions, rowId = null }, opts = {}) 
     };
   const body = { model, state, questions };
   const req = { body, model, state, questions, rowId, stateHash: stateHash(state) };
+  // A live call is billed (the Typesafe key), so it is ruled first, every call (step 15, docs/17 §4.3):
+  // the caller passes `authorize`, which rules jev.call against the grants in force and records the
+  // ruling. No authorize, or a ruling that does not allow, and nothing is sent: the reading is
+  // skipped and the plan continues (an escalate here stops the call, never the plan). Mocks and injected
+  // transports cost nothing and are not ruled.
+  if (!opts.transport && !mock) {
+    const usd = Number((estimateTokens(req) * USD_PER_INPUT_TOKEN).toFixed(8));
+    const ruling = opts.authorize
+      ? await opts.authorize({ act: 'jev.call', row: rowId, usd })
+      : {
+          verdict: 'escalate',
+          reason: 'a live JEV call is billed and its caller passed no authority',
+        };
+    if (ruling?.verdict !== 'allow')
+      return {
+        ok: false,
+        error: `jev: not sent — ${ruling?.reason || 'no ruling'}`,
+        usd: 0,
+        ms: 0,
+        ruling,
+      };
+  }
   const started = Date.now();
   // A DEADLINE OVER THE WHOLE CALL, retries included. Measured on 2026-09-28: p50 438 ms but p95 84 s
   // and a worst case of 138 s, because the vendor's 503 "high demand" arrives in bursts and four attempts
@@ -496,7 +518,16 @@ export async function askRow(row, ctx, opts = {}) {
   );
   const r = await ask({ model, state, questions, rowId: row.id }, opts);
   budget?.charge(r.usd);
-  if (!r.ok) return { ...base, unmeasured: true, reason: r.error, usd: r.usd, ms: r.ms };
+  if (!r.ok)
+    return {
+      ...base,
+      unmeasured: true,
+      reason: r.error,
+      usd: r.usd,
+      ms: r.ms,
+      // a call the authority did not allow was never sent: refused by rule, not failed
+      ...(r.ruling && r.ruling.verdict !== 'allow' ? { not_granted: true } : {}),
+    };
   const read = Object.fromEntries(
     Object.keys(questions).map((id) => [
       id,
@@ -574,6 +605,7 @@ export function jevLine(
     // docs/15 §6: the raw body, so a vendor rename and a client bug do not look the same on a later read
     raw: result.raw ?? null,
     ...(result.unmeasured ? { unmeasured: true, reason: result.reason ?? null } : {}),
+    ...(result.not_granted ? { not_granted: true } : {}),
   };
 }
 
@@ -624,7 +656,10 @@ export function shadowCoverage(lines, { enabled = true, row = 'question.answer' 
       take((j) => !j.file && j.agreesWith === `master:answer=${a.answer ?? null}`),
   }));
   const missing = pairs.filter((p) => !p.jev).map((p) => `w${p.answer.wave} ${p.answer.file}`);
-  const unmeasured = pairs.filter((p) => p.jev?.unmeasured);
+  // a reading the authority refused (no spend grant, step 15) was never sent: it is the floor working,
+  // named, not a missing or failed reading
+  const notGranted = pairs.filter((p) => p.jev?.unmeasured && p.jev.not_granted);
+  const unmeasured = pairs.filter((p) => p.jev?.unmeasured && !p.jev.not_granted);
   const measured = pairs.filter((p) => p.jev && !p.jev.unmeasured);
   const rejected = (p) => p.jev.label_rejected || !stood.get(p.answer);
   const graded = measured.filter(
@@ -648,6 +683,7 @@ export function shadowCoverage(lines, { enabled = true, row = 'question.answer' 
     baselines,
     missing,
     unmeasured: unmeasured.map((p) => `w${p.answer.wave} ${p.answer.file} (${p.jev.reason})`),
+    notGranted: notGranted.map((p) => `w${p.answer.wave} ${p.answer.file}`),
     usd: jevs.reduce((a, j) => a + (j.usd || 0), 0),
     pairs,
     isRejected: rejected,

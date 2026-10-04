@@ -11,7 +11,15 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { ROOT, readJson, writeJson, git, headSha, parseFrontmatter } from './common.mjs';
+import {
+  ROOT,
+  readJson,
+  writeJson,
+  git,
+  headSha,
+  parseFrontmatter,
+  commitOnly,
+} from './common.mjs';
 import { altitudeOf } from './canon-delta.mjs';
 
 const argv = process.argv.slice(2);
@@ -142,19 +150,15 @@ function main() {
   }
   if (before !== seal.text) {
     writeFileSync(sealFile, seal.text);
-    sh('git', ['add', '--', `intent/${PLAN}/SEAL.md`]);
-    const c = sh('git', [
-      '-c',
-      'user.name=script:deliver',
-      '-c',
-      'user.email=seat@harness.local',
-      'commit',
-      '-q',
-      '-m',
-      `chore(seal): ${PLAN} sealed at ${route.rigor} over ${seal.nodes.map((n) => n.id).join(', ') || 'no node'}`,
-    ]);
-    if (!ok(c) && sh('git', ['diff', '--cached', '--quiet']).status !== 0)
-      fail(`could not commit the seal: ${(c.stderr || c.stdout).slice(-300)}`);
+    // the seal commit carries the seal alone (common.mjs commitOnly); its subject is fixed-shape and the
+    // nodes go in the body, inside the apps' 100-character subject rule
+    const nodes = seal.nodes.map((n) => n.id);
+    const c = commitOnly(
+      [`intent/${PLAN}/SEAL.md`],
+      `chore(seal): ${PLAN} sealed at ${route.rigor} over ${nodes.length} node(s)\n\n${nodes.map((x) => `- ${x}`).join('\n') || '- no node'}`,
+      { who: 'script:deliver' },
+    );
+    if (!ok(c)) fail(`could not commit the seal: ${(c.stderr || c.stdout).slice(-300)}`);
   }
   ledger('seal', {
     plan: PLAN,

@@ -28,6 +28,9 @@ import {
   productDirty,
   bookkeepingDirty,
   BOOKKEEPING,
+  commitOnly,
+  modelEnv,
+  billingFindings,
 } from './common.mjs';
 import {
   rosterById,
@@ -44,7 +47,7 @@ import {
   overlapSeconds,
 } from './activation.mjs';
 import { seatCost, ledgerCost } from './cost.mjs';
-import { recordsDecision, compareToRecords } from './master-predicate.mjs';
+import { recordsDecision, compareToRecords, retriedBefore } from './master-predicate.mjs';
 import { acquireLock, releaseLock, setLockSeats, recordRefusal, takeRefusals } from './lock.mjs';
 import { validateGap, castGap, gapKey, gapOptions, doctypeIds, overwrites } from './gap.mjs';
 import { ladderKey, intentKindFor, coverage, coverageView } from './ladder.mjs';
@@ -61,6 +64,8 @@ import {
 } from './record.mjs';
 import { deriveTriggers, vetoHeld } from './department.mjs';
 import { rebuild, parseLedger, openSeats, answerStood } from './resume.mjs';
+import { authorizer, authorityAudit, budgetCheck } from './grants.mjs';
+import { rule } from './authority.mjs';
 import {
   liveDecisions,
   stampAtWrite,
@@ -256,8 +261,10 @@ const handoff = (label) => {
   for (const r of taken.refusals) ledger('finding', { type: 'lock-refused', ...r });
   taken.done();
   if (!bookkeepingDirty()) return;
-  sh('git', ['add', ...BOOKKEEPING.filter((p) => p !== '.harness')]);
-  sh('git', ['commit', '-q', '-m', `chore(ledger): ${label}`]);
+  commitOnly(
+    BOOKKEEPING.filter((p) => p !== '.harness' && existsSync(join(ROOT, p))),
+    `chore(ledger): ${label}`,
+  );
 };
 const transcript = (session) => {
   const f = join(transcriptDir(process.env.HOME || '', ROOT), `${session}.jsonl`);
@@ -267,12 +274,7 @@ const transcript = (session) => {
 // Seat hygiene (NFR-5..7, 14.1): the child gets an allowlisted environment (no ANTHROPIC_* or anything
 // else inherited by accident), strict MCP, and the footprint hook through an absolute --settings, since
 // project settings are not loaded; a deadline kills a hung seat, which is then recorded as abandoned.
-const SEAT_ENV = Object.fromEntries(
-  ['PATH', 'HOME', 'USER', 'LOGNAME', 'SHELL', 'LANG', 'TERM', 'TMPDIR']
-    .filter((k) => process.env[k])
-    .map((k) => [k, process.env[k]]),
-);
-SEAT_ENV.CLAUDE_PROJECT_DIR = ROOT;
+const SEAT_ENV = modelEnv(process.env, { CLAUDE_PROJECT_DIR: ROOT });
 const SEAT_SETTINGS = JSON.stringify({
   hooks: {
     // the department veto at the call (FR-17): denies with the department's reason, before the tool runs
@@ -406,21 +408,32 @@ const row = (name, station, session, r, extra = {}) => {
     ...extra,
   };
 };
-const commitAs = (who, paths, msg) => {
-  sh('git', ['add', '--', ...paths]);
-  return sh('git', [
-    '-c',
-    `user.name=${who}`,
-    '-c',
-    'user.email=seat@harness.local',
-    'commit',
-    '-q',
-    '-m',
-    msg,
-  ]);
+// The subject stays inside the apps' commit-msg rule (type(scope): subject, 1-100 characters); what
+// varies with the work — the files, the terminal's reason — goes in the body. A subject built from the
+// file list ran past 100 on a three-file dev seat and the hook refused it, silently (hlab-b t7b2 w4,
+// s12b w3; hlab-a s12a w3, t5a w3). A refusal is now a ledger finding naming the hook's words.
+const SUBJECT_MAX = 100;
+const commitAs = (who, paths, subject, body = '') => {
+  const head = subject.length > SUBJECT_MAX ? `${subject.slice(0, SUBJECT_MAX - 1)}…` : subject;
+  const r = commitOnly(paths, body ? `${head}\n\n${body}` : head, { who });
+  if (!ok(r))
+    ledger('finding', {
+      type: 'commit-refused',
+      who,
+      paths,
+      subject: head,
+      why: String(r.stderr || r.stdout || '').slice(-400),
+    });
+  return r;
 };
 
 // ---------------------------------------------------------------- preconditions
+// a seat runs on the CLI login only while the user settings it loads carry no billing credential
+{
+  const billed = billingFindings();
+  if (billed.length)
+    fail(`seats would be billed, not run on the CLI login: ${billed.join('; ')}`, 2);
+}
 if (!PLAN) fail('--plan required', 2);
 const dir = join(ROOT, 'intent', PLAN);
 const intentFile = join(dir, 'INTENT.md');
@@ -468,6 +481,12 @@ const gates = {};
 // read from state, never from a seat's word about its own work.
 const ledgerLines = () =>
   existsSync(ledgerFile) ? parseLedger(readFileSync(ledgerFile, 'utf8')) : [];
+// step 15: the authority a billed act asks first (grants.mjs authorizer), on this plan's ledger
+const jevAuthority = authorizer({
+  lines: ledgerLines,
+  write: (data) => ledger('ruling', data),
+  floor: harness.yolo?.floor ?? null,
+});
 const canonCriteria = () => {
   const dir = join(ROOT, 'canon', 'capabilities');
   if (!existsSync(dir)) return [];
@@ -725,6 +744,8 @@ async function askAnswerRow({ question, alternatives, document, file }) {
         enabled: JEV.enabled !== false,
         budget: jevBudget,
         deadlineMs: JEV_DEADLINE_MS,
+        // a live call is billed: ruled against this plan's grants, and the ruling written, every call
+        authorize: jevAuthority,
       },
     );
   } catch (e) {
@@ -904,6 +925,7 @@ async function master(n, attempt, refusals) {
   const pred = recordsDecision(ladder, {
     wavesLeft: MAX_WAVES - n + 1,
     stale: staleArtifacts(drift),
+    producible,
   });
   const records = {
     outcome: pred.outcome,
@@ -914,6 +936,8 @@ async function master(n, attempt, refusals) {
       pred,
       { outcome: dec.outcome, artifacts: dec.gap?.artifacts || [] },
       ladder,
+      // the ledger so far precedes this decision: its activation line is written below
+      { retried: retriedBefore(ledgerLines()) },
     ).category,
   };
   ledger(
@@ -952,18 +976,21 @@ async function decide(n) {
     d.corrected = true;
     decisions.push(d);
   }
-  if (d.valid.ok && d.dec.outcome === 'move') {
-    d.gapId = `G-${gaps.length + 1}`;
-    gaps.push({
-      id: d.gapId,
-      n,
-      statement: d.dec.gap.statement,
-      artifacts: d.dec.gap.artifacts.map((a) => a.artifact),
-      status: 'declared',
-    });
-    ledger('gap', { id: d.gapId, status: 'declared', wave: n, ...d.dec.gap }, 'agent:master');
-  }
   return d;
+}
+
+// The gap a move declares, written only once the plan can afford the wave that would close it: a budget
+// pause between the decision and the cast leaves no declared gap behind (Ludwig 2026-10-02).
+function declareGap(n, d) {
+  d.gapId = `G-${gaps.length + 1}`;
+  gaps.push({
+    id: d.gapId,
+    n,
+    statement: d.dec.gap.statement,
+    artifacts: d.dec.gap.artifacts.map((a) => a.artifact),
+    status: 'declared',
+  });
+  ledger('gap', { id: d.gapId, status: 'declared', wave: n, ...d.dec.gap }, 'agent:master');
 }
 
 // 2. the script spawns the wave; each agent after wave 1 gets the relay: what exists and what was decided
@@ -1188,7 +1215,11 @@ async function runWave(n, d) {
     const c = commitAs(
       `seat:${a.agent}`,
       a.written,
-      `docs(intent): ${PLAN} ${a.written.join(', ')} by seat:${a.agent} (wave ${n}${a.terminal === 'complete' ? '' : `, ${a.terminal}: ${a.reason}`})`,
+      `docs(intent): ${PLAN} wave ${n} by seat:${a.agent}${a.terminal === 'complete' ? '' : `, ${a.terminal}`}`,
+      [
+        ...a.written.map((f) => `- ${f}`),
+        ...(a.terminal === 'complete' ? [] : ['', `${a.terminal}: ${a.reason}`]),
+      ].join('\n'),
     );
     if (ok(c)) a.commit = git(['rev-parse', 'HEAD']);
   }
@@ -1334,7 +1365,8 @@ async function questions(n, wave, record) {
       commitAs(
         `seat:${a.agent}`,
         files,
-        `docs(intent): ${PLAN} ${files.map((f) => f.split('/').pop()).join(', ')} raised by seat:${a.agent}`,
+        `docs(intent): ${PLAN} ${files.length} question(s) raised by seat:${a.agent}`,
+        files.map((f) => `- ${f}`).join('\n'),
       );
   }
   handoff(`${PLAN} wave ${n} questions raised`);
@@ -1527,7 +1559,57 @@ async function questions(n, wave, record) {
   return false;
 }
 
+// The plan budget (FR-27, docs/17 §4.4): rounds first (MAX_WAVES), spend second. Its unit is the
+// list-price equivalent on the CLI login — H-34's "budget exceeded", not real cost. What a step would
+// spend is a fact, never an estimate: the --max-budget-usd caps of the seats it would start. Spent is
+// the plan's whole ledger, priced as cost-per-session prices it. A budget grant raises the limit; the
+// plan then resumes with the same command, and with no new grant it re-pauses before spending anything.
+const PLAN_BUDGET = harness.budgets?.usd_per_plan ?? null;
+const MASTER_CAP = harness.budgets?.usd_per_master_call || 0.5;
+function budgetPaused(need, what) {
+  if (PLAN_BUDGET == null) return false;
+  const lines = ledgerLines();
+  const c = ledgerCost(lines, (session) => seatCost(null, transcriptUsage(transcript(session))));
+  const b = budgetCheck(lines, { base: PLAN_BUDGET, spent: c.master + c.answers + c.agents, need });
+  if (!b.pause) return false;
+  const { spent, limit } = b;
+  need = b.need;
+  const r = rule({ act: 'seat.cast', floor: harness.yolo?.floor ?? null });
+  // the budget's own ruling (rule() allows seat.cast under the lab floor; it is the budget that stops)
+  ledger('ruling', {
+    act: 'budget.cross',
+    verdict: 'escalate',
+    reason: `the plan budget would be exceeded: $${spent.toFixed(3)} spent + $${need.toFixed(3)} for ${what} > $${limit.toFixed(3)}; the owner raises it (npm run harness:grant -- --kind budget) and re-runs`,
+    floor: r.floor,
+    // a lower bound: an open or unpriced seat counts what its transcript prices, or 0; gate runs and
+    // a refused decision's correction are not in `need`
+    spent_is_lower_bound: true,
+    spent: Number(spent.toFixed(6)),
+    need,
+    limit,
+    usd: 0,
+  });
+  writeFileSync(
+    join(dir, 'needs-input.md'),
+    `# Needs input\n\n${PLAN}: paused on its budget before ${what}.\n\nSpent $${spent.toFixed(3)} of $${limit.toFixed(3)} (list-price equivalent); ${what} would need up to $${need.toFixed(3)}.\n\nRaise it: \`npm run harness:grant -- --plan ${PLAN} --kind budget --usd <n>\`, then re-run the same conduct command.\n`,
+  );
+  commitAs(
+    'script:conduct',
+    [`intent/${PLAN}/needs-input.md`],
+    `chore(intent): ${PLAN} paused on its budget`,
+  );
+  handoff(`${PLAN} budget-paused`);
+  return true;
+}
+
 for (let n = prior.lastWave + 1; ; n++) {
+  // two checks, each at what the next step would actually start: the decision's cap before it, and
+  // the cast's seat caps after it but before its gap is declared, so a pause never orphans a gap. A
+  // 2-wave worst case before every decision ($6.50) paused every real plan (Ludwig 2026-10-02).
+  if (budgetPaused(MASTER_CAP, `the wave ${n} decision`)) {
+    ending = 'budget-paused';
+    break;
+  }
   const d = await decide(n);
   if (!d.valid.ok) {
     ending = 'refused';
@@ -1559,6 +1641,17 @@ for (let n = prior.lastWave + 1; ; n++) {
     ending = 'clarify';
     break;
   }
+  if (
+    budgetPaused(
+      castGap(d.dec, catalogue, PLAN).reduce((a, c) => a + (byId.get(c.agent)?.budget_usd || 1), 0),
+      `wave ${n}'s seats`,
+    )
+  ) {
+    // the decision is paid and recorded; a resume decides wave n again (about one Master call)
+    ending = 'budget-paused';
+    break;
+  }
+  declareGap(n, d);
   const { wave, record } = await runWave(n, d);
   const stopped = await questions(n, wave, record);
   recordWave(n, wave, record, stopped ? qResults.find((q) => q.n === n && q.stopsRound) : null);
@@ -1761,7 +1854,7 @@ const checks = {
         ok: cov.ok,
         msg: !cov.answers
           ? 'no question answered on this plan; nothing to shadow'
-          : `${cov.measured}/${cov.answers} answer(s) measured${cov.missing.length ? `; NO READING for ${cov.missing.join(', ')}` : ''}${cov.unmeasured.length ? `; UNMEASURED ${cov.unmeasured.join(', ')}` : ''}; ${baselineText({ hits: cov.agreed, n: cov.graded }, cov.baselines)} graded${cov.labelRejected ? ` (${cov.labelRejected} label(s) rejected by the harness, not graded)` : ''}; ${cov.pairs
+          : `${cov.measured}/${cov.answers} answer(s) measured${cov.missing.length ? `; NO READING for ${cov.missing.join(', ')}` : ''}${cov.unmeasured.length ? `; UNMEASURED ${cov.unmeasured.join(', ')}` : ''}${cov.notGranted.length ? `; not sent, no spend grant (step 15): ${cov.notGranted.join(', ')}` : ''}; ${baselineText({ hits: cov.agreed, n: cov.graded }, cov.baselines)} graded${cov.labelRejected ? ` (${cov.labelRejected} label(s) rejected by the harness, not graded)` : ''}; ${cov.pairs
               .filter((p) => p.jev && !p.jev.unmeasured)
               .map(
                 (p) =>
@@ -1800,6 +1893,24 @@ const checks = {
         }`
       : 'nothing drifted on this plan',
   },
+  // step 15: every billed act ran under a ruling, and every allowing ruling under a live owner's grant
+  ...(() => {
+    const a = authorityAudit(ledgerLines());
+    return {
+      'authority-ruled': {
+        ok: a.ruled.ok,
+        msg: a.ruled.ok
+          ? `${a.ruled.count} billed act(s), each after a ruling that allowed it`
+          : `billed with no ruling: ${a.ruled.unruled.join(', ')}`,
+      },
+      'grant-held': {
+        ok: a.held.ok,
+        msg: a.held.ok
+          ? 'every allowing ruling names a grant the owner issued, live at that line'
+          : `ruled allow without a live owner's grant: ${a.held.unheld.join(', ')}`,
+      },
+    };
+  })(),
   'plan-ended': {
     ok: ending === expectedEnding,
     msg: `expected ${expectedEnding}, ended ${ending} after ${decisions.length} decision(s): ${sequence.join(' → ')}`,

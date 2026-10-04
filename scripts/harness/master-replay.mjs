@@ -6,12 +6,12 @@
 // Master against a ladder it never saw.
 //
 // The decisions come from the app's ledgers, read through git from every plan branch and from main, and
-// the decision itself from the Master's own structured output in its transcript. The first version read
+// the decision itself from its activation line; the transcript gives the prompt. The first version read
 // only conduct records copied into runs/ and silently dropped 19 of the newest decisions (Ludwig
 // 2026-09-30); every decision the ledgers name and the replay cannot read is counted under `skipped`.
 //
 // No model is called; this costs nothing and is rerun at will. It writes runs/<app>/master-replay.json:
-// one point per decision (the final attempt of each wave), its category, and — for the J5 row — every
+// one point per decision the door accepted (every valid activation line), its category, and — for the J5 row — every
 // rung that did not block the seal, whether the Master spent THIS wave on it, and whether the plan ever
 // built it (the row's question is timeless: "does the plan need it").
 //
@@ -31,8 +31,10 @@ import {
   compareToRecords,
   parseLadderView,
   retriedBefore,
+  gapOutcomes,
 } from './master-predicate.mjs';
 import { parseLedger } from './resume.mjs';
+import { pidAlive } from './lock.mjs';
 import { getRow } from './jev-registry.mjs';
 import { askRow, jevLine, makeBudget } from './jev.mjs';
 
@@ -69,16 +71,6 @@ function promptOf(lines) {
   const c = j?.message?.content;
   return j ? (typeof c === 'string' ? c : (c || []).map((x) => x.text || '').join('')) : null;
 }
-// what the Master decided, in its own words: the last structured output it gave
-function decisionOf(lines) {
-  const outs = lines.flatMap((j) =>
-    Array.isArray(j.message?.content)
-      ? j.message.content.filter((x) => x.type === 'tool_use' && x.name === 'StructuredOutput')
-      : [],
-  );
-  return outs.length ? outs[outs.length - 1].input : null;
-}
-
 // the sections of a Master prompt a row may read: what it was shown, verbatim
 const section = (prompt, name) => {
   const i = prompt.indexOf(`--- ${name}`);
@@ -87,11 +79,14 @@ const section = (prompt, name) => {
   const end = body.search(/\n\n--- [A-Z]/);
   return (end < 0 ? body : body.slice(0, end)).trim();
 };
+// null when the prompt carries no catalogue that parses: the caller counts it, because treating it as
+// "everything is producible" would silently restore the unproducible rungs (Ludwig 2026-10-02)
 const catalogueOf = (prompt) => {
   try {
-    return JSON.parse(section(prompt, 'CATALOGUE'));
+    const c = JSON.parse(section(prompt, 'CATALOGUE'));
+    return Array.isArray(c) && c.length ? c : null;
   } catch {
-    return [];
+    return null;
   }
 };
 
@@ -121,43 +116,78 @@ const plans = [
 ].sort();
 
 const points = [];
-const skipped = {
-  plans_without_master_seats: 0,
-  no_transcript: 0,
-  no_decision_in_transcript: 0,
-  no_ladder_in_prompt: 0,
-  refused_attempt: 0,
-};
-for (const plan of plans) {
-  const text =
-    gitOut(['show', `plan/${plan}:ledger/${plan}.jsonl`]) ??
-    gitOut(['show', `main:ledger/${plan}.jsonl`]);
-  if (!text) continue;
-  const lines = parseLedger(text);
-  // the Master's decision seats, the last attempt per wave being the one the plan went on with
-  const finals = new Map();
-  for (const l of lines) {
-    const d = l?.data || {};
-    if (l?.kind !== 'seat-end' || d.seat !== 'master' || d.station !== 'conduct' || !d.session)
-      continue;
-    const prev = finals.get(d.wave);
-    if (!prev || (d.attempt ?? 1) >= (prev.attempt ?? 1)) finals.set(d.wave, d);
+// what was replayed, so a figure can be traced to the ledgers it came from (Ludwig 2026-10-02: the plan
+// set grows between runs); a plan whose orchestrator is alive is not over, and is left out by name
+const scope = [];
+const inProgress = (plan) => {
+  try {
+    const lock = JSON.parse(readFileSync(join(ROOT, '.harness', `conduct-${plan}.lock`), 'utf8'));
+    return pidAlive(lock.pid);
+  } catch {
+    return false;
   }
-  const ending = lines.findLast((l) => l?.kind === 'decision' && l.data?.station === 'conduct')
-    ?.data?.ending;
-  if (!finals.size) {
+};
+const skipped = {
+  plans_in_progress: [],
+  ledger_unreadable: 0,
+  plans_without_master_seats: 0,
+  no_activation: 0,
+  refused_attempt: 0,
+  no_transcript: 0,
+  no_ladder_in_prompt: 0,
+};
+let masterSeats = 0;
+// decisions whose prompt carried no readable catalogue: their rungs are all taken as producible
+let catalogueUnread = 0;
+for (const plan of plans) {
+  if (inProgress(plan)) {
+    skipped.plans_in_progress.push(plan);
+    continue;
+  }
+  const ref = [`plan/${plan}`, 'main'].find(
+    (r) => gitOut(['cat-file', '-e', `${r}:ledger/${plan}.jsonl`]) !== null,
+  );
+  const text = ref ? gitOut(['show', `${ref}:ledger/${plan}.jsonl`]) : null;
+  if (!text) {
+    skipped.ledger_unreadable++;
+    continue;
+  }
+  scope.push({ plan, ref, commit: (gitOut(['rev-parse', '--short=12', ref]) || '').trim() });
+  const lines = parseLedger(text);
+  // one point per decision the door accepted: every activation line with valid true, keyed by its Master
+  // session. "The last attempt per wave" lost every re-run of a wave (15 accepted decisions across both
+  // apps, Ludwig 2026-10-01) and never counted a refused attempt.
+  const activation = new Map();
+  lines.forEach((l, i) => {
+    if (l?.kind === 'activation' && l.data?.master_session)
+      activation.set(l.data.master_session, { d: l.data, i });
+  });
+  const seats = lines
+    .map((l) => l?.data || {})
+    .filter(
+      (d, i) =>
+        lines[i]?.kind === 'seat-end' &&
+        d.seat === 'master' &&
+        d.station === 'conduct' &&
+        !!d.session,
+    );
+  if (!seats.length) {
     skipped.plans_without_master_seats++;
     continue;
   }
-  const lastWave = Math.max(0, ...finals.keys());
+  masterSeats += seats.length;
   const planPoints = [];
-  for (const [n, d] of [...finals].sort((a, b) => a[0] - b[0])) {
-    // a decision refused after its correction ended the plan; nothing went on from it
-    if (ending === 'refused' && n === lastWave) {
+  for (const seat of seats) {
+    const act = activation.get(seat.session);
+    if (!act) {
+      skipped.no_activation++;
+      continue;
+    }
+    if (!act.d.valid) {
       skipped.refused_attempt++;
       continue;
     }
-    const tl = transcriptLines(d.session);
+    const tl = transcriptLines(seat.session);
     if (!tl) {
       skipped.no_transcript++;
       continue;
@@ -168,22 +198,31 @@ for (const plan of plans) {
       skipped.no_ladder_in_prompt++;
       continue;
     }
-    const out = decisionOf(tl);
-    if (!out?.outcome) {
-      skipped.no_decision_in_transcript++;
-      continue;
-    }
-    const pred = recordsDecision(view.cov, { wavesLeft: view.wavesLeft, stale: view.stale });
+    const n = act.d.wave;
+    // the decision is the one the ledger recorded as accepted, not a transcript's last output
+    const outcome = act.d.outcome;
     const chosen = new Set(
-      out.outcome === 'move' ? (out.gap?.artifacts || []).map((a) => a.artifact || a) : [],
+      outcome === 'move' ? (act.d.gap?.artifacts || []).map((a) => a.artifact || a) : [],
     );
-    const dec = { outcome: out.outcome, artifacts: [...chosen] };
-    const cmp = compareToRecords(pred, dec, view.cov, { retried: retriedBefore(lines, n) });
+    // what the catalogue the Master was shown can produce: a rung nothing fills is neither blocking at
+    // the door nor a wave the Master could have spent (ux ← ux_spec has no producer; Ludwig 2026-10-01)
+    const shownCatalogue = catalogueOf(prompt);
+    if (!shownCatalogue) catalogueUnread++;
+    const shown = (shownCatalogue || []).map((c) => c.id);
+    const pred = recordsDecision(view.cov, {
+      wavesLeft: view.wavesLeft,
+      stale: view.stale,
+      producible: shown.length ? new Set(shown) : null,
+    });
+    const dec = { outcome, artifacts: [...chosen] };
+    const cmp = compareToRecords(pred, dec, view.cov, { retried: retriedBefore(lines, act.i) });
     planPoints.push({
       plan,
       n,
-      session: d.session,
-      master: { outcome: out.outcome, artifacts: [...chosen].sort() },
+      _i: act.i,
+      attempt: act.d.attempt ?? 1,
+      session: seat.session,
+      master: { outcome, artifacts: [...chosen].sort() },
       records: { outcome: pred.outcome, artifacts: pred.artifacts, why: pred.why },
       ...cmp,
       optional: pred.optional.map((o) => ({
@@ -194,21 +233,38 @@ for (const plan of plans) {
       _ctx: {
         intent: section(prompt, 'INTENT'),
         rigor: (section(prompt, 'PLAN').match(/rigor (\w+)/) || [])[1] || null,
-        catalogue: catalogueOf(prompt),
+        catalogue: shownCatalogue || [],
         has: view.cov.slots.filter((x) => x.covered.length).map((x) => x.id),
         owes: view.cov.stepsToSeal,
       },
     });
   }
   // the row's label is timeless ("does the plan need it"), so each case also records whether the plan
-  // built the rung at this wave or any later one
+  // chose the rung at this decision or a later one, and whether a gap that produced it ever CLOSED after
+  // this decision: chosen is not built (Ludwig 2026-10-01, point 4)
+  // the gap a close belongs to is resolved as retriedBefore resolves it: by id and its run's wave
+  const closes = gapOutcomes(lines).filter((e) => e.delivered);
   for (const p of planPoints)
-    for (const o of p.optional)
-      o.ever = planPoints.some(
-        (q) => q.n >= p.n && o.docTypes.some((t) => q.master.artifacts.includes(t)),
+    for (const o of p.optional) {
+      o.chosen_later = planPoints.some(
+        (q) => q._i >= p._i && o.docTypes.some((t) => q.master.artifacts.includes(t)),
       );
+      o.built = closes.some((c) => c.i > p._i && o.docTypes.some((t) => c.artifacts.includes(t)));
+    }
   points.push(...planPoints);
 }
+
+// every Master seat the ledgers name is a point or a counted skip; anything else is a replay bug
+const accounted =
+  points.length +
+  skipped.no_activation +
+  skipped.refused_attempt +
+  skipped.no_transcript +
+  skipped.no_ladder_in_prompt;
+if (accounted !== masterSeats)
+  throw new Error(
+    `master-replay: ${masterSeats} Master conduct seats in the ledgers, ${accounted} points and skips`,
+  );
 
 // ---------------------------------------------------------------- J5.2: the row, in shadow
 const readings = [];
@@ -219,7 +275,7 @@ if (ROW) {
   const budget = makeBudget(jev.budget_usd_per_plan ?? null);
   let failures = 0;
   outer: for (const p of points)
-    for (const o of p.optional) {
+    for (const o of p.optional.filter((x) => x.producible)) {
       if (readings.length >= MAX_CALLS) {
         stoppedEarly = `the ${MAX_CALLS}-call cap was reached`;
         break outer;
@@ -250,7 +306,8 @@ if (ROW) {
         n: p.n,
         rung: o.id,
         label: o.chosen,
-        ever: o.ever,
+        chosen_later: o.chosen_later,
+        built: o.built,
         ruled: r.ruling?.answer ?? null,
         p: r.ruling?.probabilities?.true ?? null,
         agreed: r.unmeasured ? null : r.ruling?.answer === o.chosen,
@@ -265,17 +322,31 @@ if (ROW) {
       }
     }
 }
-for (const p of points) delete p._ctx;
+for (const p of points) {
+  delete p._ctx;
+  delete p._i;
+}
 
 const count = (xs, p) => xs.filter(p).length;
 const categories = {};
 for (const p of points) categories[p.category] = (categories[p.category] || 0) + 1;
-const optionalCases = points.flatMap((p) => p.optional);
+const allOptional = points.flatMap((p) => p.optional.map((o) => ({ ...o, plan: p.plan })));
+const optionalCases = allOptional.filter((o) => o.producible);
+// a plan-rung is one rung of one plan, however many decisions saw it missing: 139 cases were 33 rungs
+const byPlanRung = new Map();
+for (const o of optionalCases) {
+  const k = `${o.plan}/${o.id}`;
+  const r = byPlanRung.get(k) || { chosen: false, built: false };
+  byPlanRung.set(k, { chosen: r.chosen || o.chosen, built: r.built || o.built });
+}
+const planRungs = [...byPlanRung.values()];
 const summary = {
   app: APP,
   decisions: points.length,
+  master_seats: masterSeats,
   skipped,
   plans: new Set(points.map((p) => p.plan)).size,
+  scope,
   outcome_agrees: count(points, (p) => p.outcome),
   full_agrees: count(points, (p) => p.full),
   moved_where_records_close: count(points, (p) => p.movedWhereRecordsClose),
@@ -283,11 +354,15 @@ const summary = {
   // the free baseline the J5 row must beat: "never spend a wave on a rung that does not block"
   optional_rungs: {
     cases: optionalCases.length,
+    unproducible_excluded: allOptional.length - optionalCases.length,
+    decisions_without_catalogue: catalogueUnread,
     chosen: count(optionalCases, (o) => o.chosen),
     baseline_never: count(optionalCases, (o) => !o.chosen),
-    // the same cases against the timeless label
-    ever_built: count(optionalCases, (o) => o.ever),
-    baseline_never_ever: count(optionalCases, (o) => !o.ever),
+    chosen_later: count(optionalCases, (o) => o.chosen_later),
+    built: count(optionalCases, (o) => o.built),
+    plan_rungs: planRungs.length,
+    plan_rungs_chosen: count(planRungs, (r) => r.chosen),
+    plan_rungs_built: count(planRungs, (r) => r.built),
   },
   replayed_at: new Date().toISOString(),
 };
@@ -329,7 +404,7 @@ else {
         .filter(([k]) => k !== 'agree')
         .map(([k, v]) => `${k} ${v}`)
         .join(' · ')}\n` +
-      `  rungs that do not block: ${s.optional_rungs.cases} cases, the Master spent a wave on ${s.optional_rungs.chosen}; "never" is right ${s.optional_rungs.baseline_never}/${s.optional_rungs.cases}; ever built ${s.optional_rungs.ever_built}, "never" right ${s.optional_rungs.baseline_never_ever}/${s.optional_rungs.cases} against that`,
+      `  rungs that do not block: ${s.optional_rungs.cases} cases (${s.optional_rungs.unproducible_excluded} unproducible left out) on ${s.optional_rungs.plan_rungs} plan-rungs; the Master spent a wave on ${s.optional_rungs.chosen} cases, ${s.optional_rungs.plan_rungs_chosen} plan-rungs; "never" is right ${s.optional_rungs.baseline_never}/${s.optional_rungs.cases}; built by a closed gap ${s.optional_rungs.plan_rungs_built}/${s.optional_rungs.plan_rungs} plan-rungs`,
   );
   if (rowSummary) {
     const r = rowSummary;

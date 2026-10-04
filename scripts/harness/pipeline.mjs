@@ -29,6 +29,8 @@ import {
   headSha,
   parseFrontmatter,
   BOOKKEEPING,
+  modelEnv,
+  billingFindings,
 } from './common.mjs';
 import {
   parseNode,
@@ -330,6 +332,12 @@ function review() {
           .filter((f) => f.endsWith('.md'))
           .map((f) => f.replace(/\.md$/, ''))
       : []);
+  // the lenses load the user settings: refused when those would bill them (common.mjs billedSettings)
+  const billed = billingFindings();
+  if (billed.length) {
+    console.error(`review: lenses would be billed, not run on the CLI login: ${billed.join('; ')}`);
+    process.exit(2);
+  }
   const blockAt = RANKSEV[PIPE.review?.block_at || 'high'];
   const schema = JSON.stringify({
     type: 'object',
@@ -372,7 +380,8 @@ function review() {
         String(PIPE.review?.budget_usd || 0.5),
         ...(PIPE.review?.model ? ['--model', PIPE.review.model] : []),
       ],
-      { input: prompt },
+      // the seats' allowlisted environment: a lens on the CLI login never inherits a billed credential
+      { input: prompt, env: modelEnv() },
     );
     let out = null;
     try {

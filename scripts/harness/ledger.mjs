@@ -31,6 +31,10 @@ const KINDS = new Set([
   // J0: one typed judgment, with the vector that made it. Written even in shadow and even when the
   // ruling is ignored, so the row's agreement with what was actually done is a fact, not a memory.
   'jev',
+  // step 15: a grant the owner issued or revoked, and the ruling every cost-bearing act takes first
+  'grant',
+  'grant-revoked',
+  'ruling',
 ]);
 const args = process.argv.slice(2);
 const cmd = args[0];

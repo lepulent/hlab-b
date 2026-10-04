@@ -28,6 +28,7 @@ import {
   BOOKKEEPING,
   productDirty,
   bookkeepingDirty,
+  commitOnly,
 } from './common.mjs';
 
 const argv = process.argv.slice(2);
@@ -78,8 +79,11 @@ const stat = (row) => {
 // it was already broken three times; this is the one place that holds the invariant.
 function handoff(label) {
   if (!bookkeepingDirty()) return;
-  sh('git', ['add', ...BOOKKEEPING.filter((p) => p !== '.harness')]);
-  sh('git', ['commit', '-q', '-m', `chore(ledger): ${label}`]);
+  // only the paths it names (common.mjs commitOnly): a bare commit took whatever else was staged
+  commitOnly(
+    BOOKKEEPING.filter((p) => p !== '.harness' && existsSync(join(ROOT, p))),
+    `chore(ledger): ${label}`,
+  );
 }
 
 function safeJson(s) {
@@ -128,13 +132,10 @@ function plant() {
     base,
     branch,
   });
-  sh('git', ['add', 'intent', 'ledger']);
-  const c = sh('git', [
-    'commit',
-    '-q',
-    '-m',
+  const c = commitOnly(
+    ['intent', 'ledger'],
     `chore(intent): plant ${PLAN} (${route.track}, ${route.rigor}, ${route.kind})`,
-  ]);
+  );
   console.log(
     `plant: ${branch} from ${base.slice(0, 7)} · track ${route.track} · rigor ${route.rigor} · rungs ${route.rungs.join(' → ')}${ok(c) ? '' : ' (nothing to commit)'}`,
   );
@@ -172,8 +173,7 @@ function go() {
       state.status = 'needs-input';
       writeJson(join(dir, 'STATE.json'), state);
       ledger('question', { round: n, stop: q });
-      sh('git', ['add', 'intent', 'ledger']);
-      sh('git', ['commit', '-q', '-m', `chore(intent): ${PLAN} needs input (${q.file})`]);
+      commitOnly(['intent', 'ledger'], `chore(intent): ${PLAN} needs input (${q.file})`);
       console.log(`go: stopped at round ${n}, needs-input.md written (${q.reason})`);
       process.exit(4);
     }
