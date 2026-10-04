@@ -30,11 +30,37 @@
     "CAP-4.3": "prototype",
     "CAP-4.4": "prototype",
     "CAP-4.5": "prototype",
-    "CAP-4.6": "prototype"
+    "CAP-4.6": "prototype",
+    "CAP-5": "prototype",
+    "CAP-5.1": "prototype",
+    "CAP-5.2": "prototype",
+    "CAP-5.3": "prototype",
+    "CAP-5.4": "prototype",
+    "CAP-5.5": "prototype"
   },
   "bindings": {
     "criteria": 0,
     "bound": 0
   },
-  "debt": []
+  "debt": [
+    {
+      "rule": "C-3",
+      "title": "Every AWS resource is tagged from birth",
+      "tier": "governing",
+      "stage": "alpha",
+      "detail": "1 tag(s) unresolved across 1 resource(s)",
+      "clearedBy": "owner",
+      "recorded": {
+        "plan": "t10b",
+        "commit": "4941e30f654faf1387f593e1ccffedf1cb83970f",
+        "at": "2026-10-04T22:54:32.444Z"
+      },
+      "lastSeen": {
+        "plan": "t10b",
+        "commit": "4941e30f654faf1387f593e1ccffedf1cb83970f",
+        "at": "2026-10-04T22:54:32.444Z"
+      },
+      "accepted": null
+    }
+  ]
 }

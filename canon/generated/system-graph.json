@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-04T22:40:10.933Z",
+  "generatedAt": "2026-10-04T22:54:32.866Z",
   "root": ".",
   "nodes": [
     {
@@ -13,7 +13,7 @@
       "kind": "function",
       "label": "buildMaze",
       "file": "src/game.test.ts",
-      "line": 20,
+      "line": 21,
       "exported": false
     },
     {
@@ -21,7 +21,7 @@
       "kind": "function",
       "label": "buildGhost",
       "file": "src/game.test.ts",
-      "line": 32,
+      "line": 33,
       "exported": false
     },
     {
@@ -29,7 +29,7 @@
       "kind": "function",
       "label": "buildState",
       "file": "src/game.test.ts",
-      "line": 43,
+      "line": 44,
       "exported": false
     },
     {
@@ -37,7 +37,7 @@
       "kind": "function",
       "label": "recordingContext",
       "file": "src/game.test.ts",
-      "line": 359,
+      "line": 362,
       "exported": false
     },
     {
@@ -45,7 +45,7 @@
       "kind": "function",
       "label": "drawn",
       "file": "src/game.test.ts",
-      "line": 378,
+      "line": 381,
       "exported": false
     },
     {
@@ -53,7 +53,7 @@
       "kind": "function",
       "label": "textsOf",
       "file": "src/game.test.ts",
-      "line": 384,
+      "line": 387,
       "exported": false
     },
     {
@@ -61,7 +61,7 @@
       "kind": "function",
       "label": "dotPoints",
       "file": "src/game.test.ts",
-      "line": 451,
+      "line": 454,
       "exported": false
     },
     {
@@ -69,7 +69,7 @@
       "kind": "function",
       "label": "pelletPoints",
       "file": "src/game.test.ts",
-      "line": 456,
+      "line": 459,
       "exported": false
     },
     {
@@ -77,7 +77,7 @@
       "kind": "function",
       "label": "ghostPoints",
       "file": "src/game.test.ts",
-      "line": 461,
+      "line": 464,
       "exported": false
     },
     {
@@ -85,7 +85,7 @@
       "kind": "function",
       "label": "hudScore",
       "file": "src/game.test.ts",
-      "line": 469,
+      "line": 472,
       "exported": false
     },
     {
@@ -93,7 +93,7 @@
       "kind": "function",
       "label": "scoreScreenText",
       "file": "src/game.test.ts",
-      "line": 473,
+      "line": 476,
       "exported": false
     },
     {
@@ -101,7 +101,39 @@
       "kind": "function",
       "label": "pageHtml",
       "file": "src/game.test.ts",
-      "line": 477,
+      "line": 480,
+      "exported": false
+    },
+    {
+      "id": "func:src/game.test.ts#nearHalf",
+      "kind": "function",
+      "label": "nearHalf",
+      "file": "src/game.test.ts",
+      "line": 599,
+      "exported": false
+    },
+    {
+      "id": "func:src/game.test.ts#besideFruit",
+      "kind": "function",
+      "label": "besideFruit",
+      "file": "src/game.test.ts",
+      "line": 604,
+      "exported": false
+    },
+    {
+      "id": "arrow:src/game.test.ts#arcAtFruit",
+      "kind": "arrow",
+      "label": "arcAtFruit",
+      "file": "src/game.test.ts",
+      "line": 652,
+      "exported": false
+    },
+    {
+      "id": "func:src/game.test.ts#phasesPlayed",
+      "kind": "function",
+      "label": "phasesPlayed",
+      "file": "src/game.test.ts",
+      "line": 731,
       "exported": false
     },
     {
@@ -115,7 +147,7 @@
       "kind": "function",
       "label": "nextPosition",
       "file": "src/game.ts",
-      "line": 45,
+      "line": 53,
       "exported": true
     },
     {
@@ -123,7 +155,7 @@
       "kind": "function",
       "label": "createGameState",
       "file": "src/game.ts",
-      "line": 58,
+      "line": 66,
       "exported": true
     },
     {
@@ -131,7 +163,7 @@
       "kind": "function",
       "label": "attemptMove",
       "file": "src/game.ts",
-      "line": 80,
+      "line": 91,
       "exported": true
     },
     {
@@ -139,7 +171,7 @@
       "kind": "function",
       "label": "eatDot",
       "file": "src/game.ts",
-      "line": 86,
+      "line": 97,
       "exported": true
     },
     {
@@ -147,7 +179,7 @@
       "kind": "function",
       "label": "checkWin",
       "file": "src/game.ts",
-      "line": 107,
+      "line": 118,
       "exported": true
     },
     {
@@ -155,7 +187,7 @@
       "kind": "function",
       "label": "loseLife",
       "file": "src/game.ts",
-      "line": 113,
+      "line": 124,
       "exported": true
     },
     {
@@ -163,15 +195,39 @@
       "kind": "function",
       "label": "resolveGhostCollisions",
       "file": "src/game.ts",
-      "line": 125,
+      "line": 136,
       "exported": true
+    },
+    {
+      "id": "func:src/game.ts#maybeSpawnFruit",
+      "kind": "function",
+      "label": "maybeSpawnFruit",
+      "file": "src/game.ts",
+      "line": 151,
+      "exported": false
+    },
+    {
+      "id": "func:src/game.ts#eatFruit",
+      "kind": "function",
+      "label": "eatFruit",
+      "file": "src/game.ts",
+      "line": 159,
+      "exported": false
+    },
+    {
+      "id": "func:src/game.ts#tickFruit",
+      "kind": "function",
+      "label": "tickFruit",
+      "file": "src/game.ts",
+      "line": 169,
+      "exported": false
     },
     {
       "id": "func:src/game.ts#movePacman",
       "kind": "function",
       "label": "movePacman",
       "file": "src/game.ts",
-      "line": 139,
+      "line": 175,
       "exported": false
     },
     {
@@ -179,7 +235,7 @@
       "kind": "function",
       "label": "moveGhost",
       "file": "src/game.ts",
-      "line": 146,
+      "line": 182,
       "exported": false
     },
     {
@@ -187,7 +243,7 @@
       "kind": "arrow",
       "label": "distance",
       "file": "src/game.ts",
-      "line": 154,
+      "line": 190,
       "exported": false
     },
     {
@@ -195,7 +251,7 @@
       "kind": "function",
       "label": "moveGhosts",
       "file": "src/game.ts",
-      "line": 164,
+      "line": 200,
       "exported": false
     },
     {
@@ -203,7 +259,7 @@
       "kind": "function",
       "label": "togglePause",
       "file": "src/game.ts",
-      "line": 170,
+      "line": 206,
       "exported": true
     },
     {
@@ -211,7 +267,7 @@
       "kind": "function",
       "label": "tick",
       "file": "src/game.ts",
-      "line": 178,
+      "line": 214,
       "exported": true
     },
     {
@@ -415,7 +471,15 @@
       "kind": "function",
       "label": "drawPacman",
       "file": "src/render.ts",
-      "line": 13,
+      "line": 15,
+      "exported": false
+    },
+    {
+      "id": "func:src/render.ts#drawFruit",
+      "kind": "function",
+      "label": "drawFruit",
+      "file": "src/render.ts",
+      "line": 33,
       "exported": false
     },
     {
@@ -423,7 +487,7 @@
       "kind": "function",
       "label": "drawGhost",
       "file": "src/render.ts",
-      "line": 28,
+      "line": 47,
       "exported": false
     },
     {
@@ -431,7 +495,7 @@
       "kind": "function",
       "label": "drawScoreScreen",
       "file": "src/render.ts",
-      "line": 39,
+      "line": 58,
       "exported": false
     },
     {
@@ -439,7 +503,7 @@
       "kind": "function",
       "label": "statusText",
       "file": "src/render.ts",
-      "line": 60,
+      "line": 79,
       "exported": true
     },
     {
@@ -447,7 +511,7 @@
       "kind": "function",
       "label": "drawFrame",
       "file": "src/render.ts",
-      "line": 67,
+      "line": 86,
       "exported": true
     },
     {
@@ -561,6 +625,30 @@
       "confidence": "EXTRACTED"
     },
     {
+      "source": "file:src/game.test.ts",
+      "target": "func:src/game.test.ts#nearHalf",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.test.ts",
+      "target": "func:src/game.test.ts#besideFruit",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.test.ts",
+      "target": "arrow:src/game.test.ts#arcAtFruit",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.test.ts",
+      "target": "func:src/game.test.ts#phasesPlayed",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
       "source": "file:src/game.ts",
       "target": "func:src/game.ts#nextPosition",
       "type": "DEFINES",
@@ -599,6 +687,24 @@
     {
       "source": "file:src/game.ts",
       "target": "func:src/game.ts#resolveGhostCollisions",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.ts",
+      "target": "func:src/game.ts#maybeSpawnFruit",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.ts",
+      "target": "func:src/game.ts#eatFruit",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.ts",
+      "target": "func:src/game.ts#tickFruit",
       "type": "DEFINES",
       "confidence": "EXTRACTED"
     },
@@ -761,6 +867,12 @@
     {
       "source": "file:src/render.ts",
       "target": "func:src/render.ts#drawPacman",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/render.ts",
+      "target": "func:src/render.ts#drawFruit",
       "type": "DEFINES",
       "confidence": "EXTRACTED"
     },
@@ -1077,6 +1189,66 @@
       "confidence": "EXTRACTED"
     },
     {
+      "source": "func:src/game.test.ts#nearHalf",
+      "target": "func:src/game.test.ts#buildState",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/game.test.ts#besideFruit",
+      "target": "func:src/game.ts#createGameState",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.test.ts",
+      "target": "func:src/maze.ts#isWalkable",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.test.ts",
+      "target": "func:src/maze.ts#createMaze",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.test.ts",
+      "target": "func:src/game.test.ts#nearHalf",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.test.ts",
+      "target": "arrow:src/game.test.ts#arcAtFruit",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.test.ts",
+      "target": "func:src/game.test.ts#besideFruit",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/game.test.ts#phasesPlayed",
+      "target": "func:src/game.test.ts#buildState",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/game.test.ts#phasesPlayed",
+      "target": "func:src/game.ts#tick",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.test.ts",
+      "target": "func:src/game.test.ts#phasesPlayed",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
       "source": "func:src/game.ts#createGameState",
       "target": "func:src/maze.ts#createMaze",
       "type": "CALLS",
@@ -1168,7 +1340,25 @@
     },
     {
       "source": "func:src/game.ts#tick",
+      "target": "func:src/game.ts#eatFruit",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/game.ts#tick",
+      "target": "func:src/game.ts#maybeSpawnFruit",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/game.ts#tick",
       "target": "func:src/game.ts#moveGhosts",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/game.ts#tick",
+      "target": "func:src/game.ts#tickFruit",
       "type": "CALLS",
       "confidence": "EXTRACTED"
     },
@@ -1367,6 +1557,12 @@
     {
       "source": "func:src/maze.ts#isWalkable",
       "target": "func:src/maze.ts#cellAt",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/render.ts#drawFrame",
+      "target": "func:src/render.ts#drawFruit",
       "type": "CALLS",
       "confidence": "EXTRACTED"
     },

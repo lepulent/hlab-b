@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-04T22:40:11.060Z",
+  "generatedAt": "2026-10-04T22:54:32.998Z",
   "byFile": {
     "src/game.ts": [
       {
@@ -122,6 +122,51 @@
       },
       {
         "node": null,
+        "criterion": "CAP-5.1",
+        "file": "src/game.ts",
+        "symbol": "maybeSpawnFruit",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-5.3",
+        "file": "src/game.ts",
+        "symbol": "L157",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-5.4",
+        "file": "src/game.ts",
+        "symbol": "eatFruit",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-5.2",
+        "file": "src/game.ts",
+        "symbol": "L167",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-5.5",
+        "file": "src/game.ts",
+        "symbol": "tickFruit",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
         "criterion": "CAP-1.9",
         "file": "src/game.ts",
         "symbol": "moveGhost",
@@ -142,7 +187,7 @@
         "node": null,
         "criterion": "CAP-2.1",
         "file": "src/game.ts",
-        "symbol": "L168",
+        "symbol": "L204",
         "range": null,
         "blob": null,
         "tag": true
@@ -160,7 +205,7 @@
         "node": null,
         "criterion": "CAP-2.2",
         "file": "src/game.ts",
-        "symbol": "L175",
+        "symbol": "L211",
         "range": null,
         "blob": null,
         "tag": true
@@ -169,7 +214,7 @@
         "node": null,
         "criterion": "CAP-2.3",
         "file": "src/game.ts",
-        "symbol": "L176",
+        "symbol": "L212",
         "range": null,
         "blob": null,
         "tag": true
@@ -287,9 +332,36 @@
       },
       {
         "node": null,
+        "criterion": "CAP-5.1",
+        "file": "src/render.ts",
+        "symbol": "L30",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-5.2",
+        "file": "src/render.ts",
+        "symbol": "L31",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-5.3",
+        "file": "src/render.ts",
+        "symbol": "drawFruit",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
         "criterion": "CAP-3.1",
         "file": "src/render.ts",
-        "symbol": "L37",
+        "symbol": "L56",
         "range": null,
         "blob": null,
         "tag": true
@@ -327,7 +399,7 @@
         "node": null,
         "criterion": "CAP-4.1",
         "file": "src/game.test.ts",
-        "symbol": "L483",
+        "symbol": "L486",
         "range": null,
         "blob": null,
         "tag": true
@@ -394,8 +466,143 @@
         "range": null,
         "blob": null,
         "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-5.1",
+        "file": "src/game.test.ts",
+        "symbol": "state",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-5.1",
+        "file": "src/game.test.ts",
+        "symbol": "L627",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-5.1",
+        "file": "src/game.test.ts",
+        "symbol": "L632",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-5.1",
+        "file": "src/game.test.ts",
+        "symbol": "L637",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-5.1",
+        "file": "src/game.test.ts",
+        "symbol": "L642",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-5.1",
+        "file": "src/game.test.ts",
+        "symbol": "waiting",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-5.2",
+        "file": "src/game.test.ts",
+        "symbol": "L661",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-5.2",
+        "file": "src/game.test.ts",
+        "symbol": "done",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-5.2",
+        "file": "src/game.test.ts",
+        "symbol": "fruit",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-5.3",
+        "file": "src/game.test.ts",
+        "symbol": "next",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-5.3",
+        "file": "src/game.test.ts",
+        "symbol": "waiting",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-5.4",
+        "file": "src/game.test.ts",
+        "symbol": "next",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-5.5",
+        "file": "src/game.test.ts",
+        "symbol": "phases",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-5.5",
+        "file": "src/game.test.ts",
+        "symbol": "phases",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-5.5",
+        "file": "src/game.test.ts",
+        "symbol": "expired",
+        "range": null,
+        "blob": null,
+        "tag": true
       }
     ]
   },
-  "count": 44
+  "count": 67
 }

@@ -2,9 +2,9 @@
 id: CAP-5
 kind: capability
 title: Bonus fruit
-version: 0.0.0
+version: 0.1.0
 assurance: draft
-valid_from: 27f9f5c
+valid_from: 4941e30f654faf1387f593e1ccffedf1cb83970f
 ---
 
 ## Why
