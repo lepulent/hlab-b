@@ -1,9 +1,10 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import type { Cell, Maze } from './maze';
-import { PACMAN_START } from './maze';
-import { drawFrame, statusText } from './render';
+import { PACMAN_START, createMaze, isWalkable } from './maze';
+import { TILE, drawFrame, statusText } from './render';
 import {
+  FRUIT_POS,
   attemptMove,
   checkWin,
   createGameState,
@@ -49,6 +50,8 @@ function buildState(overrides: Partial<GameState> = {}): GameState {
     score: 0,
     lives: 3,
     dotsRemaining: 9,
+    dotsTotal: 9,
+    fruit: { phase: 'waiting', ticksLeft: 0 },
     frightenedTicks: 0,
     status: 'playing',
     paused: false,
@@ -587,5 +590,175 @@ describe('in-play score display', () => {
 
     const later = tick(tick(lost, 'left'), 'up');
     expect(scoreScreenText(later)).toEqual(scoreScreenText(lost));
+  });
+});
+
+// The fruit rules are private to game.ts, so these tests drive them through tick and createGameState.
+
+// pacman at (2,2) facing the dot at (3,2): one tick right eats it.
+function nearHalf(dotsTotal: number, dotsRemaining: number): GameState {
+  return buildState({ dotsTotal, dotsRemaining });
+}
+
+// A real maze with pacman one tile left of the fruit tile, which is cleared so only the fruit scores.
+function besideFruit(fruit: GameState['fruit']): GameState {
+  const base = createGameState();
+  const grid = base.maze.grid.map((row) => [...row]);
+  const row = grid[FRUIT_POS.y];
+  if (row) row[FRUIT_POS.x] = 'empty';
+  return {
+    ...base,
+    maze: { ...base.maze, grid },
+    ghosts: [],
+    pacman: { pos: { x: FRUIT_POS.x - 1, y: FRUIT_POS.y }, dir: 'right' },
+    fruit,
+  };
+}
+
+describe('bonus fruit appearing', () => {
+  it('P0-GAME-014 waits in a fresh game and sits on a walkable tile', () => {
+    // canon: CAP-5.1
+    const state = createGameState();
+    expect(state.fruit).toEqual({ phase: 'waiting', ticksLeft: 0 });
+    expect(isWalkable(createMaze(), FRUIT_POS)).toBe(true);
+  });
+
+  it('P0-GAME-014 does not appear one dot below half, odd total', () => {
+    // canon: CAP-5.1
+    expect(tick(nearHalf(9, 6), 'right').fruit.phase).toBe('waiting');
+  });
+
+  it('P0-GAME-014 appears exactly at half, odd total', () => {
+    // canon: CAP-5.1
+    expect(tick(nearHalf(9, 5), 'right').fruit.phase).toBe('active');
+  });
+
+  it('P0-GAME-014 does not appear one dot below half, even total', () => {
+    // canon: CAP-5.1
+    expect(tick(nearHalf(8, 6), 'right').fruit.phase).toBe('waiting');
+  });
+
+  it('P0-GAME-014 appears exactly at half, even total', () => {
+    // canon: CAP-5.1
+    expect(tick(nearHalf(8, 5), 'right').fruit.phase).toBe('active');
+  });
+
+  it('P0-GAME-014 is drawn on its tile only while it is showing', () => {
+    // canon: CAP-5.1
+    const waiting = createGameState();
+    const active: GameState = { ...waiting, fruit: { phase: 'active', ticksLeft: 5 } };
+    const cx = FRUIT_POS.x * TILE + TILE / 2;
+    const cy = FRUIT_POS.y * TILE + TILE / 2;
+    const arcAtFruit = (log: string[]): boolean =>
+      log.some((entry) => entry.startsWith(`arc(${cx},${cy},`));
+    expect(arcAtFruit(drawn(waiting))).toBe(false);
+    expect(arcAtFruit(drawn(active))).toBe(true);
+  });
+});
+
+describe('bonus fruit expiring', () => {
+  it('P0-GAME-015 counts down one per tick, then disappears with the score unchanged', () => {
+    // canon: CAP-5.2
+    let state = buildState({ fruit: { phase: 'active', ticksLeft: 3 } });
+    state = tick(state, null);
+    expect(state.fruit).toEqual({ phase: 'active', ticksLeft: 2 });
+    state = tick(tick(state, null), null);
+    expect(state.fruit.phase).toBe('done');
+    expect(state.score).toBe(0);
+  });
+
+  it('P0-GAME-015 stops being drawn once it has disappeared', () => {
+    // canon: CAP-5.2
+    const done: GameState = { ...createGameState(), fruit: { phase: 'done', ticksLeft: 0 } };
+    expect(drawn(done)).toEqual(drawn(createGameState()));
+  });
+
+  it('P0-GAME-015 freezes while paused and continues after a lost life', () => {
+    // canon: CAP-5.2
+    const fruit = { phase: 'active' as const, ticksLeft: 5 };
+    const paused = togglePause(buildState({ fruit }));
+    expect(tick(paused, null).fruit).toEqual(fruit);
+
+    const caught = buildState({
+      fruit,
+      ghosts: [buildGhost({ pos: { x: 2, y: 2 }, home: { x: 1, y: 1 } })],
+    });
+    const next = tick(caught, null);
+    expect(next.lives).toBe(2);
+    expect(next.fruit).toEqual({ phase: 'active', ticksLeft: 4 });
+  });
+});
+
+describe('bonus fruit eating', () => {
+  it('P0-GAME-016 is eaten and removed when pacman reaches it while showing', () => {
+    // canon: CAP-5.3
+    const next = tick(besideFruit({ phase: 'active', ticksLeft: 10 }), 'right');
+    expect(next.pacman.pos).toEqual(FRUIT_POS);
+    expect(next.fruit.phase).toBe('done');
+    expect(next.score).toBeGreaterThan(0);
+  });
+
+  it('P0-GAME-016 is not eaten while waiting or after it is done', () => {
+    // canon: CAP-5.3
+    const waiting = tick(besideFruit({ phase: 'waiting', ticksLeft: 0 }), 'right');
+    const done = tick(besideFruit({ phase: 'done', ticksLeft: 0 }), 'right');
+    expect(waiting.score).toBe(0);
+    expect(waiting.fruit.phase).toBe('waiting');
+    expect(done.score).toBe(0);
+  });
+
+  it('P0-GAME-017 raises the score by more than a power pellet is worth', () => {
+    // canon: CAP-5.4
+    const next = tick(besideFruit({ phase: 'active', ticksLeft: 10 }), 'right');
+    expect(next.score).toBeGreaterThan(pelletPoints());
+  });
+});
+
+describe('bonus fruit once per game', () => {
+  const PATH: ('right' | 'up' | 'left' | 'down')[] = [
+    'right',
+    'up',
+    'left',
+    'left',
+    'down',
+    'down',
+    'right',
+    'right',
+    'up',
+    'left',
+  ];
+
+  function phasesPlayed(fruit: GameState['fruit']): string[] {
+    let state = buildState({ fruit });
+    const phases: string[] = [];
+    for (const dir of PATH) {
+      state = tick(state, dir);
+      phases.push(state.fruit.phase);
+    }
+    expect(state.status).toBe('won');
+    return phases;
+  }
+
+  it('P0-GAME-018 shows at most one run in a game played to a win', () => {
+    // canon: CAP-5.5
+    const phases = phasesPlayed({ phase: 'waiting', ticksLeft: 0 });
+    expect(phases).toContain('active');
+    const first = phases.indexOf('active');
+    const last = phases.lastIndexOf('active');
+    expect(phases.slice(first, last + 1).every((p) => p === 'active')).toBe(true);
+  });
+
+  it('P0-GAME-018 never comes back once it was eaten or expired', () => {
+    // canon: CAP-5.5
+    const phases = phasesPlayed({ phase: 'done', ticksLeft: 0 });
+    expect(phases.every((p) => p === 'done')).toBe(true);
+  });
+
+  it('P0-GAME-018 does not reappear after expiring when more dots are eaten', () => {
+    // canon: CAP-5.5
+    const expired = tick(buildState({ fruit: { phase: 'active', ticksLeft: 1 } }), null);
+    expect(expired.fruit.phase).toBe('done');
+    const later = tick({ ...expired, dotsTotal: 9, dotsRemaining: 5 }, 'right');
+    expect(later.fruit.phase).toBe('done');
   });
 });
