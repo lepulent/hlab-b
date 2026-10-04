@@ -116,7 +116,9 @@ export function foldGrants(lines, { now = new Date() } = {}) {
 // act has a ruling line before its first effect and a grant's uses and dollars are counted from them.
 // `lines` and `write` are injected (conduct passes its ledger), so this is testable without a plan. The
 // dollars a grant spends are counted from the ruling's usd, the pre-call input-token estimate jev.mjs
-// computes, not the call's reported cost: a deliberate upper-bound proxy, written before the act.
+// computes, not the call's reported cost. It is NOT an upper bound: the first live call (hlab-a t8a,
+// 2026-10-05) was estimated $0.0000729 and cost $0.0000851. A dollar-bound grant can overrun by that
+// margin; a use-bound grant cannot.
 export function authorizer({ lines, write, floor = null, now = () => new Date() }) {
   return async ({ act, usd = 0, row = null }) => {
     const { live } = foldGrants(lines(), { now: now() });

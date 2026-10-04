@@ -158,7 +158,12 @@ function main() {
       `chore(seal): ${PLAN} sealed at ${route.rigor} over ${nodes.length} node(s)\n\n${nodes.map((x) => `- ${x}`).join('\n') || '- no node'}`,
       { who: 'script:deliver' },
     );
-    if (!ok(c)) fail(`could not commit the seal: ${(c.stderr || c.stdout).slice(-300)}`);
+    // a refusal that leaves the seal identical to HEAD is no failure: the commit hook's formatter turned
+    // the regenerated seal back into the committed one ("prevented an empty git commit"), which is what a
+    // resumed delivery meets (hlab-a t9a, 2026-10-05; 6ae785e had dropped this tolerance)
+    const same =
+      sh('git', ['diff', '--quiet', 'HEAD', '--', `intent/${PLAN}/SEAL.md`]).status === 0;
+    if (!ok(c) && !same) fail(`could not commit the seal: ${(c.stderr || c.stdout).slice(-300)}`);
   }
   ledger('seal', {
     plan: PLAN,
