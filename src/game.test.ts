@@ -1,9 +1,10 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import type { Cell, Maze } from './maze';
-import { PACMAN_START } from './maze';
-import { drawFrame, statusText } from './render';
+import { GHOST_STARTS, PACMAN_START, countRemaining, createMaze } from './maze';
+import { drawFrame, levelText, statusText } from './render';
 import {
+  advanceLevel,
   attemptMove,
   checkWin,
   createGameState,
@@ -48,6 +49,7 @@ function buildState(overrides: Partial<GameState> = {}): GameState {
     ghosts: [],
     score: 0,
     lives: 3,
+    level: 1,
     dotsRemaining: 9,
     frightenedTicks: 0,
     status: 'playing',
@@ -208,15 +210,112 @@ describe('moveGhost', () => {
   });
 });
 
+// A state one dot short of clearing the maze, with a ghost away from home and frightened mode on.
+const LAST_DOT_MAZE = ['#####', '#   #', '#  .#', '#   #', '#####'];
+
+function nearlyCleared(overrides: Partial<GameState> = {}): GameState {
+  return buildState({
+    maze: buildMaze(LAST_DOT_MAZE),
+    dotsRemaining: 1,
+    score: 120,
+    lives: 2,
+    ghosts: [buildGhost({ pos: { x: 3, y: 3 }, dir: 'left', mode: 'frightened' })],
+    frightenedTicks: 7,
+    ...overrides,
+  });
+}
+
 describe('checkWin', () => {
-  it('P0-GAME-005 declares a win once no dots remain', () => {
-    const state = buildState({ dotsRemaining: 0 });
-    expect(checkWin(state).status).toBe('won');
+  it('P0-GAME-017 starts the next level once no dots remain', () => {
+    const next = checkWin(buildState({ dotsRemaining: 0 }));
+    expect(next.status).toBe('playing');
+    expect(next.level).toBe(2);
   });
 
-  it('P0-GAME-005 keeps playing while dots remain', () => {
-    const state = buildState({ dotsRemaining: 1 });
-    expect(checkWin(state).status).toBe('playing');
+  it('P0-GAME-017 keeps the level while dots remain', () => {
+    const next = checkWin(buildState({ dotsRemaining: 1 }));
+    expect(next.status).toBe('playing');
+    expect(next.level).toBe(1);
+  });
+});
+
+describe('advanceLevel', () => {
+  const state = nearlyCleared({ dotsRemaining: 0 });
+  const next = advanceLevel(state);
+
+  it('P0-GAME-014 refills the maze and matches dotsRemaining to it', () => {
+    expect(next.maze).toEqual(createMaze());
+    expect(next.dotsRemaining).toBe(countRemaining(createMaze()));
+    expect(next.dotsRemaining).toBeGreaterThan(0);
+  });
+
+  it('P0-GAME-015 returns pacman to its starting place', () => {
+    expect(next.pacman.pos).toEqual(PACMAN_START);
+  });
+
+  it('P0-GAME-016 returns every ghost to its starting place in chase mode', () => {
+    const full = advanceLevel(createGameState());
+    expect(full.ghosts.map((g) => g.pos)).toEqual(GHOST_STARTS);
+    expect(next.ghosts[0]?.pos).toEqual(next.ghosts[0]?.home);
+    expect(next.ghosts.every((g) => g.mode === 'chase')).toBe(true);
+    expect(next.frightenedTicks).toBe(0);
+  });
+
+  it('P0-GAME-017 raises the level by 1', () => {
+    expect(next.level).toBe(state.level + 1);
+  });
+
+  it('P0-GAME-018 keeps score, lives and status', () => {
+    expect(next.score).toBe(state.score);
+    expect(next.lives).toBe(state.lives);
+    expect(next.status).toBe('playing');
+  });
+});
+
+describe('clearing the maze in a tick', () => {
+  it('P0-GAME-017 eating the last dot gives level + 1 and keeps playing', () => {
+    const before = nearlyCleared();
+    const next = tick(before, 'right');
+    expect(next.level).toBe(before.level + 1);
+    expect(next.status).toBe('playing');
+  });
+
+  it('P0-GAME-017 also clears the level when the last dot is a pellet', () => {
+    const maze = buildMaze(['#####', '#   #', '#  o#', '#   #', '#####']);
+    const next = tick(nearlyCleared({ maze }), 'right');
+    expect(next.level).toBe(2);
+    expect(next.status).toBe('playing');
+    expect(next.frightenedTicks).toBe(0);
+    expect(next.ghosts.every((g) => g.mode === 'chase')).toBe(true);
+  });
+
+  it('P0-GAME-016 leaves ghosts at their starts in the clearing tick', () => {
+    const next = tick(nearlyCleared(), 'right');
+    expect(next.ghosts[0]?.pos).toEqual(next.ghosts[0]?.home);
+    expect(next.pacman.pos).toEqual(PACMAN_START);
+  });
+
+  it('P0-GAME-018 carries the score and lives, plus the last dot', () => {
+    const before = nearlyCleared();
+    const next = tick(before, 'right');
+    expect(next.score).toBe(before.score + dotPoints());
+    expect(next.lives).toBe(before.lives);
+  });
+
+  it('P0-GAME-017 two clears in a row give level 3 and keep the score', () => {
+    const first = tick(nearlyCleared(), 'right');
+    const again = advanceLevel({ ...first, dotsRemaining: 0 });
+    expect(again.level).toBe(3);
+    expect(again.score).toBe(first.score);
+  });
+
+  it('P0-GAME-017 losing a life keeps the level', () => {
+    expect(loseLife(buildState({ level: 4 })).level).toBe(4);
+  });
+
+  it('P0-GAME-018 never ends the game: the only way out is losing every life', () => {
+    expect(tick(nearlyCleared(), 'right').status).toBe('playing');
+    expect(loseLife(buildState({ lives: 1 })).status).toBe('lost');
   });
 });
 
@@ -247,6 +346,10 @@ describe('createGameState', () => {
     expect(state.ghosts).toHaveLength(4);
   });
 
+  it('P0-GAME-019 starts at level 1', () => {
+    expect(createGameState().level).toBe(1);
+  });
+
   it('P0-GAME-009 starts unpaused', () => {
     expect(createGameState().paused).toBe(false);
   });
@@ -258,7 +361,7 @@ describe('tick', () => {
     const next = tick(state, 'right');
     expect(next.pacman.pos).toEqual({ x: 3, y: 2 });
 
-    const finished = buildState({ status: 'won' });
+    const finished = buildState({ status: 'lost', lives: 0 });
     expect(tick(finished, 'right')).toEqual(finished);
   });
 
@@ -278,11 +381,6 @@ describe('togglePause', () => {
     const paused = togglePause(state);
     expect(paused.paused).toBe(true);
     expect(togglePause(paused).paused).toBe(false);
-  });
-
-  it('P0-GAME-013 leaves a won game unchanged', () => {
-    const won = buildState({ status: 'won' });
-    expect(togglePause(won)).toEqual(won);
   });
 
   it('P0-GAME-013 leaves a lost game unchanged', () => {
@@ -408,27 +506,11 @@ describe('pause display', () => {
 });
 
 describe('score screen', () => {
-  it('P0-UI-004 draws YOU WIN and the final score when the game is won', () => {
-    const won: GameState = { ...createGameState(), status: 'won', score: 1240 };
-    const texts = textsOf(drawn(won));
-    expect(texts.some((t) => t.includes('YOU WIN'))).toBe(true);
-    expect(texts.some((t) => t.includes('Score: 1240'))).toBe(true);
-    expect(texts.some((t) => t.includes('GAME OVER'))).toBe(false);
-  });
-
-  it('P0-UI-004 keeps status and score on a won game through tick', () => {
-    const won = buildState({ status: 'won', score: 90, dotsRemaining: 0 });
-    const next = tick(won, 'right');
-    expect(next.status).toBe('won');
-    expect(next.score).toBe(90);
-  });
-
   it('P0-UI-005 draws GAME OVER and the final score when the game is lost', () => {
     const lost: GameState = { ...createGameState(), status: 'lost', lives: 0, score: 330 };
     const texts = textsOf(drawn(lost));
     expect(texts.some((t) => t.includes('GAME OVER'))).toBe(true);
     expect(texts.some((t) => t.includes('Score: 330'))).toBe(true);
-    expect(texts.some((t) => t.includes('YOU WIN'))).toBe(false);
   });
 
   it('P0-UI-005 keeps status and score on a lost game through tick', () => {
@@ -469,6 +551,21 @@ function ghostPoints(): number {
 function hudScore(state: GameState): string {
   return `Score: ${state.score}`;
 }
+
+describe('level display', () => {
+  it('P0-UI-015 reads Level: 1 for a new game', () => {
+    // canon: CAP-5.7
+    expect(levelText(createGameState())).toBe('Level: 1');
+  });
+
+  it('P0-UI-016 goes up by 1 when the maze is refilled', () => {
+    // canon: CAP-5.8
+    const before = nearlyCleared();
+    const after = tick(before, 'right');
+    expect(levelText(before)).toBe('Level: 1');
+    expect(levelText(after)).toBe('Level: 2');
+  });
+});
 
 function scoreScreenText(state: GameState): string[] {
   return textsOf(drawn(state)).filter((entry) => entry.startsWith('fillText(Score: '));
@@ -553,20 +650,15 @@ describe('in-play score display', () => {
     expect(hudScore(after)).toBe(hudScore(before));
   });
 
-  it('P0-UI-014 shows the last displayed score on the win screen', () => {
+  it('P0-UI-014 keeps the displayed score across a level change, with no score screen', () => {
     // canon: CAP-4.6
     const lastDot = buildMaze(['#####', '#   #', '#  .#', '#   #', '#####']);
     const before = buildState({ maze: lastDot, dotsRemaining: 1, score: 120 });
-    const won = tick(before, 'right');
-    const shown = before.score + dotPoints();
+    const next = tick(before, 'right');
 
-    expect(won.status).toBe('won');
-    expect(hudScore(won)).toBe(`Score: ${shown}`);
-    expect(scoreScreenText(won)).toEqual([expect.stringMatching(`^fillText\\(Score: ${shown},`)]);
-
-    const later = tick(tick(won, 'left'), 'up');
-    expect(hudScore(later)).toBe(hudScore(won));
-    expect(scoreScreenText(later)).toEqual(scoreScreenText(won));
+    expect(next.status).toBe('playing');
+    expect(hudScore(next)).toBe(`Score: ${before.score + dotPoints()}`);
+    expect(scoreScreenText(next)).toEqual([]);
   });
 
   it('P0-UI-014 shows the last displayed score on the game-over screen', () => {

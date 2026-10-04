@@ -7,8 +7,8 @@ function press(key: string, overrides: Partial<KeyInput> = {}): KeyInput {
   return { key, repeat: false, ctrlKey: false, metaKey: false, altKey: false, ...overrides };
 }
 
-function ended(status: 'won' | 'lost'): GameState {
-  return { ...createGameState(), status, score: 120, lives: status === 'lost' ? 0 : 2 };
+function ended(): GameState {
+  return { ...createGameState(), status: 'lost', score: 120, lives: 0, level: 3 };
 }
 
 describe('keyToDirection', () => {
@@ -105,24 +105,21 @@ describe('handleKey while paused', () => {
 describe('handleKey on the score screen', () => {
   const fresh = createGameState();
 
-  it.each([
-    ['won', 'x'],
-    ['lost', 'Enter'],
-    ['won', 'p'],
-    ['lost', 'P'],
-  ] as const)('P0-UI-006 restarts a %s game on %s', (status, key) => {
-    const result = handleKey(ended(status), 'left', press(key));
+  it.each(['x', 'Enter', 'p', 'P'])('P0-UI-006 restarts a lost game on %s', (key) => {
+    const result = handleKey(ended(), 'left', press(key));
     expect(result.restarted).toBe(true);
     expect(result.state.status).toBe('playing');
     expect(result.state.paused).toBe(false);
     expect(result.state.score).toBe(0);
     expect(result.state.lives).toBe(3);
+    // canon: CAP-5.6
+    expect(result.state.level).toBe(1); // P0-GAME-019
     expect(result.state.dotsRemaining).toBe(fresh.dotsRemaining);
     expect(result.state.pacman).toEqual(fresh.pacman);
   });
 
   it('P0-UI-007 clears the direction so the restarting key does not steer', () => {
-    const result = handleKey(ended('lost'), 'left', press('ArrowUp'));
+    const result = handleKey(ended(), 'left', press('ArrowUp'));
     expect(result.restarted).toBe(true);
     expect(result.direction).toBeNull();
     expect(result.consumed).toBe(true);
@@ -134,7 +131,7 @@ describe('handleKey on the score screen', () => {
     ['Meta', { metaKey: true }],
     ['Alt', { altKey: true }],
   ] as const)('P0-UI-008 does not restart on %s', (_name, modifier) => {
-    const lost = ended('lost');
+    const lost = ended();
     const result = handleKey(lost, 'left', press('x', modifier));
     expect(result.restarted).toBe(false);
     expect(result.state).toBe(lost);

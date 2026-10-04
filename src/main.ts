@@ -1,7 +1,7 @@
 import type { Direction } from './game';
 import { createGameState, tick } from './game';
 import { handleKey } from './input';
-import { drawFrame, statusText, TILE } from './render';
+import { drawFrame, levelText, statusText, TILE } from './render';
 
 function required<T>(value: T | null, message: string): T {
   if (value === null) throw new Error(message);
@@ -21,6 +21,12 @@ const livesEl = required(
   document.querySelector<HTMLElement>('#lives'),
   'Lives element was not found',
 );
+// index.html is outside this seat, so the level span is added to #hud here when the page lacks it.
+const levelEl =
+  document.querySelector<HTMLElement>('#level') ??
+  required(document.querySelector<HTMLElement>('#hud'), 'HUD element was not found').appendChild(
+    Object.assign(document.createElement('span'), { id: 'level' }),
+  );
 const statusEl = required(
   document.querySelector<HTMLElement>('#status'),
   'Status element was not found',
@@ -57,6 +63,7 @@ function render(): void {
   drawFrame(ctx, state);
   scoreEl.textContent = `Score: ${state.score}`;
   livesEl.textContent = `Lives: ${state.lives}`;
+  levelEl.textContent = levelText(state);
   statusEl.textContent = statusText(state);
 }
 

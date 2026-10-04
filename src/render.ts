@@ -45,10 +45,9 @@ function drawScoreScreen(ctx: CanvasRenderingContext2D, state: GameState): void 
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   const maxWidth = width - 2 * TILE;
-  const won = state.status === 'won';
-  ctx.fillStyle = won ? PACMAN_COLOR : LOST_COLOR;
+  ctx.fillStyle = LOST_COLOR;
   ctx.font = 'bold 28px monospace';
-  ctx.fillText(won ? 'YOU WIN' : 'GAME OVER', width / 2, height / 2 - 28, maxWidth);
+  ctx.fillText('GAME OVER', width / 2, height / 2 - 28, maxWidth);
   ctx.fillStyle = '#fff';
   ctx.font = '18px monospace';
   ctx.fillText(`Score: ${state.score}`, width / 2, height / 2 + 4, maxWidth);
@@ -58,9 +57,14 @@ function drawScoreScreen(ctx: CanvasRenderingContext2D, state: GameState): void 
 
 // canon: CAP-2.6
 export function statusText(state: GameState): string {
-  if (state.status === 'won') return 'You win!';
   if (state.status === 'lost') return 'Game over';
   return state.paused ? 'Paused' : '';
+}
+
+// canon: CAP-5.7
+// canon: CAP-5.8
+export function levelText(state: GameState): string {
+  return `Level: ${state.level}`;
 }
 
 // canon: CAP-1.8

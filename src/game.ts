@@ -13,7 +13,7 @@ export type Ghost = {
 };
 
 type PacmanEntity = { pos: Position; dir: Direction };
-type GameStatus = 'playing' | 'won' | 'lost';
+type GameStatus = 'playing' | 'lost';
 
 export type GameState = {
   maze: Maze;
@@ -21,6 +21,7 @@ export type GameState = {
   ghosts: Ghost[];
   score: number;
   lives: number;
+  level: number;
   dotsRemaining: number;
   frightenedTicks: number;
   status: GameStatus;
@@ -69,10 +70,34 @@ export function createGameState(): GameState {
     })),
     score: 0,
     lives: STARTING_LIVES,
+    level: 1,
     dotsRemaining: countRemaining(maze),
     frightenedTicks: 0,
     status: 'playing',
     paused: false,
+  };
+}
+
+// canon: CAP-5.1
+// canon: CAP-5.2
+// canon: CAP-5.3
+// canon: CAP-5.4
+// canon: CAP-5.5
+export function advanceLevel(state: GameState): GameState {
+  const maze = createMaze();
+  return {
+    ...state,
+    maze,
+    pacman: { pos: { ...PACMAN_START }, dir: 'left' },
+    ghosts: state.ghosts.map((g) => ({
+      ...g,
+      pos: { ...g.home },
+      dir: 'up',
+      mode: 'chase' as GhostMode,
+    })),
+    level: state.level + 1,
+    dotsRemaining: countRemaining(maze),
+    frightenedTicks: 0,
   };
 }
 
@@ -103,9 +128,9 @@ export function eatDot(state: GameState, pos: Position): GameState {
   return { ...state, maze, dotsRemaining, score, frightenedTicks, ghosts };
 }
 
-// canon: CAP-1.5
+// canon: CAP-5.4
 export function checkWin(state: GameState): GameState {
-  if (state.status === 'playing' && state.dotsRemaining <= 0) return { ...state, status: 'won' };
+  if (state.status === 'playing' && state.dotsRemaining <= 0) return advanceLevel(state);
   return state;
 }
 
@@ -179,6 +204,8 @@ export function tick(state: GameState, dir: Direction | null): GameState {
   if (state.status !== 'playing' || state.paused) return state;
   const afterPacman = dir ? movePacman(state, dir) : state;
   if (afterPacman.status !== 'playing') return afterPacman;
+  // The maze was cleared: everyone is back at the start, so ghosts neither move nor collide this tick.
+  if (afterPacman.level !== state.level) return afterPacman;
 
   const afterPacmanCollision = resolveGhostCollisions(afterPacman);
   if (afterPacmanCollision.status !== 'playing') return afterPacmanCollision;
