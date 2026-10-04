@@ -554,11 +554,30 @@ const artifactText = (d) =>
 // A code artifact exists as files, but it covers its rung only when the app's own gate passed on it:
 // files that fail the checks are work in progress, not a covered rung. hlab-a s12a wave 5 closed a plan
 // whose implementation had failed the gate twice, because coverage asked whether files had changed.
+// And an artifact covers its rung only once a gap that cast it CLOSED (every seat complete, its work
+// committed, its closure verified). Work an abandoned seat left behind — committed as evidence, even
+// gated — is not a delivered rung: hlab-a t5a w3 (gate passed, seat abandoned, G-5 linked, yet the w4
+// ladder read covered) and hlab-b t7b2 w4 and t8b w3-w6 (plans closed goal-closed with every
+// implementation gap linked). Ludwig 2026-10-05.
+// The LATEST gap that ran for the artifact decides: closed covers, left linked does not, so an abandoned
+// rewrite of an artifact an earlier gap delivered uncovers it again (its partial work is in HEAD now).
+// A linked gap decides only for an artifact one of its seats actually wrote: a seat that rightly found
+// nothing to change (hlab-b t7b w3, CAP-2 already complete) leaves the earlier delivery standing, or the
+// re-cast it would force invents work (t7b w5 CAP-2.8). Superseded gaps and gaps declared but never cast
+// decide nothing. Ludwig 2026-10-05.
+const deliveredByGap = (d) =>
+  gaps.findLast(
+    (g) =>
+      (g.artifacts || []).includes(d.id) &&
+      (g.status === 'closed' ||
+        (g.status === 'linked' && (g.written || []).some((p) => owns([artifactPath(d)], p)))),
+  )?.status === 'closed';
 const present = () =>
   catalogue.doctypes
     .filter((d) =>
       d.kind === 'code' ? changedUnder(d).length > 0 && gates[d.id]?.ok : !!artifactText(d),
     )
+    .filter((d) => deliveredByGap(d))
     .map((d) => d.id);
 const producible = new Set(doctypeIds(catalogue));
 // each artifact's maturity from facts (D3): cast by a gap, drafted, and answers taken in by a rewrite;
@@ -1248,6 +1267,7 @@ async function runWave(n, d) {
       ? 'closed'
       : 'linked';
   gap.agents = wave.map((a) => a.agent);
+  gap.written = wave.flatMap((a) => a.written);
   ledger('gap', {
     id: gap.id,
     status: gap.status,
@@ -1606,6 +1626,30 @@ for (let n = prior.lastWave + 1; ; n++) {
   // two checks, each at what the next step would actually start: the decision's cap before it, and
   // the cast's seat caps after it but before its gap is declared, so a pause never orphans a gap. A
   // 2-wave worst case before every decision ($6.50) paused every real plan (Ludwig 2026-10-02).
+  // Past the wave cap only no-move or clarify may follow, and the door refuses no-move while a producible
+  // blocking rung or drift stands (gap.mjs mustProduce, drift.mjs driftRefusals). Since ee3c799 a rung no
+  // seat can deliver stays outstanding, so asking the Master there buys a refusal and its correction and
+  // ends `refused` (Ludwig 2026-10-05: hlab-b t8b's index.html HUD). Nothing can close the plan, and
+  // that is decidable: it stops for the owner, naming what is missing, without a decision.
+  if (n > MAX_WAVES) {
+    const owed = ladderNow().mustProduce;
+    const stale = staleArtifacts(driftNow());
+    if (owed.length || stale.length) {
+      ledger('finding', { type: 'cap-reached-unmet', wave: n, must_produce: owed, stale });
+      writeFileSync(
+        join(dir, 'needs-input.md'),
+        `# Needs input\n\n${PLAN}: every wave of work is spent and the plan cannot close.\n\n${owed.length ? `Still required and not delivered by any gap: ${owed.join(', ')}.\n` : ''}${stale.length ? `Still stale: ${stale.join(', ')}.\n` : ''}\nEither give the plan more waves (conduct.max_waves) and re-run, or change what it is asked to deliver.\n`,
+      );
+      commitAs(
+        'script:conduct',
+        [`intent/${PLAN}/needs-input.md`],
+        `chore(intent): ${PLAN} wave cap reached with rungs outstanding`,
+      );
+      handoff(`${PLAN} cap reached unmet`);
+      ending = 'needs-input';
+      break;
+    }
+  }
   if (budgetPaused(MASTER_CAP, `the wave ${n} decision`)) {
     ending = 'budget-paused';
     break;

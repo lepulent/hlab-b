@@ -42,6 +42,8 @@ export function rebuild(lines) {
       if (d.status) g.status = d.status;
       if (d.statement) g.statement = d.statement;
       if (Array.isArray(d.artifacts)) g.artifacts = d.artifacts.map((a) => a.artifact || a);
+      // what the gap's seats wrote, from its end-of-wave line: coverage reads it (conduct deliveredByGap)
+      if (Array.isArray(d.written)) g.written = d.written.slice();
       if (d.wave != null) {
         g.n = g.n ?? d.wave;
         const w = wave(d.wave);
