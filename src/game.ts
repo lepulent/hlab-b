@@ -14,6 +14,8 @@ export type Ghost = {
 
 type PacmanEntity = { pos: Position; dir: Direction };
 type GameStatus = 'playing' | 'won' | 'lost';
+type FruitPhase = 'waiting' | 'active' | 'done';
+type Fruit = { phase: FruitPhase; ticksLeft: number };
 
 export type GameState = {
   maze: Maze;
@@ -22,6 +24,8 @@ export type GameState = {
   score: number;
   lives: number;
   dotsRemaining: number;
+  dotsTotal: number;
+  fruit: Fruit;
   frightenedTicks: number;
   status: GameStatus;
   paused: boolean;
@@ -31,7 +35,11 @@ const DOT_SCORE = 10;
 const PELLET_SCORE = 50;
 const GHOST_SCORE = 200;
 const FRIGHTENED_DURATION = 30;
+const FRUIT_SCORE = 100;
+const FRUIT_DURATION = 50;
 const STARTING_LIVES = 3;
+
+export const FRUIT_POS: Position = { x: 9, y: 13 };
 
 const DIRECTIONS: Direction[] = ['up', 'down', 'left', 'right'];
 const OPPOSITE: Record<Direction, Direction> = {
@@ -57,6 +65,7 @@ export function nextPosition(pos: Position, dir: Direction): Position {
 
 export function createGameState(): GameState {
   const maze = createMaze();
+  const dotsTotal = countRemaining(maze);
   return {
     maze,
     pacman: { pos: { ...PACMAN_START }, dir: 'left' },
@@ -69,7 +78,9 @@ export function createGameState(): GameState {
     })),
     score: 0,
     lives: STARTING_LIVES,
-    dotsRemaining: countRemaining(maze),
+    dotsRemaining: dotsTotal,
+    dotsTotal,
+    fruit: { phase: 'waiting', ticksLeft: 0 },
     frightenedTicks: 0,
     status: 'playing',
     paused: false,
@@ -136,6 +147,31 @@ export function resolveGhostCollisions(state: GameState): GameState {
   return loseLife(state);
 }
 
+// canon: CAP-5.1
+function maybeSpawnFruit(state: GameState): GameState {
+  const eaten = state.dotsTotal - state.dotsRemaining;
+  if (state.fruit.phase !== 'waiting' || eaten * 2 < state.dotsTotal) return state;
+  return { ...state, fruit: { phase: 'active', ticksLeft: FRUIT_DURATION } };
+}
+
+// canon: CAP-5.3
+// canon: CAP-5.4
+function eatFruit(state: GameState): GameState {
+  const { pos } = state.pacman;
+  if (state.fruit.phase !== 'active' || pos.x !== FRUIT_POS.x || pos.y !== FRUIT_POS.y) {
+    return state;
+  }
+  return { ...state, score: state.score + FRUIT_SCORE, fruit: { phase: 'done', ticksLeft: 0 } };
+}
+
+// canon: CAP-5.2
+// canon: CAP-5.5
+function tickFruit(state: GameState): GameState {
+  if (state.fruit.phase !== 'active') return state;
+  const ticksLeft = state.fruit.ticksLeft - 1;
+  return { ...state, fruit: { phase: ticksLeft > 0 ? 'active' : 'done', ticksLeft } };
+}
+
 function movePacman(state: GameState, dir: Direction): GameState {
   const target = attemptMove(state.maze, state.pacman.pos, dir);
   const moved = { ...state, pacman: { pos: target, dir } };
@@ -180,7 +216,7 @@ export function tick(state: GameState, dir: Direction | null): GameState {
   const afterPacman = dir ? movePacman(state, dir) : state;
   if (afterPacman.status !== 'playing') return afterPacman;
 
-  const afterPacmanCollision = resolveGhostCollisions(afterPacman);
+  const afterPacmanCollision = resolveGhostCollisions(eatFruit(maybeSpawnFruit(afterPacman)));
   if (afterPacmanCollision.status !== 'playing') return afterPacmanCollision;
 
   const afterGhosts = moveGhosts(afterPacmanCollision);
@@ -190,5 +226,5 @@ export function tick(state: GameState, dir: Direction | null): GameState {
       ? afterGhosts.ghosts.map((g) => ({ ...g, mode: 'chase' as GhostMode }))
       : afterGhosts.ghosts;
 
-  return resolveGhostCollisions({ ...afterGhosts, frightenedTicks, ghosts });
+  return tickFruit(resolveGhostCollisions({ ...afterGhosts, frightenedTicks, ghosts }));
 }

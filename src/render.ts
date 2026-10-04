@@ -1,4 +1,5 @@
 import type { GameState, Ghost } from './game';
+import { FRUIT_POS } from './game';
 
 export const TILE = 16;
 
@@ -6,6 +7,7 @@ const WALL_COLOR = '#1919c2';
 const DOT_COLOR = '#ffd8a8';
 const PACMAN_COLOR = '#fedd00';
 const FRIGHTENED_COLOR = '#2121de';
+const FRUIT_COLOR = '#ff3355';
 const OVERLAY_COLOR = 'rgba(0, 0, 0, 0.75)';
 const LOST_COLOR = '#ff0000';
 const GHOST_COLORS = ['#ff0000', '#ffb8ff', '#00ffff', '#ffb852'];
@@ -22,6 +24,23 @@ function drawPacman(ctx: CanvasRenderingContext2D, state: GameState): void {
     1.75 * Math.PI,
   );
   ctx.lineTo(pos.x * TILE + TILE / 2, pos.y * TILE + TILE / 2);
+  ctx.fill();
+}
+
+// canon: CAP-5.1
+// canon: CAP-5.2
+// canon: CAP-5.3
+function drawFruit(ctx: CanvasRenderingContext2D, state: GameState): void {
+  if (state.fruit.phase !== 'active') return;
+  ctx.fillStyle = FRUIT_COLOR;
+  ctx.beginPath();
+  ctx.arc(
+    FRUIT_POS.x * TILE + TILE / 2,
+    FRUIT_POS.y * TILE + TILE / 2,
+    TILE / 2 - 3,
+    0,
+    Math.PI * 2,
+  );
   ctx.fill();
 }
 
@@ -90,6 +109,7 @@ export function drawFrame(ctx: CanvasRenderingContext2D, state: GameState): void
     }
   }
 
+  drawFruit(ctx, state);
   drawPacman(ctx, state);
   for (const ghost of state.ghosts) drawGhost(ctx, ghost);
   if (state.status !== 'playing') drawScoreScreen(ctx, state);
