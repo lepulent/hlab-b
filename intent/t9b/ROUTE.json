@@ -1,0 +1,23 @@
+{
+  "plan": "t9b",
+  "kind": "feature",
+  "stage": "alpha",
+  "stakes": "internal",
+  "assuranceFloor": "prototype",
+  "track": "method",
+  "matchedSignals": {
+    "vertical": ["game", "pacman"],
+    "method": [],
+    "enterprise": []
+  },
+  "requestedRigor": "prototype",
+  "floor": "prototype",
+  "rigor": "prototype",
+  "touchedShards": [],
+  "rungs": ["brief", "prd", "ux", "architecture", "epics", "stories", "build", "test", "qa"],
+  "seal": "required",
+  "hasCanon": true,
+  "base": "350aef117d16b7b7f99a2e84f4c8808732599ae6",
+  "branch": "plan/t9b",
+  "plantedAt": "2026-10-04T22:15:11.437Z"
+}
