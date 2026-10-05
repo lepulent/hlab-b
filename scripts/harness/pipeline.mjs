@@ -218,11 +218,19 @@ function ci() {
     if (!ok(r)) {
       // triage: one re-run at most; a pass on the second run is a flaky finding, a second failure is real
       reran = true;
+      // the first run's output is the evidence of the failure being triaged: keep it, or a step that
+      // fails once and passes on re-run (canon:check, both apps' deliveries 2026-10-05) has no cause
+      // every row that did not pass, not a tail: a table ending in pass rows cuts off the one that failed
+      const first = (r.stdout + r.stderr)
+        .split('\n')
+        .filter((l) => l.trim() && !/^\s*pass\b/.test(l))
+        .slice(-30);
       r = sh(file, args);
       ledger('finding', {
         station: 'ci',
         step: name,
         kind: ok(r) ? 'flaky' : 'real',
+        first,
         tail: (r.stdout + r.stderr).split('\n').filter(Boolean).slice(-8),
       });
     }
@@ -518,7 +526,22 @@ function merge() {
     trip(`merge:${reasons[0].split(':')[0]}`);
     fail(`refused: ${reasons.join('; ')}`);
   }
-  const r = sh('gh', ['pr', 'merge', String(pr.number), '--squash', '--delete-branch']);
+  // gh merges on GitHub only: with --delete-branch it also switched this clone to main itself, which
+  // the run's uncommitted ledger lines refused, every time (hlab-a t10a, hlab-b t10b: "local changes to
+  // ledger/<plan>.jsonl would be overwritten by checkout"). The local half is finishMerge's, which
+  // carries the bookkeeping across the switch; the remote branch is deleted on its own, after.
+  const r = sh('gh', ['pr', 'merge', String(pr.number), '--squash']);
+  if (ok(r)) {
+    // the push runs the app's pre-push hook (the full check); a refused delete leaves the remote branch
+    // behind, and that is recorded rather than lost
+    const del = sh('git', ['push', '-q', 'origin', '--delete', branch]);
+    if (!ok(del))
+      ledger('finding', {
+        station: 'merge',
+        kind: 'remote-branch-kept',
+        tail: (del.stderr || del.stdout).slice(-400),
+      });
+  }
   if (!ok(r)) {
     const after = safeJson(
       sh('gh', ['pr', 'view', String(pr.number), '--json', 'state,mergeCommit']).stdout || '',
