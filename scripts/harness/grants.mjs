@@ -14,7 +14,7 @@
 //   npm run harness:grant -- --plan <slug> --kind spend [--usd <n>] [--uses <n>] [--until <iso>] [--acts a,b]
 //   npm run harness:grant -- --plan <slug> --kind budget --usd <n>
 //   npm run harness:revoke -- --plan <slug> --id GR-<n>
-import { existsSync, readFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, mkdirSync, appendFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath, URL } from 'node:url';
@@ -111,6 +111,60 @@ export function foldGrants(lines, { now = new Date() } = {}) {
   return { live, ended, flagged };
 }
 
+// ---------------------------------------------------------------- standing grants
+// One owner-typed grant that covers the next N plans of an app (owner, 2026-10-05: "build a single
+// permission"), instead of one typed per plan. It is kept in the LAB's repo, grants/<app>.jsonl,
+// committed there, because a plan branch cannot see another branch's ledger and main only moves through
+// the pipeline. Per plan, its uses and dollars are counted from that plan's own rulings, exactly as a
+// plan grant's are; the plan count from the plans whose ledgers hold an allowing ruling naming it.
+const appName = () => readJsonSafe(join(ROOT, 'harness.json'))?.app?.name || 'app';
+function readJsonSafe(f) {
+  try {
+    return JSON.parse(readFileSync(f, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+export const LAB = join(ROOT, '..');
+export const standingFile = (app = appName()) => join(LAB, 'grants', `${app}.jsonl`);
+export const readStanding = (file = standingFile()) =>
+  existsSync(file) ? parseLedger(readFileSync(file, 'utf8')) : [];
+
+// The plans that have drawn on a standing grant, in order: `draw` lines in the same file as the grant,
+// appended the first time a plan is allowed under it. The count is a fact of the file that holds N, not
+// of plan branches that a reset or a deleted branch would forget (Ludwig 2026-10-05).
+export const drawsOf = (id, standing) =>
+  standing.filter((l) => l.kind === 'draw' && l.data?.id === id).map((l) => l.data.plan);
+
+// the standing grants that cover `plan` now: drawn already, or a draw slot left among its N
+export function standingFor(plan, standing) {
+  const revoked = new Set(
+    standing.filter((l) => l.kind === 'grant-revoked').map((l) => l.data?.id),
+  );
+  return standing.filter((l) => {
+    if (l.kind !== 'grant' || !l.data?.standing || revoked.has(l.data.id)) return false;
+    const drawn = drawsOf(l.data.id, standing);
+    return drawn.includes(plan) || drawn.length < (l.data.plans || 0);
+  });
+}
+
+// the first allowed draw of a plan on a standing grant, recorded in the lab and committed there
+export function recordDraw(id, plan, { app = appName(), file = standingFile(app) } = {}) {
+  appendFileSync(
+    file,
+    JSON.stringify({
+      ts: new Date().toISOString(),
+      app,
+      kind: 'draw',
+      actor: 'script:authority',
+      data: { id, plan },
+    }) + '\n',
+  );
+  return commitOnly([`grants/${app}.jsonl`], `chore(grants): ${app} ${plan} draws on ${id}`, {
+    cwd: LAB,
+  });
+}
+
 // The authority a billed act asks before it runs: the grants in force are folded from the ledger at that
 // moment, the act is ruled (authority.mjs), and the ruling is written whatever it says, so every billed
 // act has a ruling line before its first effect and a grant's uses and dollars are counted from them.
@@ -119,10 +173,28 @@ export function foldGrants(lines, { now = new Date() } = {}) {
 // computes, not the call's reported cost. It is NOT an upper bound: the first live call (hlab-a t8a,
 // 2026-10-05) was estimated $0.0000729 and cost $0.0000851. A dollar-bound grant can overrun by that
 // margin; a use-bound grant cannot.
-export function authorizer({ lines, write, floor = null, now = () => new Date() }) {
+export function authorizer({
+  lines,
+  write,
+  floor = null,
+  now = () => new Date(),
+  plan = null,
+  standing = () => [],
+  draw = recordDraw,
+}) {
   return async ({ act, usd = 0, row = null }) => {
-    const { live } = foldGrants(lines(), { now: now() });
+    // the plan's own grants, and the standing grants that still cover this plan, counted on its rulings
+    const st = plan ? standing() : [];
+    const extra = plan ? standingFor(plan, st) : [];
+    const { live } = foldGrants([...extra, ...lines()], { now: now() });
     const r = rule({ act, floor, grants: live });
+    // a plan's first allowed call under a standing grant takes one of its N slots, on the record
+    if (
+      r.verdict === 'allow' &&
+      extra.some((g) => g.data.id === r.grant) &&
+      !drawsOf(r.grant, st).includes(plan)
+    )
+      draw(r.grant, plan);
     write({ ...r, usd: r.verdict === 'allow' ? usd : 0, row });
     return r;
   };
@@ -132,7 +204,7 @@ export function authorizer({ lines, write, floor = null, now = () => new Date() 
 //   authority-ruled  every billed act that ran (a live jev reading) has an allowing ruling before it
 //   grant-held       every allowing ruling on a billed act names a grant that was live, and issued by the
 //                    owner, at that line: the fold is re-read over the ledger up to the ruling itself
-export function authorityAudit(lines) {
+export function authorityAudit(lines, { standing = [], plan = null } = {}) {
   const ruled = [];
   const unruled = [];
   const unheld = [];
@@ -151,8 +223,21 @@ export function authorityAudit(lines) {
     l?.kind === 'ruling' && l.data?.verdict === 'allow' && l.data?.act === 'jev.call' ? [i] : [],
   )) {
     const g = lines[i].data.grant;
-    const before = foldGrants(lines.slice(0, i), { now: new Date(lines[i].ts || Date.now()) });
-    if (!g || !before.live.some((x) => x.id === g)) {
+    // a standing grant is read as it stood at the ruling: issued before it, not revoked by then
+    const at = new Date(lines[i].ts || Date.now());
+    const stood = standing.filter((l) => !l.ts || new Date(l.ts) <= at);
+    const before = foldGrants([...stood, ...lines.slice(0, i)], { now: at });
+    // a standing grant also needs this plan to be among its first N draws (the record of the slot)
+    const sg = stood.find((l) => l.kind === 'grant' && l.data?.id === g && l.data?.standing);
+    const outOfN =
+      sg &&
+      plan != null &&
+      !drawsOf(g, standing)
+        .slice(0, sg.data.plans || 0)
+        .includes(plan);
+    if (outOfN)
+      unheld.push(`line ${i + 1} ${g} (${plan} is not among its first ${sg.data.plans} plans)`);
+    else if (!g || !before.live.some((x) => x.id === g)) {
       const flagged = before.flagged.find((x) => x.id === g);
       unheld.push(
         `line ${i + 1} ${g || 'no grant'}${flagged ? ` (${flagged.why})` : ' (not live then)'}`,
@@ -195,8 +280,9 @@ function main(argv) {
     return 2;
   };
   const plan = opt('plan');
-  if (!['grant', 'revoke'].includes(cmd) || !plan)
-    return refuse('usage: grants.mjs grant|revoke --plan <slug> ...');
+  const standing = argv.includes('--standing');
+  if (!['grant', 'revoke'].includes(cmd) || (!plan && !standing))
+    return refuse('usage: grants.mjs grant|revoke (--plan <slug> | --standing) ...');
   // provenance first: an agent session never reaches the ledger
   const prov = provenance();
   if (prov.agent_env.length)
@@ -209,6 +295,7 @@ function main(argv) {
       `a claude process is among this command's ancestors (${prov.ancestry.join(' < ')})`,
     );
   if (prov.ppid === 1) return refuse('an orphaned process (ppid 1) cannot issue a grant');
+  if (standing) return writeStanding(cmd, opt, prov, refuse);
   const branch = git(['branch', '--show-current']);
   if (branch !== `plan/${plan}`) return refuse(`on ${branch || 'no branch'}, not plan/${plan}`);
   // the plan's ledger has one writer at a time: the grant takes conduct's lock for its append, so a
@@ -222,6 +309,59 @@ function main(argv) {
   } finally {
     releaseLock(lockFile);
   }
+}
+
+// a standing grant: no plan, no branch, no plan lock; one line in the lab's grants/<app>.jsonl, committed
+// in the lab. --plans bounds how many plans may draw on it; --uses and --usd bound each plan.
+function writeStanding(cmd, opt, prov, refuse) {
+  const app = appName();
+  const file = standingFile(app);
+  const lines = readStanding(file);
+  let kind;
+  let data;
+  if (cmd === 'grant') {
+    if ((opt('kind') || 'spend') !== 'spend') return refuse('a standing grant is --kind spend');
+    const num = (x) => (x == null ? null : Number(x));
+    const plans = num(opt('plans'));
+    const usd = num(opt('usd'));
+    const uses = num(opt('uses'));
+    if (!(plans > 0)) return refuse('a standing grant needs --plans > 0');
+    if ([usd, uses].some((x) => x != null && !(x > 0)))
+      return refuse('--usd and --uses must be > 0');
+    const until = opt('until') || null;
+    if (until && Number.isNaN(Date.parse(until))) return refuse('--until must be an ISO time');
+    kind = 'grant';
+    data = {
+      id: `SG-${lines.filter((l) => l.kind === 'grant').length + 1}`,
+      kind: 'spend',
+      standing: true,
+      plans,
+      usd,
+      uses,
+      until,
+      acts: (opt('acts') || '').split(',').filter(Boolean),
+      provenance: prov,
+    };
+  } else {
+    const id = opt('id');
+    if (!lines.some((l) => l.kind === 'grant' && l.data?.id === id))
+      return refuse(`no standing grant ${id} for ${app}`);
+    kind = 'grant-revoked';
+    data = { id, provenance: prov };
+  }
+  mkdirSync(join(LAB, 'grants'), { recursive: true });
+  appendFileSync(
+    file,
+    JSON.stringify({ ts: new Date().toISOString(), app, kind, actor: 'owner', data }) + '\n',
+  );
+  const rel = `grants/${app}.jsonl`;
+  const c = commitOnly([rel], `chore(grants): ${app} ${kind} ${data.id}`, { cwd: LAB });
+  if (c.status !== 0)
+    return refuse(`written but not committed in the lab: ${(c.stderr || '').trim()}`);
+  console.log(
+    `${kind} ${data.id} for ${app}: ${JSON.stringify({ ...data, provenance: undefined })}`,
+  );
+  return 0;
 }
 
 function write(plan, cmd, opt, prov, refuse) {

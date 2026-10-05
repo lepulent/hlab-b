@@ -16,7 +16,7 @@ import { parseLedger } from './resume.mjs';
 import { acquireLock, releaseLock } from './lock.mjs';
 import { getRow } from './jev-registry.mjs';
 import { askRow, jevLine } from './jev.mjs';
-import { authorizer, authorityAudit } from './grants.mjs';
+import { authorizer, authorityAudit, readStanding } from './grants.mjs';
 
 const argv = process.argv.slice(2);
 const opt = (k) => {
@@ -78,13 +78,15 @@ try {
       mock: opt('mock'),
       authorize: authorizer({
         lines,
+        plan: PLAN,
+        standing: () => readStanding(),
         write: (d) => ledger('ruling', d),
         floor: harness.yolo?.floor ?? null,
       }),
     },
   );
   ledger('jev', { ...jevLine(r, { agreesWith: 'probe:none' }), probe: true });
-  const a = authorityAudit(lines());
+  const a = authorityAudit(lines(), { standing: readStanding(), plan: PLAN });
   console.log(
     `jev-probe ${PLAN}: ${r.unmeasured ? `not measured — ${r.reason}` : `read via ${r.source}, $${r.usd}`} · authority-ruled ${a.ruled.ok ? 'green' : 'RED'} · grant-held ${a.held.ok ? 'green' : 'RED'}`,
   );

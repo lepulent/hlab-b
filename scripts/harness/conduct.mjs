@@ -64,7 +64,7 @@ import {
 } from './record.mjs';
 import { deriveTriggers, vetoHeld } from './department.mjs';
 import { rebuild, parseLedger, openSeats, answerStood } from './resume.mjs';
-import { authorizer, authorityAudit, budgetCheck } from './grants.mjs';
+import { authorizer, authorityAudit, budgetCheck, readStanding } from './grants.mjs';
 import { rule } from './authority.mjs';
 import {
   liveDecisions,
@@ -484,6 +484,8 @@ const ledgerLines = () =>
 // step 15: the authority a billed act asks first (grants.mjs authorizer), on this plan's ledger
 const jevAuthority = authorizer({
   lines: ledgerLines,
+  plan: PLAN,
+  standing: () => readStanding(),
   write: (data) => ledger('ruling', data),
   floor: harness.yolo?.floor ?? null,
 });
@@ -492,8 +494,13 @@ const canonCriteria = () => {
   if (!existsSync(dir)) return [];
   return readdirSync(dir)
     .filter((f) => /\.md$/.test(f) && f !== 'README.md')
-    .flatMap((f) => parseNode(readFileSync(join(dir, f), 'utf8')).criteria)
-    .map((c) => ({ id: c.id, text: c.sentence }));
+    .flatMap((f) =>
+      parseNode(readFileSync(join(dir, f), 'utf8')).criteria.map((c) => ({
+        id: c.id,
+        text: c.sentence,
+        file: `canon/capabilities/${f}`,
+      })),
+    );
 };
 const worldNow = (lines = ledgerLines()) =>
   liveDecisions({
@@ -1333,16 +1340,27 @@ function recordWave(n, wave, record, stop) {
   // Machine-written from state the run holds; no seat is asked whether its document is current.
   const live = worldNow();
   const stamp = stampAtWrite(live);
+  // the criteria each canon file states, so an artifact is never stamped with its own sentences
+  const criteriaOf = new Map();
+  for (const c of canonCriteria())
+    criteriaOf.set(c.file, [...(criteriaOf.get(c.file) || []), c.id]);
   for (const a of wave) {
     // a seat whose writes stayed uncommitted delivered nothing to the branch, so nothing is stamped
     if (a.terminal !== 'complete' || (a.written.length && !a.commit)) continue;
+    // An artifact that states decisions (a capability file) is not written AGAINST them: stamped with
+    // its own criteria, it went stale against itself on any amendment of them, its repair reworded the
+    // decision, and every artifact stamped with the old wording went stale again, until the wave cap
+    // (hlab-b r13b, CAP-6.1, 2026-10-05). It is stamped with every other decision.
+    const own = new Set(
+      a.written.flatMap((p) => criteriaOf.get(p) || []).map((id) => `canon:${id}`),
+    );
     for (const id of a.artifacts) {
       const d = catalogue.doctypes.find((x) => x.id === id);
       ledger('stamp', {
         artifact: id,
         path: d ? artifactPath(d) : '',
         wave: n,
-        decisions: stamp,
+        decisions: stamp.filter((x) => !own.has(x.id)),
         by: a.agent,
       });
     }
@@ -1939,7 +1957,7 @@ const checks = {
   },
   // step 15: every billed act ran under a ruling, and every allowing ruling under a live owner's grant
   ...(() => {
-    const a = authorityAudit(ledgerLines());
+    const a = authorityAudit(ledgerLines(), { standing: readStanding(), plan: PLAN });
     return {
       'authority-ruled': {
         ok: a.ruled.ok,

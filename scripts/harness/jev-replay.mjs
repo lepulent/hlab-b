@@ -13,7 +13,7 @@
 import { existsSync, readFileSync, readdirSync, mkdirSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ROOT, readJson, writeJson, git, parseFrontmatter } from './common.mjs';
-import { getRow } from './jev-registry.mjs';
+import { getRow, QUESTION_ANSWER_V2_SCORED_FROM } from './jev-registry.mjs';
 import { askRow, jevLine, makeBudget, gradeShadow, freeBaselines, baselineText } from './jev.mjs';
 
 const argv = process.argv.slice(2);
@@ -153,6 +153,29 @@ function documentOf(wave, agent) {
 const answered = (conduct.questions || [])
   .filter((q) => q.answered && q.answer && (q.alternatives || []).length >= 2)
   .map((q, i) => ({ ...q, seq: i + 1 }));
+// question.answer v2 is scored only on questions asked after it was written: a split in time (its
+// criteria were drawn up looking at the earlier corpus). The plan's first ledger line dates its questions.
+if (row.id === 'question.answer' && row.version >= 2) {
+  const first = (
+    git(['show', `plan/${PLAN}:ledger/${PLAN}.jsonl`]) ||
+    git(['show', `main:ledger/${PLAN}.jsonl`]) ||
+    ''
+  )
+    .split('\n')
+    .find(Boolean);
+  let planted = null;
+  try {
+    planted = JSON.parse(first).ts;
+  } catch {
+    // no readable ledger: no date, so no score
+  }
+  if (!planted || planted < QUESTION_ANSWER_V2_SCORED_FROM) {
+    console.error(
+      `jev-replay: question.answer v${row.version} is scored only on plans planted after ${QUESTION_ANSWER_V2_SCORED_FROM}; ${PLAN} was planted ${planted || 'at no readable time'}`,
+    );
+    process.exit(2);
+  }
+}
 const points = AT ? answered.filter((q) => q.seq === AT) : answered;
 if (!points.length) {
   console.error(

@@ -77,12 +77,18 @@ export function optIndex(id) {
 // alternatives are written fresh by the asking agent, so nothing option-specific can be written down in
 // advance. What discriminates is which alternative the guards fit — see docs/14 §2 rule 4, which assumes
 // an option set the registry knows ahead of time and does not yet say what a dynamic-option row owes.
+// v2 (2026-10-05). v1 quoted answered questions from the corpus the row is scored on, with their
+// answers: the labels were in the criteria (T5 review). A first v2 removed the ids but kept the same cases
+// reworded (Ludwig 2026-10-05), which is the same leak. So the guards are bare principles and the
+// examples come from a domain neither app has (a ferry timetable, a bakery's orders, a weather station),
+// and v2 is scored ONLY on questions asked after SCORED_FROM: a split in time, not a promise in prose.
+export const QUESTION_ANSWER_V2_SCORED_FROM = '2026-10-05T13:00:00Z';
 const NOT_FOR = [
-  'Not the answer when the option needs a paid service, an outside party or a dependency the intent does not fund: hlab-a/s5c Q-2.md rejected "digest through an office mail server at no cost" for "no digest in the first version", and hlab-b/s9 Q-2.md rejected "Add a server that holds the salt (an outside service)" for "Accept it as a deterrent only".',
-  'Not the answer when the option asks for more assurance than the plan\'s rigor: hlab-b/s13d Q-3.md chose "Accept the unit-level stand-ins at prototype rigor" over widening a seat\'s OWNS to write Playwright tests, and hlab-a/s7b Q-3.md chose "Neither in the first version" over editing and deleting saves.',
-  'Not the answer when the option contradicts what the agent\'s own document found: hlab-b/s13d Q-2.md chose "Intent is stale; only lock in the existing display with tests" because the spec had found the score already shown next to the lives, and hlab-a/s9 Q-1.md chose the option that gives the key names without their values, which is what the spec said it needed.',
-  'Not the answer when the option accepts a loss the intent does not accept: hlab-a/s10 Q-1.md rejected "No backup routine, accept the loss risk" for a named teammate copying weekly, while hlab-b/s9 Q-2.md accepted "Accept it as a deterrent only" precisely because the intent framed the salt as a deterrent and nothing more.',
-  'Not the answer when the option repeats a decision already answered on this plan that did not hold: hlab-a/s11b Q-2.md chose "Run the five commands outside the agent and record the results" after Q-1.md had already approved them, and hlab-b/s11c Q-3.md chose "Have a human run `npm run check` and paste the output into a question answer" after Q-1.md and Q-2.md had approved it twice.',
+  'Not the answer when the option needs a paid service, an outside party or a dependency the intent does not fund.',
+  "Not the answer when the option asks for more assurance than the plan's rigor calls for.",
+  "Not the answer when the option contradicts what the agent's own document found about the code or the canon as they are now.",
+  'Not the answer when the option accepts a loss or a risk the intent does not accept, unless the intent itself frames that risk as acceptable.',
+  'Not the answer when the option repeats or reverses a decision already answered on this plan without new evidence.',
 ].join(' ');
 const SIGNALS = [
   'the option is the smallest thing that satisfies what the intent asks for, and nothing beyond it',
@@ -92,10 +98,10 @@ const SIGNALS = [
   'the option is consistent with every decision already answered on this plan',
 ];
 const EXAMPLES = [
-  'hlab-a/s7b Q-2.md "How is \'that week\' defined…" → "Calendar week starting Monday 00:00 office local time": the option that names one rule the spec can be written against.',
-  'hlab-a/s8 Q-1.md "…anyone on the office network can pick any of the three names with no password…" → "Name picker only, no password": three teammates on one office laptop, so the intent does not fund a login.',
-  'hlab-b/s7b Q-1.md "…UTC calendar date or the player\'s local calendar date?" → "UTC calendar date for everyone": one date for one seed, which is what the daily challenge needs.',
-  'hlab-b/s8c Q-1.md "Should Firefox and WebKit Playwright projects be added…" → "Add Firefox and WebKit projects, golden spec only": the narrow option that tests the claim without carrying the whole suite.',
+  'A ferry timetable asks whether a "morning sailing" means before noon or before 10:00; the answer is the option that names one cut-off the timetable can be checked against.',
+  "A bakery's order form asks whether to take card payments online; for an intent that only asks to list today's orders for pickup, the answer is the option with no payment provider.",
+  'A weather station asks which clock its daily summary uses; the answer is the option that gives every reader the same day, when the summary is shared between them.',
+  'A weather station asks whether to validate every sensor model; the answer is the narrow option that checks the one sensor the intent names.',
 ];
 
 // docs/14 §5, J2. Every allowed question costs a Master answer call ($0.0367–$0.0423 mean per app), and
@@ -104,7 +110,7 @@ const EXAMPLES = [
 const questionAnswer = {
   id: 'question.answer',
   primitive: 'choice',
-  version: 1,
+  version: 2,
   mode: 'shadow',
   // set from shadow data on both apps, never from the vendor's bands (docs/14 §2, §6)
   thresholds: { act: null, confirm: null },
