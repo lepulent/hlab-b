@@ -27,6 +27,7 @@ export type GameState = {
   dotsTotal: number;
   fruit: Fruit;
   frightenedTicks: number;
+  readyTicks: number;
   status: GameStatus;
   paused: boolean;
 };
@@ -38,6 +39,7 @@ const FRIGHTENED_DURATION = 30;
 const FRUIT_SCORE = 100;
 const FRUIT_DURATION = 50;
 const STARTING_LIVES = 3;
+export const READY_TICKS = 12;
 
 export const FRUIT_POS: Position = { x: 9, y: 13 };
 
@@ -63,6 +65,7 @@ export function nextPosition(pos: Position, dir: Direction): Position {
   }
 }
 
+// canon: CAP-6.1
 export function createGameState(): GameState {
   const maze = createMaze();
   const dotsTotal = countRemaining(maze);
@@ -82,6 +85,7 @@ export function createGameState(): GameState {
     dotsTotal,
     fruit: { phase: 'waiting', ticksLeft: 0 },
     frightenedTicks: 0,
+    readyTicks: READY_TICKS,
     status: 'playing',
     paused: false,
   };
@@ -121,12 +125,15 @@ export function checkWin(state: GameState): GameState {
 }
 
 // canon: CAP-1.6
+// canon: CAP-6.2
+// canon: CAP-6.3
 export function loseLife(state: GameState): GameState {
   const lives = state.lives - 1;
   if (lives <= 0) return { ...state, lives: 0, status: 'lost' };
   return {
     ...state,
     lives,
+    readyTicks: READY_TICKS,
     pacman: { pos: { ...PACMAN_START }, dir: 'left' },
     ghosts: state.ghosts.map((g) => ({ ...g, pos: { ...g.home }, mode: 'chase' as GhostMode })),
   };
@@ -211,8 +218,11 @@ export function togglePause(state: GameState): GameState {
 // canon: CAP-2.2
 // canon: CAP-2.3
 // canon: CAP-2.4
+// canon: CAP-6.4
+// canon: CAP-6.5
 export function tick(state: GameState, dir: Direction | null): GameState {
   if (state.status !== 'playing' || state.paused) return state;
+  if (state.readyTicks > 0) return { ...state, readyTicks: state.readyTicks - 1 };
   const afterPacman = dir ? movePacman(state, dir) : state;
   if (afterPacman.status !== 'playing') return afterPacman;
 

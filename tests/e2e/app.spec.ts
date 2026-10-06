@@ -10,6 +10,13 @@ test('home page renders heading, canvas and HUD', async ({ page }) => {
   await expect(page.locator('#lives')).toContainText('Lives');
 });
 
+test('game starts with full lives and the canvas drawn', async ({ page }) => {
+  await page.goto('/');
+
+  await expect(page.locator('#lives')).toContainText('Lives: 3');
+  await expect(page.locator('#game')).toBeVisible();
+});
+
 test('P0-UI-001 canvas scales to the viewport while keeping its aspect ratio', async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 700 });
   await page.goto('/');
