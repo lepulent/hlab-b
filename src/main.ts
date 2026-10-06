@@ -1,4 +1,4 @@
-import type { Direction } from './game';
+import type { Direction, GameState } from './game';
 import { createGameState, tick } from './game';
 import { handleKey } from './input';
 import { drawFrame, statusText, TILE } from './render';
@@ -69,6 +69,16 @@ function frame(timestamp: number): void {
   }
   render();
   window.requestAnimationFrame(frame);
+}
+
+// Test seam: with ?e2e in the URL a journey can read and replace the game state.
+if (new URLSearchParams(window.location.search).has('e2e')) {
+  Object.defineProperty(window, '__game', {
+    get: () => state,
+    set: (next: GameState) => {
+      state = next;
+    },
+  });
 }
 
 applyScale();
