@@ -75,6 +75,17 @@ function drawScoreScreen(ctx: CanvasRenderingContext2D, state: GameState): void 
   ctx.fillText('Press any key to play again', width / 2, height / 2 + 32, maxWidth);
 }
 
+// canon: CAP-6.1
+// canon: CAP-6.2
+function drawReady(ctx: CanvasRenderingContext2D, state: GameState): void {
+  const width = state.maze.width * TILE;
+  ctx.fillStyle = PACMAN_COLOR;
+  ctx.font = 'bold 14px monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('READY!', 9 * TILE + TILE / 2, 12 * TILE + TILE / 2, width - 2 * TILE);
+}
+
 // canon: CAP-2.6
 export function statusText(state: GameState): string {
   if (state.status === 'won') return 'You win!';
@@ -112,5 +123,6 @@ export function drawFrame(ctx: CanvasRenderingContext2D, state: GameState): void
   drawFruit(ctx, state);
   drawPacman(ctx, state);
   for (const ghost of state.ghosts) drawGhost(ctx, ghost);
+  if (state.status === 'playing' && state.readyTicks > 0) drawReady(ctx, state);
   if (state.status !== 'playing') drawScoreScreen(ctx, state);
 }

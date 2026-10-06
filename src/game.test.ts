@@ -5,6 +5,7 @@ import { PACMAN_START, createMaze, isWalkable } from './maze';
 import { TILE, drawFrame, statusText } from './render';
 import {
   FRUIT_POS,
+  READY_TICKS,
   attemptMove,
   checkWin,
   createGameState,
@@ -53,6 +54,7 @@ function buildState(overrides: Partial<GameState> = {}): GameState {
     dotsTotal: 9,
     fruit: { phase: 'waiting', ticksLeft: 0 },
     frightenedTicks: 0,
+    readyTicks: 0,
     status: 'playing',
     paused: false,
     ...overrides,
@@ -405,8 +407,9 @@ describe('pause display', () => {
 
   it('P0-UI-002 draws nothing extra on the canvas for a pause', () => {
     const state = createGameState();
-    expect(drawn(togglePause(state))).toEqual(drawn(state));
-    expect(textsOf(drawn(togglePause(state)))).toEqual([]);
+    const running = { ...state, readyTicks: 0 };
+    expect(drawn(togglePause(running))).toEqual(drawn(running));
+    expect(textsOf(drawn(togglePause(running)))).toEqual([]);
   });
 });
 
@@ -442,7 +445,100 @@ describe('score screen', () => {
   });
 
   it('P0-UI-004 draws a score screen only when the game has ended', () => {
-    expect(textsOf(drawn(createGameState()))).toEqual([]);
+    expect(textsOf(drawn({ ...createGameState(), readyTicks: 0 }))).toEqual([]);
+  });
+});
+
+describe('ready message', () => {
+  const readyTexts = (state: GameState): string[] =>
+    textsOf(drawn(state)).filter((t) => t.startsWith('fillText(READY!,'));
+
+  it('P0-UI-015 shows READY! in the maze when a game starts', () => {
+    // canon: CAP-6.1
+    const state = createGameState();
+    expect(state.readyTicks).toBe(READY_TICKS);
+    expect(readyTexts(state)).toHaveLength(1);
+  });
+
+  it('P0-UI-015 draws the maze and characters in the same frame as READY!', () => {
+    // canon: CAP-6.1
+    const state = createGameState();
+    const withReady = drawn(state);
+    const without = drawn({ ...state, readyTicks: 0 });
+    expect(withReady.length).toBeGreaterThan(without.length);
+    expect(withReady.filter((e) => e.startsWith('fillRect(')).length).toBe(
+      without.filter((e) => e.startsWith('fillRect(')).length,
+    );
+  });
+
+  it('P0-UI-016 shows READY! again after a life is lost while lives remain', () => {
+    // canon: CAP-6.2
+    const caught = buildState({
+      maze: buildMaze(ROOM),
+      ghosts: [buildGhost({ pos: { x: 3, y: 2 }, mode: 'chase' })],
+      lives: 3,
+    });
+    const next = tick(caught, 'right');
+    expect(next.lives).toBe(2);
+    expect(next.readyTicks).toBe(READY_TICKS);
+    expect(readyTexts(next)).toHaveLength(1);
+    expect(loseLife(buildState({ lives: 2 })).readyTicks).toBe(READY_TICKS);
+  });
+
+  it('P0-GAME-019 shows no READY! when the last life is lost', () => {
+    // canon: CAP-6.3
+    const lost = loseLife(buildState({ lives: 1 }));
+    expect(lost.status).toBe('lost');
+    expect(lost.readyTicks).toBe(0);
+    expect(readyTexts(lost)).toEqual([]);
+    expect(textsOf(drawn(lost)).some((t) => t.includes('GAME OVER'))).toBe(true);
+  });
+
+  it('P0-GAME-020 keeps pacman and every ghost still while READY! shows', () => {
+    // canon: CAP-6.4
+    const ghosts = [
+      buildGhost({ id: 0, pos: { x: 1, y: 1 } }),
+      buildGhost({ id: 1, pos: { x: 3, y: 3 }, dir: 'left' }),
+    ];
+    const state = buildState({ readyTicks: READY_TICKS, ghosts });
+    const next = tick(state, 'right');
+    expect(next.pacman).toEqual(state.pacman);
+    expect(next.ghosts).toEqual(state.ghosts);
+    expect(next.score).toBe(state.score);
+    expect(next.lives).toBe(state.lives);
+    expect(next.readyTicks).toBe(READY_TICKS - 1);
+  });
+
+  it('P0-GAME-020 holds still for the whole of READY! and keeps the counter while paused', () => {
+    // canon: CAP-6.4
+    const ghosts = [buildGhost({ pos: { x: 1, y: 1 } })];
+    let state = buildState({ readyTicks: READY_TICKS, ghosts });
+    for (let i = 0; i < READY_TICKS; i++) {
+      state = tick(state, 'right');
+      expect(state.pacman.pos).toEqual({ x: 2, y: 2 });
+      expect(state.ghosts).toEqual(ghosts);
+    }
+    const paused = togglePause(buildState({ readyTicks: 5 }));
+    expect(tick(paused, 'right').readyTicks).toBe(5);
+  });
+
+  it('P0-GAME-021 ends READY! and moves pacman and the ghosts on the next step', () => {
+    // canon: CAP-6.5
+    const room = buildMaze(['#######', '#.....#', '#.....#', '#.....#', '#######']);
+    let state = buildState({
+      maze: room,
+      dotsRemaining: 15,
+      readyTicks: READY_TICKS,
+      pacman: { pos: { x: 1, y: 2 }, dir: 'right' },
+      ghosts: [buildGhost({ pos: { x: 5, y: 1 }, dir: 'left', mode: 'chase' })],
+    });
+    for (let i = 0; i < READY_TICKS; i++) state = tick(state, 'right');
+    expect(state.readyTicks).toBe(0);
+    expect(readyTexts(state)).toEqual([]);
+
+    const moved = tick(state, 'right');
+    expect(moved.pacman.pos).toEqual({ x: 2, y: 2 });
+    expect(moved.ghosts[0]?.pos).not.toEqual({ x: 5, y: 1 });
   });
 });
 
@@ -608,6 +704,7 @@ function besideFruit(fruit: GameState['fruit']): GameState {
   if (row) row[FRUIT_POS.x] = 'empty';
   return {
     ...base,
+    readyTicks: 0,
     maze: { ...base.maze, grid },
     ghosts: [],
     pacman: { pos: { x: FRUIT_POS.x - 1, y: FRUIT_POS.y }, dir: 'right' },
