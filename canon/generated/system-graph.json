@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-06T07:10:37.334Z",
+  "generatedAt": "2026-10-06T08:10:48.723Z",
   "root": ".",
   "nodes": [
     {
@@ -13,7 +13,7 @@
       "kind": "function",
       "label": "buildMaze",
       "file": "src/game.test.ts",
-      "line": 21,
+      "line": 22,
       "exported": false
     },
     {
@@ -21,7 +21,7 @@
       "kind": "function",
       "label": "buildGhost",
       "file": "src/game.test.ts",
-      "line": 33,
+      "line": 34,
       "exported": false
     },
     {
@@ -29,7 +29,7 @@
       "kind": "function",
       "label": "buildState",
       "file": "src/game.test.ts",
-      "line": 44,
+      "line": 45,
       "exported": false
     },
     {
@@ -37,7 +37,7 @@
       "kind": "function",
       "label": "recordingContext",
       "file": "src/game.test.ts",
-      "line": 362,
+      "line": 364,
       "exported": false
     },
     {
@@ -45,7 +45,7 @@
       "kind": "function",
       "label": "drawn",
       "file": "src/game.test.ts",
-      "line": 381,
+      "line": 383,
       "exported": false
     },
     {
@@ -53,7 +53,15 @@
       "kind": "function",
       "label": "textsOf",
       "file": "src/game.test.ts",
-      "line": 387,
+      "line": 389,
+      "exported": false
+    },
+    {
+      "id": "arrow:src/game.test.ts#readyTexts",
+      "kind": "arrow",
+      "label": "readyTexts",
+      "file": "src/game.test.ts",
+      "line": 453,
       "exported": false
     },
     {
@@ -61,7 +69,7 @@
       "kind": "function",
       "label": "dotPoints",
       "file": "src/game.test.ts",
-      "line": 454,
+      "line": 550,
       "exported": false
     },
     {
@@ -69,7 +77,7 @@
       "kind": "function",
       "label": "pelletPoints",
       "file": "src/game.test.ts",
-      "line": 459,
+      "line": 555,
       "exported": false
     },
     {
@@ -77,7 +85,7 @@
       "kind": "function",
       "label": "ghostPoints",
       "file": "src/game.test.ts",
-      "line": 464,
+      "line": 560,
       "exported": false
     },
     {
@@ -85,7 +93,7 @@
       "kind": "function",
       "label": "hudScore",
       "file": "src/game.test.ts",
-      "line": 472,
+      "line": 568,
       "exported": false
     },
     {
@@ -93,7 +101,7 @@
       "kind": "function",
       "label": "scoreScreenText",
       "file": "src/game.test.ts",
-      "line": 476,
+      "line": 572,
       "exported": false
     },
     {
@@ -101,7 +109,7 @@
       "kind": "function",
       "label": "pageHtml",
       "file": "src/game.test.ts",
-      "line": 480,
+      "line": 576,
       "exported": false
     },
     {
@@ -109,7 +117,7 @@
       "kind": "function",
       "label": "nearHalf",
       "file": "src/game.test.ts",
-      "line": 599,
+      "line": 695,
       "exported": false
     },
     {
@@ -117,7 +125,7 @@
       "kind": "function",
       "label": "besideFruit",
       "file": "src/game.test.ts",
-      "line": 604,
+      "line": 700,
       "exported": false
     },
     {
@@ -125,7 +133,7 @@
       "kind": "arrow",
       "label": "arcAtFruit",
       "file": "src/game.test.ts",
-      "line": 652,
+      "line": 749,
       "exported": false
     },
     {
@@ -133,7 +141,7 @@
       "kind": "function",
       "label": "phasesPlayed",
       "file": "src/game.test.ts",
-      "line": 731,
+      "line": 828,
       "exported": false
     },
     {
@@ -147,7 +155,7 @@
       "kind": "function",
       "label": "nextPosition",
       "file": "src/game.ts",
-      "line": 53,
+      "line": 55,
       "exported": true
     },
     {
@@ -155,7 +163,7 @@
       "kind": "function",
       "label": "createGameState",
       "file": "src/game.ts",
-      "line": 66,
+      "line": 69,
       "exported": true
     },
     {
@@ -163,7 +171,7 @@
       "kind": "function",
       "label": "attemptMove",
       "file": "src/game.ts",
-      "line": 91,
+      "line": 95,
       "exported": true
     },
     {
@@ -171,7 +179,7 @@
       "kind": "function",
       "label": "eatDot",
       "file": "src/game.ts",
-      "line": 97,
+      "line": 101,
       "exported": true
     },
     {
@@ -179,7 +187,7 @@
       "kind": "function",
       "label": "checkWin",
       "file": "src/game.ts",
-      "line": 118,
+      "line": 122,
       "exported": true
     },
     {
@@ -187,7 +195,7 @@
       "kind": "function",
       "label": "loseLife",
       "file": "src/game.ts",
-      "line": 124,
+      "line": 130,
       "exported": true
     },
     {
@@ -195,7 +203,7 @@
       "kind": "function",
       "label": "resolveGhostCollisions",
       "file": "src/game.ts",
-      "line": 136,
+      "line": 143,
       "exported": true
     },
     {
@@ -203,7 +211,7 @@
       "kind": "function",
       "label": "maybeSpawnFruit",
       "file": "src/game.ts",
-      "line": 151,
+      "line": 158,
       "exported": false
     },
     {
@@ -211,7 +219,7 @@
       "kind": "function",
       "label": "eatFruit",
       "file": "src/game.ts",
-      "line": 159,
+      "line": 166,
       "exported": false
     },
     {
@@ -219,7 +227,7 @@
       "kind": "function",
       "label": "tickFruit",
       "file": "src/game.ts",
-      "line": 169,
+      "line": 176,
       "exported": false
     },
     {
@@ -227,7 +235,7 @@
       "kind": "function",
       "label": "movePacman",
       "file": "src/game.ts",
-      "line": 175,
+      "line": 182,
       "exported": false
     },
     {
@@ -235,7 +243,7 @@
       "kind": "function",
       "label": "moveGhost",
       "file": "src/game.ts",
-      "line": 182,
+      "line": 189,
       "exported": false
     },
     {
@@ -243,7 +251,7 @@
       "kind": "arrow",
       "label": "distance",
       "file": "src/game.ts",
-      "line": 190,
+      "line": 197,
       "exported": false
     },
     {
@@ -251,7 +259,7 @@
       "kind": "function",
       "label": "moveGhosts",
       "file": "src/game.ts",
-      "line": 200,
+      "line": 207,
       "exported": false
     },
     {
@@ -259,7 +267,7 @@
       "kind": "function",
       "label": "togglePause",
       "file": "src/game.ts",
-      "line": 206,
+      "line": 213,
       "exported": true
     },
     {
@@ -267,7 +275,7 @@
       "kind": "function",
       "label": "tick",
       "file": "src/game.ts",
-      "line": 214,
+      "line": 223,
       "exported": true
     },
     {
@@ -499,11 +507,19 @@
       "exported": false
     },
     {
+      "id": "func:src/render.ts#drawReady",
+      "kind": "function",
+      "label": "drawReady",
+      "file": "src/render.ts",
+      "line": 80,
+      "exported": false
+    },
+    {
       "id": "func:src/render.ts#statusText",
       "kind": "function",
       "label": "statusText",
       "file": "src/render.ts",
-      "line": 79,
+      "line": 90,
       "exported": true
     },
     {
@@ -511,7 +527,7 @@
       "kind": "function",
       "label": "drawFrame",
       "file": "src/render.ts",
-      "line": 86,
+      "line": 97,
       "exported": true
     },
     {
@@ -525,7 +541,7 @@
       "kind": "arrow",
       "label": "ratio",
       "file": "tests/e2e/app.spec.ts",
-      "line": 23,
+      "line": 30,
       "exported": false
     },
     {
@@ -585,6 +601,12 @@
     {
       "source": "file:src/game.test.ts",
       "target": "func:src/game.test.ts#textsOf",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.test.ts",
+      "target": "arrow:src/game.test.ts#readyTexts",
       "type": "DEFINES",
       "confidence": "EXTRACTED"
     },
@@ -890,6 +912,12 @@
     },
     {
       "source": "file:src/render.ts",
+      "target": "func:src/render.ts#drawReady",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/render.ts",
       "target": "func:src/render.ts#statusText",
       "type": "DEFINES",
       "confidence": "EXTRACTED"
@@ -1089,6 +1117,24 @@
     {
       "source": "file:src/game.test.ts",
       "target": "func:src/game.test.ts#textsOf",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "arrow:src/game.test.ts#readyTexts",
+      "target": "func:src/game.test.ts#textsOf",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "arrow:src/game.test.ts#readyTexts",
+      "target": "func:src/game.test.ts#drawn",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.test.ts",
+      "target": "arrow:src/game.test.ts#readyTexts",
       "type": "CALLS",
       "confidence": "EXTRACTED"
     },
@@ -1575,6 +1621,12 @@
     {
       "source": "func:src/render.ts#drawFrame",
       "target": "func:src/render.ts#drawGhost",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/render.ts#drawFrame",
+      "target": "func:src/render.ts#drawReady",
       "type": "CALLS",
       "confidence": "EXTRACTED"
     },

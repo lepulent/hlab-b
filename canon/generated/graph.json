@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-06T07:10:38.688Z",
+  "generatedAt": "2026-10-06T08:10:49.717Z",
   "nodes": [
     {
       "id": "MAP",
@@ -484,6 +484,82 @@
       "label": "P0-GAME-018"
     },
     {
+      "id": "CAP-6",
+      "kind": "capability",
+      "label": "Ready message at the start of each life",
+      "file": "canon/capabilities/CAP-6.md",
+      "assurance": "draft",
+      "version": "0.1.0",
+      "valid_from": "a2d86597a0ff55f235355cc30671a847ea16f0e8",
+      "valid_to": null,
+      "layer": "harness"
+    },
+    {
+      "id": "CAP-6.1",
+      "kind": "criterion",
+      "label": "When a game starts, the canvas shows READY! in the maze",
+      "file": "canon/capabilities/CAP-6.md",
+      "parent": "CAP-6",
+      "layer": "harness"
+    },
+    {
+      "id": "P0-UI-015",
+      "kind": "coverage-row",
+      "label": "P0-UI-015"
+    },
+    {
+      "id": "CAP-6.2",
+      "kind": "criterion",
+      "label": "After a life is lost while lives remain, the canvas shows READY! in the maze",
+      "file": "canon/capabilities/CAP-6.md",
+      "parent": "CAP-6",
+      "layer": "harness"
+    },
+    {
+      "id": "P0-UI-016",
+      "kind": "coverage-row",
+      "label": "P0-UI-016"
+    },
+    {
+      "id": "CAP-6.3",
+      "kind": "criterion",
+      "label": "When the last life is lost, no READY! is shown and the game is lost",
+      "file": "canon/capabilities/CAP-6.md",
+      "parent": "CAP-6",
+      "layer": "harness"
+    },
+    {
+      "id": "P0-GAME-019",
+      "kind": "coverage-row",
+      "label": "P0-GAME-019"
+    },
+    {
+      "id": "CAP-6.4",
+      "kind": "criterion",
+      "label": "While READY! is showing, pacman and every ghost stay on their tiles, even when a direction is requested",
+      "file": "canon/capabilities/CAP-6.md",
+      "parent": "CAP-6",
+      "layer": "harness"
+    },
+    {
+      "id": "P0-GAME-020",
+      "kind": "coverage-row",
+      "label": "P0-GAME-020"
+    },
+    {
+      "id": "CAP-6.5",
+      "kind": "criterion",
+      "label": "When READY! ends, the message disappears and pacman and the ghosts move on the next step",
+      "file": "canon/capabilities/CAP-6.md",
+      "parent": "CAP-6",
+      "layer": "harness"
+    },
+    {
+      "id": "P0-GAME-021",
+      "kind": "coverage-row",
+      "label": "P0-GAME-021"
+    },
+    {
       "id": "CONSTITUTION",
       "kind": "constitution",
       "label": "CONSTITUTION",
@@ -534,9 +610,44 @@
       "label": "policy/tags-present"
     },
     {
-      "id": "file:src/game.test.ts#L486",
+      "id": "file:src/game.test.ts#state",
       "kind": "symbol",
-      "label": "L486",
+      "label": "state",
+      "file": "src/game.test.ts",
+      "layer": "domain"
+    },
+    {
+      "id": "file:src/game.test.ts#caught",
+      "kind": "symbol",
+      "label": "caught",
+      "file": "src/game.test.ts",
+      "layer": "domain"
+    },
+    {
+      "id": "file:src/game.test.ts#lost",
+      "kind": "symbol",
+      "label": "lost",
+      "file": "src/game.test.ts",
+      "layer": "domain"
+    },
+    {
+      "id": "file:src/game.test.ts#ghosts",
+      "kind": "symbol",
+      "label": "ghosts",
+      "file": "src/game.test.ts",
+      "layer": "domain"
+    },
+    {
+      "id": "file:src/game.test.ts#room",
+      "kind": "symbol",
+      "label": "room",
+      "file": "src/game.test.ts",
+      "layer": "domain"
+    },
+    {
+      "id": "file:src/game.test.ts#L582",
+      "kind": "symbol",
+      "label": "L582",
       "file": "src/game.test.ts",
       "layer": "domain"
     },
@@ -576,37 +687,30 @@
       "layer": "domain"
     },
     {
-      "id": "file:src/game.test.ts#state",
+      "id": "file:src/game.test.ts#L724",
       "kind": "symbol",
-      "label": "state",
+      "label": "L724",
       "file": "src/game.test.ts",
       "layer": "domain"
     },
     {
-      "id": "file:src/game.test.ts#L627",
+      "id": "file:src/game.test.ts#L729",
       "kind": "symbol",
-      "label": "L627",
+      "label": "L729",
       "file": "src/game.test.ts",
       "layer": "domain"
     },
     {
-      "id": "file:src/game.test.ts#L632",
+      "id": "file:src/game.test.ts#L734",
       "kind": "symbol",
-      "label": "L632",
+      "label": "L734",
       "file": "src/game.test.ts",
       "layer": "domain"
     },
     {
-      "id": "file:src/game.test.ts#L637",
+      "id": "file:src/game.test.ts#L739",
       "kind": "symbol",
-      "label": "L637",
-      "file": "src/game.test.ts",
-      "layer": "domain"
-    },
-    {
-      "id": "file:src/game.test.ts#L642",
-      "kind": "symbol",
-      "label": "L642",
+      "label": "L739",
       "file": "src/game.test.ts",
       "layer": "domain"
     },
@@ -618,9 +722,9 @@
       "layer": "domain"
     },
     {
-      "id": "file:src/game.test.ts#L661",
+      "id": "file:src/game.test.ts#L758",
       "kind": "symbol",
-      "label": "L661",
+      "label": "L758",
       "file": "src/game.test.ts",
       "layer": "domain"
     },
@@ -660,23 +764,30 @@
       "layer": "domain"
     },
     {
-      "id": "file:src/game.ts#L157",
+      "id": "file:src/game.ts#L127",
       "kind": "symbol",
-      "label": "L157",
+      "label": "L127",
       "file": "src/game.ts",
       "layer": "domain"
     },
     {
-      "id": "file:src/game.ts#L167",
+      "id": "file:src/game.ts#L128",
       "kind": "symbol",
-      "label": "L167",
+      "label": "L128",
       "file": "src/game.ts",
       "layer": "domain"
     },
     {
-      "id": "file:src/game.ts#L204",
+      "id": "file:src/game.ts#L164",
       "kind": "symbol",
-      "label": "L204",
+      "label": "L164",
+      "file": "src/game.ts",
+      "layer": "domain"
+    },
+    {
+      "id": "file:src/game.ts#L174",
+      "kind": "symbol",
+      "label": "L174",
       "file": "src/game.ts",
       "layer": "domain"
     },
@@ -688,9 +799,30 @@
       "layer": "domain"
     },
     {
-      "id": "file:src/game.ts#L212",
+      "id": "file:src/game.ts#L218",
       "kind": "symbol",
-      "label": "L212",
+      "label": "L218",
+      "file": "src/game.ts",
+      "layer": "domain"
+    },
+    {
+      "id": "file:src/game.ts#L219",
+      "kind": "symbol",
+      "label": "L219",
+      "file": "src/game.ts",
+      "layer": "domain"
+    },
+    {
+      "id": "file:src/game.ts#L220",
+      "kind": "symbol",
+      "label": "L220",
+      "file": "src/game.ts",
+      "layer": "domain"
+    },
+    {
+      "id": "file:src/game.ts#L221",
+      "kind": "symbol",
+      "label": "L221",
       "file": "src/game.ts",
       "layer": "domain"
     },
@@ -744,6 +876,13 @@
       "layer": "domain"
     },
     {
+      "id": "file:src/render.ts#L78",
+      "kind": "symbol",
+      "label": "L78",
+      "file": "src/render.ts",
+      "layer": "domain"
+    },
+    {
       "id": "file:src/game.test.ts",
       "kind": "file",
       "label": "src/game.test.ts",
@@ -754,7 +893,7 @@
       "kind": "function",
       "label": "buildMaze",
       "file": "src/game.test.ts",
-      "line": 21,
+      "line": 22,
       "exported": false
     },
     {
@@ -762,7 +901,7 @@
       "kind": "function",
       "label": "buildGhost",
       "file": "src/game.test.ts",
-      "line": 33,
+      "line": 34,
       "exported": false
     },
     {
@@ -770,7 +909,7 @@
       "kind": "function",
       "label": "buildState",
       "file": "src/game.test.ts",
-      "line": 44,
+      "line": 45,
       "exported": false
     },
     {
@@ -778,7 +917,7 @@
       "kind": "function",
       "label": "recordingContext",
       "file": "src/game.test.ts",
-      "line": 362,
+      "line": 364,
       "exported": false
     },
     {
@@ -786,7 +925,7 @@
       "kind": "function",
       "label": "drawn",
       "file": "src/game.test.ts",
-      "line": 381,
+      "line": 383,
       "exported": false
     },
     {
@@ -794,7 +933,15 @@
       "kind": "function",
       "label": "textsOf",
       "file": "src/game.test.ts",
-      "line": 387,
+      "line": 389,
+      "exported": false
+    },
+    {
+      "id": "arrow:src/game.test.ts#readyTexts",
+      "kind": "arrow",
+      "label": "readyTexts",
+      "file": "src/game.test.ts",
+      "line": 453,
       "exported": false
     },
     {
@@ -802,7 +949,7 @@
       "kind": "function",
       "label": "dotPoints",
       "file": "src/game.test.ts",
-      "line": 454,
+      "line": 550,
       "exported": false
     },
     {
@@ -810,7 +957,7 @@
       "kind": "function",
       "label": "pelletPoints",
       "file": "src/game.test.ts",
-      "line": 459,
+      "line": 555,
       "exported": false
     },
     {
@@ -818,7 +965,7 @@
       "kind": "function",
       "label": "ghostPoints",
       "file": "src/game.test.ts",
-      "line": 464,
+      "line": 560,
       "exported": false
     },
     {
@@ -826,7 +973,7 @@
       "kind": "function",
       "label": "hudScore",
       "file": "src/game.test.ts",
-      "line": 472,
+      "line": 568,
       "exported": false
     },
     {
@@ -834,7 +981,7 @@
       "kind": "function",
       "label": "scoreScreenText",
       "file": "src/game.test.ts",
-      "line": 476,
+      "line": 572,
       "exported": false
     },
     {
@@ -842,7 +989,7 @@
       "kind": "function",
       "label": "pageHtml",
       "file": "src/game.test.ts",
-      "line": 480,
+      "line": 576,
       "exported": false
     },
     {
@@ -850,7 +997,7 @@
       "kind": "function",
       "label": "nearHalf",
       "file": "src/game.test.ts",
-      "line": 599,
+      "line": 695,
       "exported": false
     },
     {
@@ -858,7 +1005,7 @@
       "kind": "function",
       "label": "besideFruit",
       "file": "src/game.test.ts",
-      "line": 604,
+      "line": 700,
       "exported": false
     },
     {
@@ -866,7 +1013,7 @@
       "kind": "arrow",
       "label": "arcAtFruit",
       "file": "src/game.test.ts",
-      "line": 652,
+      "line": 749,
       "exported": false
     },
     {
@@ -874,7 +1021,7 @@
       "kind": "function",
       "label": "phasesPlayed",
       "file": "src/game.test.ts",
-      "line": 731,
+      "line": 828,
       "exported": false
     },
     {
@@ -888,7 +1035,7 @@
       "kind": "function",
       "label": "nextPosition",
       "file": "src/game.ts",
-      "line": 53,
+      "line": 55,
       "exported": true
     },
     {
@@ -896,7 +1043,7 @@
       "kind": "function",
       "label": "createGameState",
       "file": "src/game.ts",
-      "line": 66,
+      "line": 69,
       "exported": true
     },
     {
@@ -904,7 +1051,7 @@
       "kind": "function",
       "label": "attemptMove",
       "file": "src/game.ts",
-      "line": 91,
+      "line": 95,
       "exported": true
     },
     {
@@ -912,7 +1059,7 @@
       "kind": "function",
       "label": "eatDot",
       "file": "src/game.ts",
-      "line": 97,
+      "line": 101,
       "exported": true
     },
     {
@@ -920,7 +1067,7 @@
       "kind": "function",
       "label": "checkWin",
       "file": "src/game.ts",
-      "line": 118,
+      "line": 122,
       "exported": true
     },
     {
@@ -928,7 +1075,7 @@
       "kind": "function",
       "label": "loseLife",
       "file": "src/game.ts",
-      "line": 124,
+      "line": 130,
       "exported": true
     },
     {
@@ -936,7 +1083,7 @@
       "kind": "function",
       "label": "resolveGhostCollisions",
       "file": "src/game.ts",
-      "line": 136,
+      "line": 143,
       "exported": true
     },
     {
@@ -944,7 +1091,7 @@
       "kind": "function",
       "label": "maybeSpawnFruit",
       "file": "src/game.ts",
-      "line": 151,
+      "line": 158,
       "exported": false
     },
     {
@@ -952,7 +1099,7 @@
       "kind": "function",
       "label": "eatFruit",
       "file": "src/game.ts",
-      "line": 159,
+      "line": 166,
       "exported": false
     },
     {
@@ -960,7 +1107,7 @@
       "kind": "function",
       "label": "tickFruit",
       "file": "src/game.ts",
-      "line": 169,
+      "line": 176,
       "exported": false
     },
     {
@@ -968,7 +1115,7 @@
       "kind": "function",
       "label": "movePacman",
       "file": "src/game.ts",
-      "line": 175,
+      "line": 182,
       "exported": false
     },
     {
@@ -976,7 +1123,7 @@
       "kind": "function",
       "label": "moveGhost",
       "file": "src/game.ts",
-      "line": 182,
+      "line": 189,
       "exported": false
     },
     {
@@ -984,7 +1131,7 @@
       "kind": "arrow",
       "label": "distance",
       "file": "src/game.ts",
-      "line": 190,
+      "line": 197,
       "exported": false
     },
     {
@@ -992,7 +1139,7 @@
       "kind": "function",
       "label": "moveGhosts",
       "file": "src/game.ts",
-      "line": 200,
+      "line": 207,
       "exported": false
     },
     {
@@ -1000,7 +1147,7 @@
       "kind": "function",
       "label": "togglePause",
       "file": "src/game.ts",
-      "line": 206,
+      "line": 213,
       "exported": true
     },
     {
@@ -1008,7 +1155,7 @@
       "kind": "function",
       "label": "tick",
       "file": "src/game.ts",
-      "line": 214,
+      "line": 223,
       "exported": true
     },
     {
@@ -1240,11 +1387,19 @@
       "exported": false
     },
     {
+      "id": "func:src/render.ts#drawReady",
+      "kind": "function",
+      "label": "drawReady",
+      "file": "src/render.ts",
+      "line": 80,
+      "exported": false
+    },
+    {
       "id": "func:src/render.ts#statusText",
       "kind": "function",
       "label": "statusText",
       "file": "src/render.ts",
-      "line": 79,
+      "line": 90,
       "exported": true
     },
     {
@@ -1252,7 +1407,7 @@
       "kind": "function",
       "label": "drawFrame",
       "file": "src/render.ts",
-      "line": 86,
+      "line": 97,
       "exported": true
     },
     {
@@ -1266,7 +1421,7 @@
       "kind": "arrow",
       "label": "ratio",
       "file": "tests/e2e/app.spec.ts",
-      "line": 23,
+      "line": 30,
       "exported": false
     },
     {
@@ -1744,6 +1899,66 @@
       "confidence": "EXTRACTED"
     },
     {
+      "source": "CAP-6",
+      "target": "CAP-6.1",
+      "type": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "P0-UI-015",
+      "target": "CAP-6.1",
+      "type": "tests",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-6",
+      "target": "CAP-6.2",
+      "type": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "P0-UI-016",
+      "target": "CAP-6.2",
+      "type": "tests",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-6",
+      "target": "CAP-6.3",
+      "type": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "P0-GAME-019",
+      "target": "CAP-6.3",
+      "type": "tests",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-6",
+      "target": "CAP-6.4",
+      "type": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "P0-GAME-020",
+      "target": "CAP-6.4",
+      "type": "tests",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-6",
+      "target": "CAP-6.5",
+      "type": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "P0-GAME-021",
+      "target": "CAP-6.5",
+      "type": "tests",
+      "confidence": "EXTRACTED"
+    },
+    {
       "source": "CONSTITUTION",
       "target": "C-1",
       "type": "contains",
@@ -1780,12 +1995,68 @@
       "confidence": "EXTRACTED"
     },
     {
-      "source": "CAP-4.1",
-      "target": "file:src/game.test.ts#L486",
+      "source": "CAP-6.1",
+      "target": "file:src/game.test.ts#state",
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 486
+      "line": 457
+    },
+    {
+      "source": "CAP-6.1",
+      "target": "file:src/game.test.ts#state",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 464
+    },
+    {
+      "source": "CAP-6.2",
+      "target": "file:src/game.test.ts#caught",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 475
+    },
+    {
+      "source": "CAP-6.3",
+      "target": "file:src/game.test.ts#lost",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 489
+    },
+    {
+      "source": "CAP-6.4",
+      "target": "file:src/game.test.ts#ghosts",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 498
+    },
+    {
+      "source": "CAP-6.4",
+      "target": "file:src/game.test.ts#ghosts",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 513
+    },
+    {
+      "source": "CAP-6.5",
+      "target": "file:src/game.test.ts#room",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 526
+    },
+    {
+      "source": "CAP-4.1",
+      "target": "file:src/game.test.ts#L582",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 582
     },
     {
       "source": "CAP-4.2",
@@ -1793,7 +2064,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 496
+      "line": 592
     },
     {
       "source": "CAP-4.3",
@@ -1801,7 +2072,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 511
+      "line": 607
     },
     {
       "source": "CAP-4.4",
@@ -1809,7 +2080,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 521
+      "line": 617
     },
     {
       "source": "CAP-4.5",
@@ -1817,7 +2088,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 532
+      "line": 628
     },
     {
       "source": "CAP-4.5",
@@ -1825,7 +2096,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 548
+      "line": 644
     },
     {
       "source": "CAP-4.6",
@@ -1833,7 +2104,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 560
+      "line": 656
     },
     {
       "source": "CAP-4.6",
@@ -1841,7 +2112,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 576
+      "line": 672
     },
     {
       "source": "CAP-5.1",
@@ -1849,39 +2120,39 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 620
+      "line": 717
     },
     {
       "source": "CAP-5.1",
-      "target": "file:src/game.test.ts#L627",
+      "target": "file:src/game.test.ts#L724",
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 627
+      "line": 724
     },
     {
       "source": "CAP-5.1",
-      "target": "file:src/game.test.ts#L632",
+      "target": "file:src/game.test.ts#L729",
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 632
+      "line": 729
     },
     {
       "source": "CAP-5.1",
-      "target": "file:src/game.test.ts#L637",
+      "target": "file:src/game.test.ts#L734",
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 637
+      "line": 734
     },
     {
       "source": "CAP-5.1",
-      "target": "file:src/game.test.ts#L642",
+      "target": "file:src/game.test.ts#L739",
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 642
+      "line": 739
     },
     {
       "source": "CAP-5.1",
@@ -1889,15 +2160,15 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 647
+      "line": 744
     },
     {
       "source": "CAP-5.2",
-      "target": "file:src/game.test.ts#L661",
+      "target": "file:src/game.test.ts#L758",
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 661
+      "line": 758
     },
     {
       "source": "CAP-5.2",
@@ -1905,7 +2176,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 671
+      "line": 768
     },
     {
       "source": "CAP-5.2",
@@ -1913,7 +2184,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 677
+      "line": 774
     },
     {
       "source": "CAP-5.3",
@@ -1921,7 +2192,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 694
+      "line": 791
     },
     {
       "source": "CAP-5.3",
@@ -1929,7 +2200,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 702
+      "line": 799
     },
     {
       "source": "CAP-5.4",
@@ -1937,7 +2208,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 711
+      "line": 808
     },
     {
       "source": "CAP-5.5",
@@ -1945,7 +2216,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 743
+      "line": 840
     },
     {
       "source": "CAP-5.5",
@@ -1953,7 +2224,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 752
+      "line": 849
     },
     {
       "source": "CAP-5.5",
@@ -1961,7 +2232,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 758
+      "line": 855
     },
     {
       "source": "CAP-1.1",
@@ -1969,7 +2240,15 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 52
+      "line": 54
+    },
+    {
+      "source": "CAP-6.1",
+      "target": "func:src/game.ts#createGameState",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 68
     },
     {
       "source": "CAP-1.2",
@@ -1977,7 +2256,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 90
+      "line": 94
     },
     {
       "source": "CAP-1.3",
@@ -1985,7 +2264,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 96
+      "line": 100
     },
     {
       "source": "CAP-1.5",
@@ -1993,15 +2272,31 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 117
+      "line": 121
     },
     {
       "source": "CAP-1.6",
+      "target": "file:src/game.ts#L127",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 127
+    },
+    {
+      "source": "CAP-6.2",
+      "target": "file:src/game.ts#L128",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 128
+    },
+    {
+      "source": "CAP-6.3",
       "target": "func:src/game.ts#loseLife",
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 123
+      "line": 129
     },
     {
       "source": "CAP-1.4",
@@ -2009,7 +2304,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 135
+      "line": 142
     },
     {
       "source": "CAP-5.1",
@@ -2017,15 +2312,15 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 150
+      "line": 157
     },
     {
       "source": "CAP-5.3",
-      "target": "file:src/game.ts#L157",
+      "target": "file:src/game.ts#L164",
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 157
+      "line": 164
     },
     {
       "source": "CAP-5.4",
@@ -2033,15 +2328,15 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 158
+      "line": 165
     },
     {
       "source": "CAP-5.2",
-      "target": "file:src/game.ts#L167",
+      "target": "file:src/game.ts#L174",
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 167
+      "line": 174
     },
     {
       "source": "CAP-5.5",
@@ -2049,7 +2344,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 168
+      "line": 175
     },
     {
       "source": "CAP-1.9",
@@ -2057,7 +2352,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 181
+      "line": 188
     },
     {
       "source": "CAP-1.9",
@@ -2065,26 +2360,10 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 199
+      "line": 206
     },
     {
       "source": "CAP-2.1",
-      "target": "file:src/game.ts#L204",
-      "type": "implements",
-      "confidence": "EXTRACTED",
-      "via": "tag",
-      "line": 204
-    },
-    {
-      "source": "CAP-2.5",
-      "target": "func:src/game.ts#togglePause",
-      "type": "implements",
-      "confidence": "EXTRACTED",
-      "via": "tag",
-      "line": 205
-    },
-    {
-      "source": "CAP-2.2",
       "target": "file:src/game.ts#L211",
       "type": "implements",
       "confidence": "EXTRACTED",
@@ -2092,20 +2371,52 @@
       "line": 211
     },
     {
-      "source": "CAP-2.3",
-      "target": "file:src/game.ts#L212",
+      "source": "CAP-2.5",
+      "target": "func:src/game.ts#togglePause",
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
       "line": 212
     },
     {
+      "source": "CAP-2.2",
+      "target": "file:src/game.ts#L218",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 218
+    },
+    {
+      "source": "CAP-2.3",
+      "target": "file:src/game.ts#L219",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 219
+    },
+    {
       "source": "CAP-2.4",
+      "target": "file:src/game.ts#L220",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 220
+    },
+    {
+      "source": "CAP-6.4",
+      "target": "file:src/game.ts#L221",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 221
+    },
+    {
+      "source": "CAP-6.5",
       "target": "func:src/game.ts#tick",
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 213
+      "line": 222
     },
     {
       "source": "CAP-1.7",
@@ -2212,12 +2523,28 @@
       "line": 57
     },
     {
+      "source": "CAP-6.1",
+      "target": "file:src/render.ts#L78",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 78
+    },
+    {
+      "source": "CAP-6.2",
+      "target": "func:src/render.ts#drawReady",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 79
+    },
+    {
       "source": "CAP-2.6",
       "target": "func:src/render.ts#statusText",
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 78
+      "line": 89
     },
     {
       "source": "CAP-1.8",
@@ -2225,7 +2552,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 85
+      "line": 96
     },
     {
       "source": "file:src/game.test.ts",
@@ -2260,6 +2587,12 @@
     {
       "source": "file:src/game.test.ts",
       "target": "func:src/game.test.ts#textsOf",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.test.ts",
+      "target": "arrow:src/game.test.ts#readyTexts",
       "type": "DEFINES",
       "confidence": "EXTRACTED"
     },
@@ -2565,6 +2898,12 @@
     },
     {
       "source": "file:src/render.ts",
+      "target": "func:src/render.ts#drawReady",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/render.ts",
       "target": "func:src/render.ts#statusText",
       "type": "DEFINES",
       "confidence": "EXTRACTED"
@@ -2764,6 +3103,24 @@
     {
       "source": "file:src/game.test.ts",
       "target": "func:src/game.test.ts#textsOf",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "arrow:src/game.test.ts#readyTexts",
+      "target": "func:src/game.test.ts#textsOf",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "arrow:src/game.test.ts#readyTexts",
+      "target": "func:src/game.test.ts#drawn",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.test.ts",
+      "target": "arrow:src/game.test.ts#readyTexts",
       "type": "CALLS",
       "confidence": "EXTRACTED"
     },
@@ -3250,6 +3607,12 @@
     {
       "source": "func:src/render.ts#drawFrame",
       "target": "func:src/render.ts#drawGhost",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/render.ts#drawFrame",
+      "target": "func:src/render.ts#drawReady",
       "type": "CALLS",
       "confidence": "EXTRACTED"
     },

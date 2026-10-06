@@ -36,7 +36,13 @@
     "CAP-5.2": "prototype",
     "CAP-5.3": "prototype",
     "CAP-5.4": "prototype",
-    "CAP-5.5": "prototype"
+    "CAP-5.5": "prototype",
+    "CAP-6": "prototype",
+    "CAP-6.1": "prototype",
+    "CAP-6.2": "prototype",
+    "CAP-6.3": "prototype",
+    "CAP-6.4": "prototype",
+    "CAP-6.5": "prototype"
   },
   "bindings": {
     "criteria": 0,
@@ -56,9 +62,9 @@
         "at": "2026-10-04T22:54:32.444Z"
       },
       "lastSeen": {
-        "plan": "t10b",
-        "commit": "4941e30f654faf1387f593e1ccffedf1cb83970f",
-        "at": "2026-10-04T22:54:32.444Z"
+        "plan": "g1b",
+        "commit": "a2d86597a0ff55f235355cc30671a847ea16f0e8",
+        "at": "2026-10-06T08:10:46.746Z"
       },
       "accepted": null
     }

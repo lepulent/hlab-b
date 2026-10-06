@@ -2,9 +2,9 @@
 id: CAP-6
 kind: capability
 title: Ready message at the start of each life
-version: 0.0.0
+version: 0.1.0
 assurance: draft
-valid_from: aed5338
+valid_from: a2d86597a0ff55f235355cc30671a847ea16f0e8
 ---
 
 ## Why

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-06T07:10:38.688Z",
+  "generatedAt": "2026-10-06T08:10:49.717Z",
   "byFile": {
     "src/game.ts": [
       {
@@ -77,6 +77,15 @@
       },
       {
         "node": null,
+        "criterion": "CAP-6.1",
+        "file": "src/game.ts",
+        "symbol": "createGameState",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
         "criterion": "CAP-1.2",
         "file": "src/game.ts",
         "symbol": "attemptMove",
@@ -106,6 +115,24 @@
         "node": null,
         "criterion": "CAP-1.6",
         "file": "src/game.ts",
+        "symbol": "L127",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-6.2",
+        "file": "src/game.ts",
+        "symbol": "L128",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-6.3",
+        "file": "src/game.ts",
         "symbol": "loseLife",
         "range": null,
         "blob": null,
@@ -133,7 +160,7 @@
         "node": null,
         "criterion": "CAP-5.3",
         "file": "src/game.ts",
-        "symbol": "L157",
+        "symbol": "L164",
         "range": null,
         "blob": null,
         "tag": true
@@ -151,7 +178,7 @@
         "node": null,
         "criterion": "CAP-5.2",
         "file": "src/game.ts",
-        "symbol": "L167",
+        "symbol": "L174",
         "range": null,
         "blob": null,
         "tag": true
@@ -187,7 +214,7 @@
         "node": null,
         "criterion": "CAP-2.1",
         "file": "src/game.ts",
-        "symbol": "L204",
+        "symbol": "L211",
         "range": null,
         "blob": null,
         "tag": true
@@ -205,7 +232,7 @@
         "node": null,
         "criterion": "CAP-2.2",
         "file": "src/game.ts",
-        "symbol": "L211",
+        "symbol": "L218",
         "range": null,
         "blob": null,
         "tag": true
@@ -214,7 +241,7 @@
         "node": null,
         "criterion": "CAP-2.3",
         "file": "src/game.ts",
-        "symbol": "L212",
+        "symbol": "L219",
         "range": null,
         "blob": null,
         "tag": true
@@ -222,6 +249,24 @@
       {
         "node": null,
         "criterion": "CAP-2.4",
+        "file": "src/game.ts",
+        "symbol": "L220",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-6.4",
+        "file": "src/game.ts",
+        "symbol": "L221",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-6.5",
         "file": "src/game.ts",
         "symbol": "tick",
         "range": null,
@@ -377,6 +422,24 @@
       },
       {
         "node": null,
+        "criterion": "CAP-6.1",
+        "file": "src/render.ts",
+        "symbol": "L78",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-6.2",
+        "file": "src/render.ts",
+        "symbol": "drawReady",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
         "criterion": "CAP-2.6",
         "file": "src/render.ts",
         "symbol": "statusText",
@@ -397,9 +460,72 @@
     "src/game.test.ts": [
       {
         "node": null,
+        "criterion": "CAP-6.1",
+        "file": "src/game.test.ts",
+        "symbol": "state",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-6.1",
+        "file": "src/game.test.ts",
+        "symbol": "state",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-6.2",
+        "file": "src/game.test.ts",
+        "symbol": "caught",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-6.3",
+        "file": "src/game.test.ts",
+        "symbol": "lost",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-6.4",
+        "file": "src/game.test.ts",
+        "symbol": "ghosts",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-6.4",
+        "file": "src/game.test.ts",
+        "symbol": "ghosts",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-6.5",
+        "file": "src/game.test.ts",
+        "symbol": "room",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
         "criterion": "CAP-4.1",
         "file": "src/game.test.ts",
-        "symbol": "L486",
+        "symbol": "L582",
         "range": null,
         "blob": null,
         "tag": true
@@ -480,7 +606,7 @@
         "node": null,
         "criterion": "CAP-5.1",
         "file": "src/game.test.ts",
-        "symbol": "L627",
+        "symbol": "L724",
         "range": null,
         "blob": null,
         "tag": true
@@ -489,7 +615,7 @@
         "node": null,
         "criterion": "CAP-5.1",
         "file": "src/game.test.ts",
-        "symbol": "L632",
+        "symbol": "L729",
         "range": null,
         "blob": null,
         "tag": true
@@ -498,7 +624,7 @@
         "node": null,
         "criterion": "CAP-5.1",
         "file": "src/game.test.ts",
-        "symbol": "L637",
+        "symbol": "L734",
         "range": null,
         "blob": null,
         "tag": true
@@ -507,7 +633,7 @@
         "node": null,
         "criterion": "CAP-5.1",
         "file": "src/game.test.ts",
-        "symbol": "L642",
+        "symbol": "L739",
         "range": null,
         "blob": null,
         "tag": true
@@ -525,7 +651,7 @@
         "node": null,
         "criterion": "CAP-5.2",
         "file": "src/game.test.ts",
-        "symbol": "L661",
+        "symbol": "L758",
         "range": null,
         "blob": null,
         "tag": true
@@ -604,5 +730,5 @@
       }
     ]
   },
-  "count": 67
+  "count": 81
 }
