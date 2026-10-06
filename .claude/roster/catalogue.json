@@ -72,7 +72,8 @@
       "gate": "npm run -s typecheck && npm run -s test && npm run -s lint",
       "workflow": "write-code",
       "produced_by": "dev",
-      "tier": "contract"
+      "tier": "contract",
+      "also_owns": ["index.html", "tests/e2e/**"]
     }
   ]
 }

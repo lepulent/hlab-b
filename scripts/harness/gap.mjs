@@ -141,18 +141,21 @@ export function castGap(dec, catalogue, plan) {
     };
     cast.artifacts.push(d.id);
     cast.workflows.push(d.workflow);
-    cast.owned.push(d.path.replaceAll('{plan}', plan));
+    cast.owned.push(d.path.replaceAll('{plan}', plan), ...(d.also_owns || []));
     cast.tasks.push(`${d.title} (${d.path.replaceAll('{plan}', plan)}): ${a.task}`);
     byAgent.set(d.produced_by, cast);
   }
   return [...byAgent.values()];
 }
 
-// the paths an agent owns are the catalogue paths of the artifacts it produces
+// the paths an agent owns are the catalogue paths of the artifacts it produces, plus any path a doctype
+// declares it also owns (`also_owns`): the implementation also owns the page shell and its browser tests,
+// because a UI feature cannot be finished inside src/ alone (owner, 2026-10-06; hlab-b t5b, t6b, t8b,
+// r13d, r14b all needed an out-of-jurisdiction write to index.html or tests/e2e)
 export function ownedBy(agentId, catalogue, plan) {
   return (catalogue?.doctypes || [])
     .filter((d) => d.produced_by === agentId)
-    .map((d) => d.path.replaceAll('{plan}', plan));
+    .flatMap((d) => [d.path.replaceAll('{plan}', plan), ...(d.also_owns || [])]);
 }
 
 // what a decision chose, in one comparable word: no-move, clarify, or the artifacts sorted and joined
