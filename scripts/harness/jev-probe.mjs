@@ -32,6 +32,8 @@ if (!PLAN) die('--plan required');
 if (git(['branch', '--show-current']) !== `plan/${PLAN}`) die(`not on plan/${PLAN}`);
 const harness = readJson(join(ROOT, 'harness.json'), {});
 const file = join(ROOT, 'ledger', `${PLAN}.jsonl`);
+// the plan's standing-grant draw key: slug and plant base, as conduct keys it
+const DRAW_KEY = `${PLAN}@${String(readJson(join(ROOT, 'intent', PLAN, 'ROUTE.json'), {})?.base || '').slice(0, 12)}`;
 const lines = () => (existsSync(file) ? parseLedger(readFileSync(file, 'utf8')) : []);
 const here = fileURLToPath(new URL('.', import.meta.url));
 const ledger = (kind, data) => {
@@ -78,7 +80,7 @@ try {
       mock: opt('mock'),
       authorize: authorizer({
         lines,
-        plan: PLAN,
+        plan: DRAW_KEY,
         standing: () => readStanding(),
         write: (d) => ledger('ruling', d),
         floor: harness.yolo?.floor ?? null,
@@ -86,7 +88,7 @@ try {
     },
   );
   ledger('jev', { ...jevLine(r, { agreesWith: 'probe:none' }), probe: true });
-  const a = authorityAudit(lines(), { standing: readStanding(), plan: PLAN });
+  const a = authorityAudit(lines(), { standing: readStanding(), plan: DRAW_KEY });
   console.log(
     `jev-probe ${PLAN}: ${r.unmeasured ? `not measured — ${r.reason}` : `read via ${r.source}, $${r.usd}`} · authority-ruled ${a.ruled.ok ? 'green' : 'RED'} · grant-held ${a.held.ok ? 'green' : 'RED'}`,
   );

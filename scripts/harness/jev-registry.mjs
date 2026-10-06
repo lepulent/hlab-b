@@ -82,7 +82,9 @@ export function optIndex(id) {
 // reworded (Ludwig 2026-10-05), which is the same leak. So the guards are bare principles and the
 // examples come from a domain neither app has (a ferry timetable, a bakery's orders, a weather station),
 // and v2 is scored ONLY on questions asked after SCORED_FROM: a split in time, not a promise in prose.
-export const QUESTION_ANSWER_V2_SCORED_FROM = '2026-10-05T13:00:00Z';
+// No earlier than the commit of the criteria' last change (2026-10-05T16:59:15Z): a plan planted while
+// they were being written is not held out (Ludwig: r9a/r9b at 16:52Z). A test holds this to git.
+export const QUESTION_ANSWER_V2_SCORED_FROM = '2026-10-05T17:00:00Z';
 const NOT_FOR = [
   'Not the answer when the option needs a paid service, an outside party or a dependency the intent does not fund.',
   "Not the answer when the option asks for more assurance than the plan's rigor calls for.",

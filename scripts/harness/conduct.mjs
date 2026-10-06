@@ -482,9 +482,12 @@ const gates = {};
 const ledgerLines = () =>
   existsSync(ledgerFile) ? parseLedger(readFileSync(ledgerFile, 'utf8')) : [];
 // step 15: the authority a billed act asks first (grants.mjs authorizer), on this plan's ledger
+// a standing grant's draw is keyed by the plan AND the commit it was planted from, so a plan re-planted
+// under a reused slug after a reset does not inherit the old plan's slot (Ludwig 2026-10-06)
+const DRAW_KEY = `${PLAN}@${String(route.base || '').slice(0, 12)}`;
 const jevAuthority = authorizer({
   lines: ledgerLines,
-  plan: PLAN,
+  plan: DRAW_KEY,
   standing: () => readStanding(),
   write: (data) => ledger('ruling', data),
   floor: harness.yolo?.floor ?? null,
@@ -1957,7 +1960,7 @@ const checks = {
   },
   // step 15: every billed act ran under a ruling, and every allowing ruling under a live owner's grant
   ...(() => {
-    const a = authorityAudit(ledgerLines(), { standing: readStanding(), plan: PLAN });
+    const a = authorityAudit(ledgerLines(), { standing: readStanding(), plan: DRAW_KEY });
     return {
       'authority-ruled': {
         ok: a.ruled.ok,
