@@ -136,14 +136,14 @@ describe('resolveGhostCollisions', () => {
     expect(next.pacman.pos).toEqual(PACMAN_START);
   });
 
-  it('P0-GAME-004 removes a frightened ghost and awards points without costing a life', () => {
+  it('P0-GAME-004 sends a frightened ghost home and awards points without costing a life', () => {
     const ghost = buildGhost({ pos: { x: 2, y: 2 }, mode: 'frightened', home: { x: 3, y: 3 } });
     const state = buildState({ ghosts: [ghost], lives: 3 });
     const next = resolveGhostCollisions(state);
     expect(next.lives).toBe(3);
     expect(next.score).toBe(200);
-    expect(next.ghosts[0]?.pos).toEqual({ x: 3, y: 3 });
-    expect(next.ghosts[0]?.mode).toBe('chase');
+    expect(next.ghosts[0]?.pos).toEqual({ x: 2, y: 2 });
+    expect(next.ghosts[0]?.mode).toBe('returning');
   });
 
   it('P0-GAME-004 leaves the game unchanged when no ghost overlaps pacman', () => {
@@ -635,7 +635,7 @@ describe('in-play score display', () => {
     });
     const after = tick(before, 'right');
     expect(after.lives).toBe(before.lives);
-    expect(after.ghosts[0]?.mode).toBe('chase');
+    expect(after.ghosts[0]?.mode).toBe('returning');
     expect(ghostPoints()).toBeGreaterThan(0);
     expect(hudScore(after)).toBe(`Score: ${before.score + ghostPoints()}`);
   });
@@ -857,5 +857,154 @@ describe('bonus fruit once per game', () => {
     expect(expired.fruit.phase).toBe('done');
     const later = tick({ ...expired, dotsTotal: 9, dotsRemaining: 5 }, 'right');
     expect(later.fruit.phase).toBe('done');
+  });
+});
+
+const BIG_ROOM = buildMaze([
+  '#######',
+  '#.....#',
+  '#.....#',
+  '#.....#',
+  '#.....#',
+  '#.....#',
+  '#######',
+]);
+
+const distance = (a: { x: number; y: number }, b: { x: number; y: number }): number =>
+  Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+
+describe('eaten ghost returns home', () => {
+  it('P0-GAME-022 turns a touched frightened ghost into a returning one where it stands', () => {
+    // canon: CAP-7.1
+    const ghost = buildGhost({ pos: AT, mode: 'frightened', home: { x: 1, y: 1 } });
+    const next = resolveGhostCollisions(buildState({ ghosts: [ghost], lives: 3 }));
+    expect(next.ghosts[0]?.mode).toBe('returning');
+    expect(next.ghosts[0]?.pos).toEqual(AT);
+    expect(next.score).toBe(ghostPoints());
+    expect(next.lives).toBe(3);
+  });
+
+  it('P0-GAME-023 costs no life and scores nothing when a returning ghost touches pacman', () => {
+    // canon: CAP-7.2
+    const ghost = buildGhost({ pos: AT, mode: 'returning', home: { x: 1, y: 1 } });
+    const state = buildState({ ghosts: [ghost], lives: 3, score: 40 });
+    expect(resolveGhostCollisions(state)).toEqual(state);
+
+    const moved = tick({ ...state, ghosts: [{ ...ghost, pos: { x: 3, y: 2 } }] }, 'right');
+    expect(moved.lives).toBe(3);
+    expect(moved.score).toBe(40 + dotPoints());
+  });
+
+  it('P0-GAME-024 moves a returning ghost one step closer to home, ignoring pacman', () => {
+    // canon: CAP-7.3
+    const from = { x: 5, y: 5 };
+    const home = { x: 1, y: 1 };
+    const state = buildState({
+      maze: BIG_ROOM,
+      pacman: { pos: { x: 5, y: 4 }, dir: 'left' },
+      ghosts: [buildGhost({ pos: from, dir: 'down', mode: 'returning', home })],
+    });
+    const ghost = tick(state, null).ghosts[0];
+    expect(ghost?.mode).toBe('returning');
+    expect(isWalkable(BIG_ROOM, ghost?.pos ?? { x: 0, y: 0 })).toBe(true);
+    expect(distance(ghost?.pos ?? from, home)).toBe(distance(from, home) - 1);
+    expect(ghost?.pos).not.toEqual(from);
+  });
+
+  it('P0-GAME-024 leaves a returning ghost where it is while paused', () => {
+    // canon: CAP-7.3
+    const ghost = buildGhost({ pos: { x: 5, y: 5 }, mode: 'returning', home: { x: 1, y: 1 } });
+    const state = togglePause(buildState({ maze: BIG_ROOM, ghosts: [ghost] }));
+    expect(tick(state, null).ghosts[0]).toEqual(ghost);
+  });
+
+  it('P0-GAME-025 walks an eaten ghost through the door to its home cell, then chases', () => {
+    // canon: CAP-7.4
+    const maze = createMaze();
+    const home = { x: 9, y: 9 };
+    const eaten = buildGhost({ pos: { x: 9, y: 6 }, mode: 'returning', home });
+    let state: GameState = {
+      ...createGameState(),
+      readyTicks: 0,
+      ghosts: [eaten],
+    };
+    const visited: string[] = [];
+    for (let i = 0; i < 20 && state.ghosts[0]?.mode === 'returning'; i++) {
+      state = tick(state, null);
+      visited.push(`${state.ghosts[0]?.pos.x},${state.ghosts[0]?.pos.y}`);
+    }
+    expect(maze.grid[8]?.[9]).toBe('empty');
+    expect(visited).toContain('9,8');
+    expect(state.ghosts[0]?.pos).toEqual(home);
+    expect(state.ghosts[0]?.mode).toBe('chase');
+    expect(tick(state, null).ghosts[0]?.pos).not.toEqual(home);
+  });
+
+  it('P0-GAME-026 does not frighten a returning ghost when a pellet is eaten', () => {
+    // canon: CAP-7.5
+    const maze = buildMaze(['#####', '#...#', '#.o.#', '#...#', '#####']);
+    const state = buildState({
+      maze,
+      ghosts: [
+        buildGhost({ id: 0, mode: 'returning', pos: { x: 3, y: 3 } }),
+        buildGhost({ id: 1, mode: 'chase', pos: { x: 3, y: 1 } }),
+      ],
+    });
+    const next = eatDot(state, AT);
+    expect(next.frightenedTicks).toBeGreaterThan(0);
+    expect(next.ghosts.map((g) => g.mode)).toEqual(['returning', 'frightened']);
+  });
+
+  it('P0-GAME-027 keeps a ghost returning when frightened mode ends, until it is home', () => {
+    // canon: CAP-7.6
+    const home = { x: 1, y: 1 };
+    const state = buildState({
+      maze: BIG_ROOM,
+      pacman: { pos: { x: 1, y: 5 }, dir: 'left' },
+      frightenedTicks: 1,
+      ghosts: [
+        buildGhost({ id: 0, pos: { x: 5, y: 5 }, dir: 'down', mode: 'returning', home }),
+        buildGhost({ id: 1, pos: { x: 5, y: 1 }, dir: 'left', mode: 'frightened', home }),
+      ],
+    });
+    let next = tick(state, null);
+    expect(next.frightenedTicks).toBe(0);
+    expect(next.ghosts.map((g) => g.mode)).toEqual(['returning', 'chase']);
+
+    for (let i = 0; i < 20 && next.ghosts[0]?.mode === 'returning'; i++) next = tick(next, null);
+    expect(next.ghosts[0]?.mode).toBe('chase');
+    expect(next.ghosts[0]?.pos).toEqual(home);
+  });
+
+  it('P0-GAME-028 puts a returning ghost on its home cell chasing when a life is lost', () => {
+    // canon: CAP-7.7
+    const ghost = buildGhost({ pos: { x: 3, y: 3 }, mode: 'returning', home: { x: 1, y: 2 } });
+    const next = loseLife(buildState({ lives: 2, ghosts: [ghost] }));
+    expect(next.ghosts[0]?.pos).toEqual({ x: 1, y: 2 });
+    expect(next.ghosts[0]?.mode).toBe('chase');
+  });
+
+  it('P0-GAME-028 starts a new game with every ghost on its home cell chasing', () => {
+    // canon: CAP-7.7
+    const { ghosts } = createGameState();
+    expect(ghosts.every((g) => g.mode === 'chase')).toBe(true);
+    expect(ghosts.every((g) => g.pos.x === g.home.x && g.pos.y === g.home.y)).toBe(true);
+  });
+
+  it('P0-UI-017 draws a returning ghost in a colour unlike chasing and frightened ghosts', () => {
+    // canon: CAP-7.8
+    const fillOf = (mode: Ghost['mode']): string | undefined => {
+      const state = buildState({ ghosts: [buildGhost({ mode })] });
+      const log = drawn(state);
+      const rect = `fillRect(${1 * TILE + 2},${1 * TILE + 2},${TILE - 4},${TILE - 4})`;
+      const at = log.indexOf(rect);
+      return log
+        .slice(0, at)
+        .reverse()
+        .find((entry) => entry.startsWith('fillStyle='));
+    };
+    const colours = [fillOf('chase'), fillOf('frightened'), fillOf('returning')];
+    expect(colours.every((c) => c !== undefined)).toBe(true);
+    expect(new Set(colours).size).toBe(3);
   });
 });

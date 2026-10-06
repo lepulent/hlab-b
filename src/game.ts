@@ -1,8 +1,16 @@
 import type { Maze, Position } from './maze';
-import { GHOST_STARTS, PACMAN_START, cellAt, createMaze, countRemaining, isWalkable } from './maze';
+import {
+  GHOST_STARTS,
+  PACMAN_START,
+  cellAt,
+  createMaze,
+  countRemaining,
+  isWalkable,
+  stepToward,
+} from './maze';
 
 export type Direction = 'up' | 'down' | 'left' | 'right';
-type GhostMode = 'chase' | 'frightened';
+type GhostMode = 'chase' | 'frightened' | 'returning';
 
 export type Ghost = {
   readonly id: number;
@@ -98,6 +106,7 @@ export function attemptMove(maze: Maze, pos: Position, dir: Direction): Position
 }
 
 // canon: CAP-1.3
+// canon: CAP-7.5
 export function eatDot(state: GameState, pos: Position): GameState {
   const cell = cellAt(state.maze, pos);
   if (cell !== 'dot' && cell !== 'pellet') return state;
@@ -112,7 +121,9 @@ export function eatDot(state: GameState, pos: Position): GameState {
   const frightenedTicks = cell === 'pellet' ? FRIGHTENED_DURATION : state.frightenedTicks;
   const ghosts =
     cell === 'pellet'
-      ? state.ghosts.map((g) => ({ ...g, mode: 'frightened' as GhostMode }))
+      ? state.ghosts.map((g) =>
+          g.mode === 'returning' ? g : { ...g, mode: 'frightened' as GhostMode },
+        )
       : state.ghosts;
 
   return { ...state, maze, dotsRemaining, score, frightenedTicks, ghosts };
@@ -127,6 +138,7 @@ export function checkWin(state: GameState): GameState {
 // canon: CAP-1.6
 // canon: CAP-6.2
 // canon: CAP-6.3
+// canon: CAP-7.7
 export function loseLife(state: GameState): GameState {
   const lives = state.lives - 1;
   if (lives <= 0) return { ...state, lives: 0, status: 'lost' };
@@ -140,14 +152,17 @@ export function loseLife(state: GameState): GameState {
 }
 
 // canon: CAP-1.4
+// canon: CAP-7.1
+// canon: CAP-7.2
 export function resolveGhostCollisions(state: GameState): GameState {
   const collided = state.ghosts.find(
-    (g) => g.pos.x === state.pacman.pos.x && g.pos.y === state.pacman.pos.y,
+    (g) =>
+      g.mode !== 'returning' && g.pos.x === state.pacman.pos.x && g.pos.y === state.pacman.pos.y,
   );
   if (!collided) return state;
   if (collided.mode === 'frightened') {
     const ghosts = state.ghosts.map((g) =>
-      g.id === collided.id ? { ...g, pos: { ...g.home }, mode: 'chase' as GhostMode } : g,
+      g.id === collided.id ? { ...g, mode: 'returning' as GhostMode } : g,
     );
     return { ...state, ghosts, score: state.score + GHOST_SCORE };
   }
@@ -185,8 +200,25 @@ function movePacman(state: GameState, dir: Direction): GameState {
   return checkWin(eatDot(moved, target));
 }
 
+// canon: CAP-7.3
+// canon: CAP-7.4
+function moveReturning(maze: Maze, ghost: Ghost): Ghost {
+  const step = stepToward(maze, ghost.pos, ghost.home);
+  if (!step) {
+    const atHome = ghost.pos.x === ghost.home.x && ghost.pos.y === ghost.home.y;
+    return atHome ? { ...ghost, mode: 'chase' } : ghost;
+  }
+  const dir = DIRECTIONS.find((d) => {
+    const p = nextPosition(ghost.pos, d);
+    return p.x === step.x && p.y === step.y;
+  });
+  const arrived = step.x === ghost.home.x && step.y === ghost.home.y;
+  return { ...ghost, pos: step, dir: dir ?? ghost.dir, mode: arrived ? 'chase' : 'returning' };
+}
+
 // canon: CAP-1.9
 function moveGhost(maze: Maze, ghost: Ghost, target: Position): Ghost {
+  if (ghost.mode === 'returning') return moveReturning(maze, ghost);
   const options = DIRECTIONS.map((dir) => ({ dir, pos: nextPosition(ghost.pos, dir) })).filter(
     ({ pos }) => isWalkable(maze, pos),
   );
@@ -220,6 +252,7 @@ export function togglePause(state: GameState): GameState {
 // canon: CAP-2.4
 // canon: CAP-6.4
 // canon: CAP-6.5
+// canon: CAP-7.6
 export function tick(state: GameState, dir: Direction | null): GameState {
   if (state.status !== 'playing' || state.paused) return state;
   if (state.readyTicks > 0) return { ...state, readyTicks: state.readyTicks - 1 };
@@ -233,7 +266,9 @@ export function tick(state: GameState, dir: Direction | null): GameState {
   const frightenedTicks = Math.max(0, afterGhosts.frightenedTicks - 1);
   const ghosts =
     frightenedTicks === 0
-      ? afterGhosts.ghosts.map((g) => ({ ...g, mode: 'chase' as GhostMode }))
+      ? afterGhosts.ghosts.map((g) =>
+          g.mode === 'returning' ? g : { ...g, mode: 'chase' as GhostMode },
+        )
       : afterGhosts.ghosts;
 
   return tickFruit(resolveGhostCollisions({ ...afterGhosts, frightenedTicks, ghosts }));

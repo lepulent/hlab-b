@@ -83,6 +83,34 @@ export function isWalkable(maze: Maze, pos: Position): boolean {
   return cellAt(maze, pos) !== undefined && cellAt(maze, pos) !== 'wall';
 }
 
+const NEIGHBOURS: Position[] = [
+  { x: 0, y: -1 },
+  { x: 0, y: 1 },
+  { x: -1, y: 0 },
+  { x: 1, y: 0 },
+];
+
+// canon: CAP-7.3
+export function stepToward(maze: Maze, from: Position, to: Position): Position | undefined {
+  if (from.x === to.x && from.y === to.y) return undefined;
+  const key = (p: Position): string => `${p.x},${p.y}`;
+  // Search outwards from the target, so the cell that first reaches `from` is its next step.
+  const seen = new Set<string>([key(to)]);
+  const queue: Position[] = [to];
+  for (let head = 0; head < queue.length; head++) {
+    const pos = queue[head];
+    if (!pos) break;
+    for (const d of NEIGHBOURS) {
+      const n = { x: pos.x + d.x, y: pos.y + d.y };
+      if (seen.has(key(n)) || !isWalkable(maze, n)) continue;
+      if (n.x === from.x && n.y === from.y) return { ...pos };
+      seen.add(key(n));
+      queue.push(n);
+    }
+  }
+  return undefined;
+}
+
 export function countRemaining(maze: Maze): number {
   let count = 0;
   for (const row of maze.grid)

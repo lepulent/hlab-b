@@ -7,6 +7,7 @@ const WALL_COLOR = '#1919c2';
 const DOT_COLOR = '#ffd8a8';
 const PACMAN_COLOR = '#fedd00';
 const FRIGHTENED_COLOR = '#2121de';
+const RETURNING_COLOR = '#555566';
 const FRUIT_COLOR = '#ff3355';
 const OVERLAY_COLOR = 'rgba(0, 0, 0, 0.75)';
 const LOST_COLOR = '#ff0000';
@@ -44,11 +45,15 @@ function drawFruit(ctx: CanvasRenderingContext2D, state: GameState): void {
   ctx.fill();
 }
 
+// canon: CAP-7.8
+function ghostColor(ghost: Ghost): string {
+  if (ghost.mode === 'returning') return RETURNING_COLOR;
+  if (ghost.mode === 'frightened') return FRIGHTENED_COLOR;
+  return GHOST_COLORS[ghost.id % GHOST_COLORS.length] ?? '#fff';
+}
+
 function drawGhost(ctx: CanvasRenderingContext2D, ghost: Ghost): void {
-  ctx.fillStyle =
-    ghost.mode === 'frightened'
-      ? FRIGHTENED_COLOR
-      : (GHOST_COLORS[ghost.id % GHOST_COLORS.length] ?? '#fff');
+  ctx.fillStyle = ghostColor(ghost);
   ctx.fillRect(ghost.pos.x * TILE + 2, ghost.pos.y * TILE + 2, TILE - 4, TILE - 4);
 }
 
