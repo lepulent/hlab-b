@@ -1049,6 +1049,7 @@ async function runWave(n, d) {
     n,
     def: byId.get(c.agent),
     owned: c.owned,
+    deliverables: c.deliverables,
     relayed: relay.sources.map((s) => s.path),
   }));
   for (const a of wave)
@@ -1172,7 +1173,9 @@ async function runWave(n, d) {
           : [],
     );
     // an owned entry is delivered when a file it names, or a file under its glob, was written
-    a.undelivered = a.owned.filter((o) =>
+    // judged on its artifacts' own paths: also_owns paths are allowed, not owed (22219c1 made every dev
+    // seat on hlab-a g1a/g2a "abandoned: ended without writing tests/e2e/**")
+    a.undelivered = (a.deliverables || a.owned).filter((o) =>
       o.includes('*') ? !a.written.some((p) => owns([o], p)) : !a.written.includes(o),
     );
     a.asked = r.out?.structured_output?.questions || [];

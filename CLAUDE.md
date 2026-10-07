@@ -26,13 +26,14 @@ A browser pacman with pixel art and keyboard control. This repo is one of two la
 
 <!-- generated:start -->
 
-- capabilities: 6 · criteria: 37 · pointers: 81 · departments: Security, Platform, Testing
+- capabilities: 7 · criteria: 45 · pointers: 100 · departments: Security, Platform, Testing
 - CAP-1 Pacman gameplay · v2.0.0 · prototype
 - CAP-2 Pause and resume · v0.1.0 · prototype
 - CAP-3 End-of-game score screen and restart · v0.1.0 · prototype
 - CAP-4 In-play score display · v0.1.0 · prototype
 - CAP-5 Bonus fruit · v0.1.0 · prototype
 - CAP-6 Ready message at the start of each life · v0.1.0 · prototype
+- CAP-7 Eaten ghosts return to the ghost house · v0.0.0 · draft
 - layers: composition, ui, domain, transport, persistence, infrastructure, tests, harness
 
 <!-- generated:end -->

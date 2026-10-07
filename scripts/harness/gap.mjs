@@ -137,11 +137,14 @@ export function castGap(dec, catalogue, plan) {
       artifacts: [],
       workflows: [],
       owned: [],
+      // what the seat must deliver: the artifacts' own paths, never what it is merely allowed to write
+      deliverables: [],
       tasks: [],
     };
     cast.artifacts.push(d.id);
     cast.workflows.push(d.workflow);
     cast.owned.push(d.path.replaceAll('{plan}', plan), ...(d.also_owns || []));
+    cast.deliverables.push(d.path.replaceAll('{plan}', plan));
     cast.tasks.push(`${d.title} (${d.path.replaceAll('{plan}', plan)}): ${a.task}`);
     byAgent.set(d.produced_by, cast);
   }
