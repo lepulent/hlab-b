@@ -1,7 +1,67 @@
 {
-  "generatedAt": "2026-10-08T14:52:44.504Z",
+  "generatedAt": "2026-10-08T15:10:30.883Z",
   "root": ".",
   "nodes": [
+    {
+      "id": "file:src/best.test.ts",
+      "kind": "file",
+      "label": "src/best.test.ts",
+      "file": "src/best.test.ts"
+    },
+    {
+      "id": "arrow:src/best.test.ts#fake",
+      "kind": "arrow",
+      "label": "fake",
+      "file": "src/best.test.ts",
+      "line": 4,
+      "exported": false
+    },
+    {
+      "id": "arrow:src/best.test.ts#throwing",
+      "kind": "arrow",
+      "label": "throwing",
+      "file": "src/best.test.ts",
+      "line": 5,
+      "exported": false
+    },
+    {
+      "id": "file:src/best.ts",
+      "kind": "file",
+      "label": "src/best.ts",
+      "file": "src/best.ts"
+    },
+    {
+      "id": "func:src/best.ts#nextBest",
+      "kind": "function",
+      "label": "nextBest",
+      "file": "src/best.ts",
+      "line": 5,
+      "exported": true
+    },
+    {
+      "id": "func:src/best.ts#readBest",
+      "kind": "function",
+      "label": "readBest",
+      "file": "src/best.ts",
+      "line": 11,
+      "exported": true
+    },
+    {
+      "id": "func:src/best.ts#writeBest",
+      "kind": "function",
+      "label": "writeBest",
+      "file": "src/best.ts",
+      "line": 25,
+      "exported": true
+    },
+    {
+      "id": "func:src/best.ts#bestText",
+      "kind": "function",
+      "label": "bestText",
+      "file": "src/best.ts",
+      "line": 35,
+      "exported": true
+    },
     {
       "id": "file:src/game.test.ts",
       "kind": "file",
@@ -117,7 +177,7 @@
       "kind": "function",
       "label": "nearHalf",
       "file": "src/game.test.ts",
-      "line": 698,
+      "line": 699,
       "exported": false
     },
     {
@@ -125,7 +185,7 @@
       "kind": "function",
       "label": "besideFruit",
       "file": "src/game.test.ts",
-      "line": 703,
+      "line": 704,
       "exported": false
     },
     {
@@ -133,7 +193,7 @@
       "kind": "arrow",
       "label": "arcAtFruit",
       "file": "src/game.test.ts",
-      "line": 752,
+      "line": 753,
       "exported": false
     },
     {
@@ -141,7 +201,7 @@
       "kind": "function",
       "label": "phasesPlayed",
       "file": "src/game.test.ts",
-      "line": 831,
+      "line": 832,
       "exported": false
     },
     {
@@ -149,7 +209,7 @@
       "kind": "arrow",
       "label": "distance",
       "file": "src/game.test.ts",
-      "line": 876,
+      "line": 877,
       "exported": false
     },
     {
@@ -157,7 +217,7 @@
       "kind": "arrow",
       "label": "fillOf",
       "file": "src/game.test.ts",
-      "line": 999,
+      "line": 1000,
       "exported": false
     },
     {
@@ -165,7 +225,7 @@
       "kind": "arrow",
       "label": "laneState",
       "file": "src/game.test.ts",
-      "line": 1017,
+      "line": 1018,
       "exported": false
     },
     {
@@ -173,7 +233,7 @@
       "kind": "arrow",
       "label": "atStart",
       "file": "src/game.test.ts",
-      "line": 1025,
+      "line": 1026,
       "exported": false
     },
     {
@@ -389,7 +449,15 @@
       "kind": "function",
       "label": "required",
       "file": "src/main.ts",
-      "line": 6,
+      "line": 7,
+      "exported": false
+    },
+    {
+      "id": "func:src/main.ts#getStorage",
+      "kind": "function",
+      "label": "getStorage",
+      "file": "src/main.ts",
+      "line": 33,
       "exported": false
     },
     {
@@ -397,7 +465,7 @@
       "kind": "function",
       "label": "applyScale",
       "file": "src/main.ts",
-      "line": 36,
+      "line": 50,
       "exported": false
     },
     {
@@ -405,7 +473,15 @@
       "kind": "function",
       "label": "render",
       "file": "src/main.ts",
-      "line": 56,
+      "line": 70,
+      "exported": false
+    },
+    {
+      "id": "func:src/main.ts#recordRunEnd",
+      "kind": "function",
+      "label": "recordRunEnd",
+      "file": "src/main.ts",
+      "line": 81,
       "exported": false
     },
     {
@@ -413,7 +489,7 @@
       "kind": "function",
       "label": "frame",
       "file": "src/main.ts",
-      "line": 63,
+      "line": 90,
       "exported": false
     },
     {
@@ -625,6 +701,20 @@
       "exported": false
     },
     {
+      "id": "file:tests/e2e/best-score.spec.ts",
+      "kind": "file",
+      "label": "tests/e2e/best-score.spec.ts",
+      "file": "tests/e2e/best-score.spec.ts"
+    },
+    {
+      "id": "func:tests/e2e/best-score.spec.ts#endRun",
+      "kind": "function",
+      "label": "endRun",
+      "file": "tests/e2e/best-score.spec.ts",
+      "line": 5,
+      "exported": false
+    },
+    {
       "id": "file:tests/e2e/returning-ghost.spec.ts",
       "kind": "file",
       "label": "tests/e2e/returning-ghost.spec.ts",
@@ -678,6 +768,42 @@
     }
   ],
   "edges": [
+    {
+      "source": "file:src/best.test.ts",
+      "target": "arrow:src/best.test.ts#fake",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/best.test.ts",
+      "target": "arrow:src/best.test.ts#throwing",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/best.ts",
+      "target": "func:src/best.ts#nextBest",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/best.ts",
+      "target": "func:src/best.ts#readBest",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/best.ts",
+      "target": "func:src/best.ts#writeBest",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/best.ts",
+      "target": "func:src/best.ts#bestText",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
     {
       "source": "file:src/game.test.ts",
       "target": "func:src/game.test.ts#buildMaze",
@@ -950,6 +1076,12 @@
     },
     {
       "source": "file:src/main.ts",
+      "target": "func:src/main.ts#getStorage",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/main.ts",
       "target": "func:src/main.ts#applyScale",
       "type": "DEFINES",
       "confidence": "EXTRACTED"
@@ -957,6 +1089,12 @@
     {
       "source": "file:src/main.ts",
       "target": "func:src/main.ts#render",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/main.ts",
+      "target": "func:src/main.ts#recordRunEnd",
       "type": "DEFINES",
       "confidence": "EXTRACTED"
     },
@@ -1105,6 +1243,12 @@
       "confidence": "EXTRACTED"
     },
     {
+      "source": "file:tests/e2e/best-score.spec.ts",
+      "target": "func:tests/e2e/best-score.spec.ts#endRun",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
       "source": "file:tests/e2e/returning-ghost.spec.ts",
       "target": "func:tests/e2e/returning-ghost.spec.ts#setUp",
       "type": "DEFINES",
@@ -1126,6 +1270,12 @@
       "source": "file:tests/policy/manifest.test.ts",
       "target": "arrow:tests/policy/manifest.test.ts#read",
       "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/best.test.ts",
+      "target": "file:src/best.ts",
+      "type": "IMPORTS",
       "confidence": "EXTRACTED"
     },
     {
@@ -1178,6 +1328,12 @@
     },
     {
       "source": "file:src/main.ts",
+      "target": "file:src/best.ts",
+      "type": "IMPORTS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/main.ts",
       "target": "file:src/input.ts",
       "type": "IMPORTS",
       "confidence": "EXTRACTED"
@@ -1198,6 +1354,36 @@
       "source": "file:src/render.ts",
       "target": "file:src/game.ts",
       "type": "IMPORTS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/best.test.ts",
+      "target": "func:src/best.ts#nextBest",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/best.test.ts",
+      "target": "func:src/best.ts#writeBest",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/best.test.ts",
+      "target": "func:src/best.ts#readBest",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/best.test.ts",
+      "target": "arrow:src/best.test.ts#fake",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/best.test.ts",
+      "target": "func:src/best.ts#bestText",
+      "type": "CALLS",
       "confidence": "EXTRACTED"
     },
     {
@@ -1748,6 +1934,18 @@
     },
     {
       "source": "file:src/main.ts",
+      "target": "func:src/main.ts#getStorage",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/main.ts",
+      "target": "func:src/best.ts#readBest",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/main.ts",
       "target": "func:src/game.ts#createGameState",
       "type": "CALLS",
       "confidence": "EXTRACTED"
@@ -1766,13 +1964,37 @@
     },
     {
       "source": "func:src/main.ts#render",
+      "target": "func:src/best.ts#bestText",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/main.ts#render",
       "target": "func:src/render.ts#statusText",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/main.ts#recordRunEnd",
+      "target": "func:src/best.ts#nextBest",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/main.ts#recordRunEnd",
+      "target": "func:src/best.ts#writeBest",
       "type": "CALLS",
       "confidence": "EXTRACTED"
     },
     {
       "source": "func:src/main.ts#frame",
       "target": "func:src/game.ts#tick",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/main.ts#frame",
+      "target": "func:src/main.ts#recordRunEnd",
       "type": "CALLS",
       "confidence": "EXTRACTED"
     },
@@ -1933,6 +2155,12 @@
       "confidence": "EXTRACTED"
     },
     {
+      "source": "file:tests/e2e/best-score.spec.ts",
+      "target": "func:tests/e2e/best-score.spec.ts#endRun",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
       "source": "file:tests/e2e/returning-ghost.spec.ts",
       "target": "func:tests/e2e/returning-ghost.spec.ts#setUp",
       "type": "CALLS",
@@ -1948,6 +2176,12 @@
       "source": "file:tests/policy/manifest.test.ts",
       "target": "arrow:tests/policy/manifest.test.ts#read",
       "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/best.test.ts",
+      "target": "file:src/best.ts",
+      "type": "TESTS",
       "confidence": "EXTRACTED"
     },
     {

@@ -2,9 +2,9 @@
 id: CAP-9
 kind: capability
 title: Best score of the session
-version: 0.0.0
+version: 0.1.0
 assurance: draft
-valid_from: 273ec68
+valid_from: 5b2f0805b4b0953af9629dbe9a11a2ccef69ae4f
 ---
 
 ## Why

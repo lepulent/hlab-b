@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-08T14:52:50.889Z",
+  "generatedAt": "2026-10-08T15:10:31.020Z",
   "nodes": [
     {
       "id": "MAP",
@@ -777,6 +777,95 @@
       "label": "P0-GAME-035"
     },
     {
+      "id": "CAP-9",
+      "kind": "capability",
+      "label": "Best score of the session",
+      "file": "canon/capabilities/CAP-9.md",
+      "assurance": "draft",
+      "version": "0.1.0",
+      "valid_from": "5b2f0805b4b0953af9629dbe9a11a2ccef69ae4f",
+      "valid_to": null,
+      "layer": "harness"
+    },
+    {
+      "id": "CAP-9.1",
+      "kind": "criterion",
+      "label": "The best score is kept for the tab session: after a run ends and the page is reloaded in the same tab, the best score is shown again",
+      "file": "canon/capabilities/CAP-9.md",
+      "parent": "CAP-9",
+      "layer": "harness"
+    },
+    {
+      "id": "P0-GAME-036",
+      "kind": "coverage-row",
+      "label": "P0-GAME-036"
+    },
+    {
+      "id": "CAP-9.2",
+      "kind": "criterion",
+      "label": "When a run ends in a win or a loss with a score higher than the best, or with no best yet, that score becomes the best",
+      "file": "canon/capabilities/CAP-9.md",
+      "parent": "CAP-9",
+      "layer": "harness"
+    },
+    {
+      "id": "P0-GAME-037",
+      "kind": "coverage-row",
+      "label": "P0-GAME-037"
+    },
+    {
+      "id": "CAP-9.3",
+      "kind": "criterion",
+      "label": "A run that ends with a score lower than or equal to the best leaves the best unchanged, and the best does not change while a run is still in play",
+      "file": "canon/capabilities/CAP-9.md",
+      "parent": "CAP-9",
+      "layer": "harness"
+    },
+    {
+      "id": "P0-GAME-038",
+      "kind": "coverage-row",
+      "label": "P0-GAME-038"
+    },
+    {
+      "id": "CAP-9.4",
+      "kind": "criterion",
+      "label": "When session storage is unavailable or holds an invalid value, the game still runs and the best score is kept in memory for the life of the page",
+      "file": "canon/capabilities/CAP-9.md",
+      "parent": "CAP-9",
+      "layer": "harness"
+    },
+    {
+      "id": "P0-GAME-039",
+      "kind": "coverage-row",
+      "label": "P0-GAME-039"
+    },
+    {
+      "id": "CAP-9.5",
+      "kind": "criterion",
+      "label": "The best score is displayed as text, and shows that no best exists yet until a run has ended",
+      "file": "canon/capabilities/CAP-9.md",
+      "parent": "CAP-9",
+      "layer": "harness"
+    },
+    {
+      "id": "P0-UI-018",
+      "kind": "coverage-row",
+      "label": "P0-UI-018"
+    },
+    {
+      "id": "CAP-9.6",
+      "kind": "criterion",
+      "label": "Starting a new game resets the score but not the displayed best score",
+      "file": "canon/capabilities/CAP-9.md",
+      "parent": "CAP-9",
+      "layer": "harness"
+    },
+    {
+      "id": "P0-UI-019",
+      "kind": "coverage-row",
+      "label": "P0-UI-019"
+    },
+    {
       "id": "CONSTITUTION",
       "kind": "constitution",
       "label": "CONSTITUTION",
@@ -825,6 +914,27 @@
       "id": "check:policy/tags-present",
       "kind": "check",
       "label": "policy/tags-present"
+    },
+    {
+      "id": "file:src/best.ts#L3",
+      "kind": "symbol",
+      "label": "L3",
+      "file": "src/best.ts",
+      "layer": "domain"
+    },
+    {
+      "id": "file:src/best.ts#L9",
+      "kind": "symbol",
+      "label": "L9",
+      "file": "src/best.ts",
+      "layer": "domain"
+    },
+    {
+      "id": "file:src/best.ts#L23",
+      "kind": "symbol",
+      "label": "L23",
+      "file": "src/best.ts",
+      "layer": "domain"
     },
     {
       "id": "file:src/game.test.ts#state",
@@ -904,30 +1014,30 @@
       "layer": "domain"
     },
     {
-      "id": "file:src/game.test.ts#L727",
+      "id": "file:src/game.test.ts#L728",
       "kind": "symbol",
-      "label": "L727",
+      "label": "L728",
       "file": "src/game.test.ts",
       "layer": "domain"
     },
     {
-      "id": "file:src/game.test.ts#L732",
+      "id": "file:src/game.test.ts#L733",
       "kind": "symbol",
-      "label": "L732",
+      "label": "L733",
       "file": "src/game.test.ts",
       "layer": "domain"
     },
     {
-      "id": "file:src/game.test.ts#L737",
+      "id": "file:src/game.test.ts#L738",
       "kind": "symbol",
-      "label": "L737",
+      "label": "L738",
       "file": "src/game.test.ts",
       "layer": "domain"
     },
     {
-      "id": "file:src/game.test.ts#L742",
+      "id": "file:src/game.test.ts#L743",
       "kind": "symbol",
-      "label": "L742",
+      "label": "L743",
       "file": "src/game.test.ts",
       "layer": "domain"
     },
@@ -939,9 +1049,9 @@
       "layer": "domain"
     },
     {
-      "id": "file:src/game.test.ts#L761",
+      "id": "file:src/game.test.ts#L762",
       "kind": "symbol",
-      "label": "L761",
+      "label": "L762",
       "file": "src/game.test.ts",
       "layer": "domain"
     },
@@ -995,9 +1105,9 @@
       "layer": "domain"
     },
     {
-      "id": "file:src/game.test.ts#L991",
+      "id": "file:src/game.test.ts#L992",
       "kind": "symbol",
-      "label": "L991",
+      "label": "L992",
       "file": "src/game.test.ts",
       "layer": "domain"
     },
@@ -1009,9 +1119,9 @@
       "layer": "domain"
     },
     {
-      "id": "file:src/game.test.ts#L1074",
+      "id": "file:src/game.test.ts#L1075",
       "kind": "symbol",
-      "label": "L1074",
+      "label": "L1075",
       "file": "src/game.test.ts",
       "layer": "domain"
     },
@@ -1023,9 +1133,9 @@
       "layer": "domain"
     },
     {
-      "id": "file:src/game.test.ts#L1150",
+      "id": "file:src/game.test.ts#L1151",
       "kind": "symbol",
-      "label": "L1150",
+      "label": "L1151",
       "file": "src/game.test.ts",
       "layer": "domain"
     },
@@ -1205,6 +1315,20 @@
       "layer": "domain"
     },
     {
+      "id": "file:src/main.ts#L78",
+      "kind": "symbol",
+      "label": "L78",
+      "file": "src/main.ts",
+      "layer": "composition"
+    },
+    {
+      "id": "file:src/main.ts#L79",
+      "kind": "symbol",
+      "label": "L79",
+      "file": "src/main.ts",
+      "layer": "composition"
+    },
+    {
       "id": "file:src/render.ts#L31",
       "kind": "symbol",
       "label": "L31",
@@ -1231,6 +1355,66 @@
       "label": "L83",
       "file": "src/render.ts",
       "layer": "domain"
+    },
+    {
+      "id": "file:src/best.test.ts",
+      "kind": "file",
+      "label": "src/best.test.ts",
+      "file": "src/best.test.ts"
+    },
+    {
+      "id": "arrow:src/best.test.ts#fake",
+      "kind": "arrow",
+      "label": "fake",
+      "file": "src/best.test.ts",
+      "line": 4,
+      "exported": false
+    },
+    {
+      "id": "arrow:src/best.test.ts#throwing",
+      "kind": "arrow",
+      "label": "throwing",
+      "file": "src/best.test.ts",
+      "line": 5,
+      "exported": false
+    },
+    {
+      "id": "file:src/best.ts",
+      "kind": "file",
+      "label": "src/best.ts",
+      "file": "src/best.ts"
+    },
+    {
+      "id": "func:src/best.ts#nextBest",
+      "kind": "function",
+      "label": "nextBest",
+      "file": "src/best.ts",
+      "line": 5,
+      "exported": true
+    },
+    {
+      "id": "func:src/best.ts#readBest",
+      "kind": "function",
+      "label": "readBest",
+      "file": "src/best.ts",
+      "line": 11,
+      "exported": true
+    },
+    {
+      "id": "func:src/best.ts#writeBest",
+      "kind": "function",
+      "label": "writeBest",
+      "file": "src/best.ts",
+      "line": 25,
+      "exported": true
+    },
+    {
+      "id": "func:src/best.ts#bestText",
+      "kind": "function",
+      "label": "bestText",
+      "file": "src/best.ts",
+      "line": 35,
+      "exported": true
     },
     {
       "id": "file:src/game.test.ts",
@@ -1347,7 +1531,7 @@
       "kind": "function",
       "label": "nearHalf",
       "file": "src/game.test.ts",
-      "line": 698,
+      "line": 699,
       "exported": false
     },
     {
@@ -1355,7 +1539,7 @@
       "kind": "function",
       "label": "besideFruit",
       "file": "src/game.test.ts",
-      "line": 703,
+      "line": 704,
       "exported": false
     },
     {
@@ -1363,7 +1547,7 @@
       "kind": "arrow",
       "label": "arcAtFruit",
       "file": "src/game.test.ts",
-      "line": 752,
+      "line": 753,
       "exported": false
     },
     {
@@ -1371,7 +1555,7 @@
       "kind": "function",
       "label": "phasesPlayed",
       "file": "src/game.test.ts",
-      "line": 831,
+      "line": 832,
       "exported": false
     },
     {
@@ -1379,7 +1563,7 @@
       "kind": "arrow",
       "label": "distance",
       "file": "src/game.test.ts",
-      "line": 876,
+      "line": 877,
       "exported": false
     },
     {
@@ -1387,7 +1571,7 @@
       "kind": "arrow",
       "label": "fillOf",
       "file": "src/game.test.ts",
-      "line": 999,
+      "line": 1000,
       "exported": false
     },
     {
@@ -1395,7 +1579,7 @@
       "kind": "arrow",
       "label": "laneState",
       "file": "src/game.test.ts",
-      "line": 1017,
+      "line": 1018,
       "exported": false
     },
     {
@@ -1403,7 +1587,7 @@
       "kind": "arrow",
       "label": "atStart",
       "file": "src/game.test.ts",
-      "line": 1025,
+      "line": 1026,
       "exported": false
     },
     {
@@ -1619,7 +1803,15 @@
       "kind": "function",
       "label": "required",
       "file": "src/main.ts",
-      "line": 6,
+      "line": 7,
+      "exported": false
+    },
+    {
+      "id": "func:src/main.ts#getStorage",
+      "kind": "function",
+      "label": "getStorage",
+      "file": "src/main.ts",
+      "line": 33,
       "exported": false
     },
     {
@@ -1627,7 +1819,7 @@
       "kind": "function",
       "label": "applyScale",
       "file": "src/main.ts",
-      "line": 36,
+      "line": 50,
       "exported": false
     },
     {
@@ -1635,7 +1827,15 @@
       "kind": "function",
       "label": "render",
       "file": "src/main.ts",
-      "line": 56,
+      "line": 70,
+      "exported": false
+    },
+    {
+      "id": "func:src/main.ts#recordRunEnd",
+      "kind": "function",
+      "label": "recordRunEnd",
+      "file": "src/main.ts",
+      "line": 81,
       "exported": false
     },
     {
@@ -1643,7 +1843,7 @@
       "kind": "function",
       "label": "frame",
       "file": "src/main.ts",
-      "line": 63,
+      "line": 90,
       "exported": false
     },
     {
@@ -1852,6 +2052,20 @@
       "label": "ratio",
       "file": "tests/e2e/app.spec.ts",
       "line": 30,
+      "exported": false
+    },
+    {
+      "id": "file:tests/e2e/best-score.spec.ts",
+      "kind": "file",
+      "label": "tests/e2e/best-score.spec.ts",
+      "file": "tests/e2e/best-score.spec.ts"
+    },
+    {
+      "id": "func:tests/e2e/best-score.spec.ts#endRun",
+      "kind": "function",
+      "label": "endRun",
+      "file": "tests/e2e/best-score.spec.ts",
+      "line": 5,
       "exported": false
     },
     {
@@ -2599,6 +2813,78 @@
       "confidence": "EXTRACTED"
     },
     {
+      "source": "CAP-9",
+      "target": "CAP-9.1",
+      "type": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "P0-GAME-036",
+      "target": "CAP-9.1",
+      "type": "tests",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-9",
+      "target": "CAP-9.2",
+      "type": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "P0-GAME-037",
+      "target": "CAP-9.2",
+      "type": "tests",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-9",
+      "target": "CAP-9.3",
+      "type": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "P0-GAME-038",
+      "target": "CAP-9.3",
+      "type": "tests",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-9",
+      "target": "CAP-9.4",
+      "type": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "P0-GAME-039",
+      "target": "CAP-9.4",
+      "type": "tests",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-9",
+      "target": "CAP-9.5",
+      "type": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "P0-UI-018",
+      "target": "CAP-9.5",
+      "type": "tests",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-9",
+      "target": "CAP-9.6",
+      "type": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "P0-UI-019",
+      "target": "CAP-9.6",
+      "type": "tests",
+      "confidence": "EXTRACTED"
+    },
+    {
       "source": "CONSTITUTION",
       "target": "C-1",
       "type": "contains",
@@ -2633,6 +2919,62 @@
       "target": "check:policy/tags-present",
       "type": "enforced_by",
       "confidence": "EXTRACTED"
+    },
+    {
+      "source": "CAP-9.2",
+      "target": "file:src/best.ts#L3",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 3
+    },
+    {
+      "source": "CAP-9.3",
+      "target": "func:src/best.ts#nextBest",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 4
+    },
+    {
+      "source": "CAP-9.1",
+      "target": "file:src/best.ts#L9",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 9
+    },
+    {
+      "source": "CAP-9.4",
+      "target": "func:src/best.ts#readBest",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 10
+    },
+    {
+      "source": "CAP-9.1",
+      "target": "file:src/best.ts#L23",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 23
+    },
+    {
+      "source": "CAP-9.4",
+      "target": "func:src/best.ts#writeBest",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 24
+    },
+    {
+      "source": "CAP-9.5",
+      "target": "func:src/best.ts#bestText",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 34
     },
     {
       "source": "CAP-6.1",
@@ -2712,7 +3054,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 610
+      "line": 611
     },
     {
       "source": "CAP-4.4",
@@ -2720,7 +3062,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 620
+      "line": 621
     },
     {
       "source": "CAP-4.5",
@@ -2728,7 +3070,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 631
+      "line": 632
     },
     {
       "source": "CAP-4.5",
@@ -2736,7 +3078,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 647
+      "line": 648
     },
     {
       "source": "CAP-4.6",
@@ -2744,7 +3086,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 659
+      "line": 660
     },
     {
       "source": "CAP-4.6",
@@ -2752,7 +3094,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 675
+      "line": 676
     },
     {
       "source": "CAP-5.1",
@@ -2760,39 +3102,39 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 720
+      "line": 721
     },
     {
       "source": "CAP-5.1",
-      "target": "file:src/game.test.ts#L727",
+      "target": "file:src/game.test.ts#L728",
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 727
+      "line": 728
     },
     {
       "source": "CAP-5.1",
-      "target": "file:src/game.test.ts#L732",
+      "target": "file:src/game.test.ts#L733",
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 732
+      "line": 733
     },
     {
       "source": "CAP-5.1",
-      "target": "file:src/game.test.ts#L737",
+      "target": "file:src/game.test.ts#L738",
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 737
+      "line": 738
     },
     {
       "source": "CAP-5.1",
-      "target": "file:src/game.test.ts#L742",
+      "target": "file:src/game.test.ts#L743",
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 742
+      "line": 743
     },
     {
       "source": "CAP-5.1",
@@ -2800,15 +3142,15 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 747
+      "line": 748
     },
     {
       "source": "CAP-5.2",
-      "target": "file:src/game.test.ts#L761",
+      "target": "file:src/game.test.ts#L762",
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 761
+      "line": 762
     },
     {
       "source": "CAP-5.2",
@@ -2816,7 +3158,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 771
+      "line": 772
     },
     {
       "source": "CAP-5.2",
@@ -2824,7 +3166,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 777
+      "line": 778
     },
     {
       "source": "CAP-5.3",
@@ -2832,7 +3174,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 794
+      "line": 795
     },
     {
       "source": "CAP-5.3",
@@ -2840,7 +3182,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 802
+      "line": 803
     },
     {
       "source": "CAP-5.4",
@@ -2848,7 +3190,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 811
+      "line": 812
     },
     {
       "source": "CAP-5.5",
@@ -2856,7 +3198,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 843
+      "line": 844
     },
     {
       "source": "CAP-5.5",
@@ -2864,7 +3206,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 852
+      "line": 853
     },
     {
       "source": "CAP-5.5",
@@ -2872,7 +3214,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 858
+      "line": 859
     },
     {
       "source": "CAP-7.1",
@@ -2880,7 +3222,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 881
+      "line": 882
     },
     {
       "source": "CAP-7.2",
@@ -2888,7 +3230,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 891
+      "line": 892
     },
     {
       "source": "CAP-7.3",
@@ -2896,7 +3238,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 902
+      "line": 903
     },
     {
       "source": "CAP-7.3",
@@ -2904,7 +3246,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 918
+      "line": 919
     },
     {
       "source": "CAP-7.4",
@@ -2912,7 +3254,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 925
+      "line": 926
     },
     {
       "source": "CAP-7.5",
@@ -2920,7 +3262,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 947
+      "line": 948
     },
     {
       "source": "CAP-7.6",
@@ -2928,7 +3270,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 962
+      "line": 963
     },
     {
       "source": "CAP-7.7",
@@ -2936,15 +3278,15 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 983
+      "line": 984
     },
     {
       "source": "CAP-7.7",
-      "target": "file:src/game.test.ts#L991",
+      "target": "file:src/game.test.ts#L992",
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 991
+      "line": 992
     },
     {
       "source": "CAP-7.8",
@@ -2952,7 +3294,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 998
+      "line": 999
     },
     {
       "source": "CAP-8.1",
@@ -2960,7 +3302,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 1032
+      "line": 1033
     },
     {
       "source": "CAP-8.1",
@@ -2968,7 +3310,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 1040
+      "line": 1041
     },
     {
       "source": "CAP-8.2",
@@ -2976,7 +3318,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 1053
+      "line": 1054
     },
     {
       "source": "CAP-8.2",
@@ -2984,15 +3326,15 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 1060
+      "line": 1061
     },
     {
       "source": "CAP-8.3",
-      "target": "file:src/game.test.ts#L1074",
+      "target": "file:src/game.test.ts#L1075",
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 1074
+      "line": 1075
     },
     {
       "source": "CAP-8.4",
@@ -3000,7 +3342,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 1088
+      "line": 1089
     },
     {
       "source": "CAP-8.5",
@@ -3008,7 +3350,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 1103
+      "line": 1104
     },
     {
       "source": "CAP-8.5",
@@ -3016,7 +3358,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 1110
+      "line": 1111
     },
     {
       "source": "CAP-8.5",
@@ -3024,7 +3366,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 1118
+      "line": 1119
     },
     {
       "source": "CAP-8.5",
@@ -3032,7 +3374,7 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 1127
+      "line": 1128
     },
     {
       "source": "CAP-8.6",
@@ -3040,15 +3382,15 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 1141
+      "line": 1142
     },
     {
       "source": "CAP-8.7",
-      "target": "file:src/game.test.ts#L1150",
+      "target": "file:src/game.test.ts#L1151",
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 1150
+      "line": 1151
     },
     {
       "source": "CAP-1.1",
@@ -3408,7 +3750,31 @@
       "type": "implements",
       "confidence": "EXTRACTED",
       "via": "tag",
-      "line": 35
+      "line": 49
+    },
+    {
+      "source": "CAP-9.2",
+      "target": "file:src/main.ts#L78",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 78
+    },
+    {
+      "source": "CAP-9.3",
+      "target": "file:src/main.ts#L79",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 79
+    },
+    {
+      "source": "CAP-9.6",
+      "target": "func:src/main.ts#recordRunEnd",
+      "type": "implements",
+      "confidence": "EXTRACTED",
+      "via": "tag",
+      "line": 80
     },
     {
       "source": "CAP-7.3",
@@ -3497,6 +3863,42 @@
       "confidence": "EXTRACTED",
       "via": "tag",
       "line": 101
+    },
+    {
+      "source": "file:src/best.test.ts",
+      "target": "arrow:src/best.test.ts#fake",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/best.test.ts",
+      "target": "arrow:src/best.test.ts#throwing",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/best.ts",
+      "target": "func:src/best.ts#nextBest",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/best.ts",
+      "target": "func:src/best.ts#readBest",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/best.ts",
+      "target": "func:src/best.ts#writeBest",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/best.ts",
+      "target": "func:src/best.ts#bestText",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
     },
     {
       "source": "file:src/game.test.ts",
@@ -3770,6 +4172,12 @@
     },
     {
       "source": "file:src/main.ts",
+      "target": "func:src/main.ts#getStorage",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/main.ts",
       "target": "func:src/main.ts#applyScale",
       "type": "DEFINES",
       "confidence": "EXTRACTED"
@@ -3777,6 +4185,12 @@
     {
       "source": "file:src/main.ts",
       "target": "func:src/main.ts#render",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/main.ts",
+      "target": "func:src/main.ts#recordRunEnd",
       "type": "DEFINES",
       "confidence": "EXTRACTED"
     },
@@ -3925,6 +4339,12 @@
       "confidence": "EXTRACTED"
     },
     {
+      "source": "file:tests/e2e/best-score.spec.ts",
+      "target": "func:tests/e2e/best-score.spec.ts#endRun",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
       "source": "file:tests/e2e/returning-ghost.spec.ts",
       "target": "func:tests/e2e/returning-ghost.spec.ts#setUp",
       "type": "DEFINES",
@@ -3946,6 +4366,12 @@
       "source": "file:tests/policy/manifest.test.ts",
       "target": "arrow:tests/policy/manifest.test.ts#read",
       "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/best.test.ts",
+      "target": "file:src/best.ts",
+      "type": "IMPORTS",
       "confidence": "EXTRACTED"
     },
     {
@@ -3998,6 +4424,12 @@
     },
     {
       "source": "file:src/main.ts",
+      "target": "file:src/best.ts",
+      "type": "IMPORTS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/main.ts",
       "target": "file:src/input.ts",
       "type": "IMPORTS",
       "confidence": "EXTRACTED"
@@ -4018,6 +4450,36 @@
       "source": "file:src/render.ts",
       "target": "file:src/game.ts",
       "type": "IMPORTS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/best.test.ts",
+      "target": "func:src/best.ts#nextBest",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/best.test.ts",
+      "target": "func:src/best.ts#writeBest",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/best.test.ts",
+      "target": "func:src/best.ts#readBest",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/best.test.ts",
+      "target": "arrow:src/best.test.ts#fake",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/best.test.ts",
+      "target": "func:src/best.ts#bestText",
+      "type": "CALLS",
       "confidence": "EXTRACTED"
     },
     {
@@ -4568,6 +5030,18 @@
     },
     {
       "source": "file:src/main.ts",
+      "target": "func:src/main.ts#getStorage",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/main.ts",
+      "target": "func:src/best.ts#readBest",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/main.ts",
       "target": "func:src/game.ts#createGameState",
       "type": "CALLS",
       "confidence": "EXTRACTED"
@@ -4586,13 +5060,37 @@
     },
     {
       "source": "func:src/main.ts#render",
+      "target": "func:src/best.ts#bestText",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/main.ts#render",
       "target": "func:src/render.ts#statusText",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/main.ts#recordRunEnd",
+      "target": "func:src/best.ts#nextBest",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/main.ts#recordRunEnd",
+      "target": "func:src/best.ts#writeBest",
       "type": "CALLS",
       "confidence": "EXTRACTED"
     },
     {
       "source": "func:src/main.ts#frame",
       "target": "func:src/game.ts#tick",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/main.ts#frame",
+      "target": "func:src/main.ts#recordRunEnd",
       "type": "CALLS",
       "confidence": "EXTRACTED"
     },
@@ -4753,6 +5251,12 @@
       "confidence": "EXTRACTED"
     },
     {
+      "source": "file:tests/e2e/best-score.spec.ts",
+      "target": "func:tests/e2e/best-score.spec.ts#endRun",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
       "source": "file:tests/e2e/returning-ghost.spec.ts",
       "target": "func:tests/e2e/returning-ghost.spec.ts#setUp",
       "type": "CALLS",
@@ -4768,6 +5272,12 @@
       "source": "file:tests/policy/manifest.test.ts",
       "target": "arrow:tests/policy/manifest.test.ts#read",
       "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/best.test.ts",
+      "target": "file:src/best.ts",
+      "type": "TESTS",
       "confidence": "EXTRACTED"
     },
     {

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-08T14:52:50.889Z",
+  "generatedAt": "2026-10-08T15:10:31.020Z",
   "byFile": {
     "src/game.ts": [
       {
@@ -490,6 +490,33 @@
         "range": null,
         "blob": null,
         "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-9.2",
+        "file": "src/main.ts",
+        "symbol": "L78",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-9.3",
+        "file": "src/main.ts",
+        "symbol": "L79",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-9.6",
+        "file": "src/main.ts",
+        "symbol": "recordRunEnd",
+        "range": null,
+        "blob": null,
+        "tag": true
       }
     ],
     "src/render.ts": [
@@ -587,6 +614,71 @@
         "criterion": "CAP-1.8",
         "file": "src/render.ts",
         "symbol": "drawFrame",
+        "range": null,
+        "blob": null,
+        "tag": true
+      }
+    ],
+    "src/best.ts": [
+      {
+        "node": null,
+        "criterion": "CAP-9.2",
+        "file": "src/best.ts",
+        "symbol": "L3",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-9.3",
+        "file": "src/best.ts",
+        "symbol": "nextBest",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-9.1",
+        "file": "src/best.ts",
+        "symbol": "L9",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-9.4",
+        "file": "src/best.ts",
+        "symbol": "readBest",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-9.1",
+        "file": "src/best.ts",
+        "symbol": "L23",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-9.4",
+        "file": "src/best.ts",
+        "symbol": "writeBest",
+        "range": null,
+        "blob": null,
+        "tag": true
+      },
+      {
+        "node": null,
+        "criterion": "CAP-9.5",
+        "file": "src/best.ts",
+        "symbol": "bestText",
         "range": null,
         "blob": null,
         "tag": true
@@ -741,7 +833,7 @@
         "node": null,
         "criterion": "CAP-5.1",
         "file": "src/game.test.ts",
-        "symbol": "L727",
+        "symbol": "L728",
         "range": null,
         "blob": null,
         "tag": true
@@ -750,7 +842,7 @@
         "node": null,
         "criterion": "CAP-5.1",
         "file": "src/game.test.ts",
-        "symbol": "L732",
+        "symbol": "L733",
         "range": null,
         "blob": null,
         "tag": true
@@ -759,7 +851,7 @@
         "node": null,
         "criterion": "CAP-5.1",
         "file": "src/game.test.ts",
-        "symbol": "L737",
+        "symbol": "L738",
         "range": null,
         "blob": null,
         "tag": true
@@ -768,7 +860,7 @@
         "node": null,
         "criterion": "CAP-5.1",
         "file": "src/game.test.ts",
-        "symbol": "L742",
+        "symbol": "L743",
         "range": null,
         "blob": null,
         "tag": true
@@ -786,7 +878,7 @@
         "node": null,
         "criterion": "CAP-5.2",
         "file": "src/game.test.ts",
-        "symbol": "L761",
+        "symbol": "L762",
         "range": null,
         "blob": null,
         "tag": true
@@ -939,7 +1031,7 @@
         "node": null,
         "criterion": "CAP-7.7",
         "file": "src/game.test.ts",
-        "symbol": "L991",
+        "symbol": "L992",
         "range": null,
         "blob": null,
         "tag": true
@@ -993,7 +1085,7 @@
         "node": null,
         "criterion": "CAP-8.3",
         "file": "src/game.test.ts",
-        "symbol": "L1074",
+        "symbol": "L1075",
         "range": null,
         "blob": null,
         "tag": true
@@ -1056,7 +1148,7 @@
         "node": null,
         "criterion": "CAP-8.7",
         "file": "src/game.test.ts",
-        "symbol": "L1150",
+        "symbol": "L1151",
         "range": null,
         "blob": null,
         "tag": true
@@ -1074,5 +1166,5 @@
       }
     ]
   },
-  "count": 119
+  "count": 129
 }
