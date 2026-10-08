@@ -24,6 +24,9 @@ export const ACTS = {
   'review.lens': { actionClass: 'fact', rung: 'run', cost: false },
   'deliver.open': { actionClass: 'consent', rung: 'run', cost: false },
   'merge.main': { actionClass: 'consent', rung: 'run', cost: false },
+  // step 16c: the Master convening a room of read-only seats (Mycelium tech-spec-m11-rooms O-3); the
+  // seats run on the CLI login, so no real cost. A human-convened room is not the Master's act.
+  'room.convene': { actionClass: 'fact', rung: 'convene', cost: false },
   'agent.hire': { actionClass: 'consent', rung: 'hire', cost: false },
   'department.signoff': { actionClass: 'consent', rung: 'signoff', cost: false },
   'constitution.amend': { actionClass: 'consent', rung: 'amend', cost: false },
@@ -97,6 +100,14 @@ export function rule({ act, floor = null, grants = [], mode = 'full', critical =
     return ruling(
       'propose',
       'Creating a node changes the shape of the plan. Without a `grow` grant it is proposed, not taken.',
+      base,
+    );
+  // O-3, Grid B: the Master convenes only under `full`; under `critical-only` convene escalates
+  // whatever the node's criticality
+  if (mode === 'critical-only' && rung === 'convene')
+    return ruling(
+      'escalate',
+      'Mode is `critical-only`: the Master convenes a room only under `full`.',
       base,
     );
   if (mode === 'critical-only' && critical && rung !== 'lookup' && rung !== 'reason')

@@ -17,7 +17,7 @@ export const ROOM_DENIED = [
   'WebFetch',
   'WebSearch',
 ];
-export const ROOM_EVENTS = ['convened', 'sitting', 'round', 'ended'];
+export const ROOM_EVENTS = ['convened', 'sitting', 'round', 'paused', 'ended'];
 export const ROOM_TERMINALS = ['complete', 'escalated', 'blocked', 'abandoned'];
 const QUESTION_TYPES = ['open', 'bounded', 'closed'];
 // spec: $0.25 per seat-turn, $0.03 per round when a conductor chooses the speaker
@@ -46,6 +46,14 @@ export function validateRoomParams(p = {}) {
   if (seats.length > 1 && q.type !== 'closed' && rounds < 2)
     refusals.push('cannot-reach-disagreement: more than one seat, an open question, one round');
   if (!(p.budgetUsd > 0)) refusals.push('budget must be above $0');
+  // a room the Master convenes: two fillable seats at least (the door), and a machine never names its
+  // own ceiling (D-4): it gets the default budget
+  if (p.trigger === 'master') {
+    if (seats.length < 2) refusals.push('a Master-convened room needs at least two seats');
+    if (p.budgetNamed) refusals.push('a Master-convened room may not name its own budget');
+  }
+  if (!['direct', 'conducted'].includes(p.addressing || 'direct'))
+    refusals.push(`addressing "${p.addressing}" is not direct or conducted`);
   const ids = seats.map((s) => s.id);
   if (new Set(ids).size !== ids.length) refusals.push('seat ids repeat');
   if (seats.some((s) => !/^[a-z][\w-]*$/.test(String(s.id || ''))))
@@ -169,6 +177,8 @@ export function foldRoom(lines, now = Date.now()) {
       const r = room.rounds.find((x) => x.round === d.round);
       if (d.phase === 'opened' && !r) room.rounds.push({ ...d });
       else if (d.phase === 'closed' && r) Object.assign(r, d);
+    } else if (d.event === 'paused') {
+      Object.assign(room, { status: 'paused', halt: d.halt });
     } else if (d.event === 'ended') {
       if (!ROOM_TERMINALS.includes(d.terminal) || !String(d.reason || '').trim()) continue;
       Object.assign(room, { status: 'ended', terminal: d.terminal, reason: d.reason });
@@ -415,4 +425,98 @@ export function closeRows(rows, castIds) {
       status: 'open',
     });
   return out;
+}
+
+// ── 16c: one round function, two choosers, the bounds ────────────────────────────────────────────
+
+export const ROOM_DEFAULT_BUDGET_USD = 5;
+export const MAX_ROOM_ROUNDS = 5;
+// Rounds first (spec §9): a human-convened room gets min(requested ?? 3, 5); a Master-convened one is
+// bounded by the autonomy policy too (harness.json yolo.rounds), one source of autonomy authority
+export function roundsBound({ requested = null, trigger = 'owner', policyRounds = null } = {}) {
+  const asked = requested ?? 3;
+  return trigger === 'master'
+    ? Math.min(asked, policyRounds ?? MAX_ROOM_ROUNDS, MAX_ROOM_ROUNDS)
+    : Math.min(asked, MAX_ROOM_ROUNDS);
+}
+
+// A chooser: (ctx: { round, inChair, rows }) → { speakers, conductor? }. Both go through one runRound.
+export const directChooser = async ({ inChair }) => ({ chooser: 'direct', speakers: [...inChair] });
+
+// The orchestrator validates the Master's proposal: a model never advances turn order itself. A seat
+// outside the chair falls back to rotation over the chair, and says so.
+export function acceptSpeaker(proposed, inChair, round) {
+  const valid = inChair.includes(proposed);
+  return {
+    proposed: proposed ?? null,
+    accepted: valid ? proposed : inChair[(round - 1) % inChair.length],
+    fallback: !valid,
+  };
+}
+// conducted: round 1 is every seat's independent read; after it, one seat a round, proposed by `ask`
+// (the Master call, injected so the rule stays pure) and validated against the chair
+export const conductedChooser = (ask) => async (ctx) => {
+  if (ctx.round === 1) return { chooser: 'conducted', speakers: [...ctx.inChair] };
+  const pick = (await ask(ctx)) || {};
+  const a = acceptSpeaker(pick.nextSpeaker, ctx.inChair, ctx.round);
+  return {
+    chooser: 'conducted',
+    speakers: [a.accepted],
+    conductor: {
+      ...a,
+      reason: String(pick.reason || '(no reason)'),
+      converged: !!pick.converged,
+      costUsd: pick.costUsd ?? 0,
+    },
+  };
+};
+
+// The boundary after a round, in the spec's order: tripwire, all abstained, termination, then spend and
+// headroom. A spend or headroom stop is a pause (resumable), never a kill.
+export function boundaryAfter({
+  tripped,
+  blocked,
+  allAbstained,
+  converged,
+  round,
+  maxRounds,
+  spent,
+  budget,
+  nextUsd,
+}) {
+  if (tripped)
+    return {
+      ending: {
+        terminal: 'blocked',
+        reason: `tripwire on ${tripped.seat}: ${tripped.diff.join(', ')}`,
+      },
+      halt: { cause: 'tripwire', resumable: false },
+    };
+  if (blocked) return { ending: { terminal: 'blocked', reason: blocked } };
+  if (allAbstained)
+    return {
+      ending: { terminal: 'abandoned', reason: `every speaker abstained in round ${round}` },
+    };
+  if (converged) return { ending: { terminal: 'complete', reason: `converged in round ${round}` } };
+  if (round >= maxRounds)
+    return {
+      ending: { terminal: 'complete', reason: `the rounds bound (${maxRounds}) was reached` },
+    };
+  if (spent >= budget)
+    return {
+      halt: {
+        cause: 'spend',
+        resumable: true,
+        reason: `spent $${spent.toFixed(3)} of $${budget.toFixed(2)}`,
+      },
+    };
+  if (budget - spent < nextUsd)
+    return {
+      halt: {
+        cause: 'headroom',
+        resumable: true,
+        reason: `$${(budget - spent).toFixed(3)} left, the next round is planned at $${nextUsd.toFixed(2)}`,
+      },
+    };
+  return {};
 }

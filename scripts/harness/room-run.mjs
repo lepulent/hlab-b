@@ -32,9 +32,15 @@ import { dirname, join, relative, resolve } from 'node:path';
 import { setTimeout, clearTimeout } from 'node:timers';
 import { ROOT, billingFindings, commitOnly, git, modelEnv, readJson } from './common.mjs';
 import { transcriptDir } from './activation.mjs';
+import { rule } from './authority.mjs';
 import {
   FENCE_CLOSE,
   FENCE_OPEN,
+  ROOM_DEFAULT_BUDGET_USD,
+  boundaryAfter,
+  conductedChooser,
+  directChooser,
+  roundsBound,
   ROOM_ACTIONS,
   ROOM_DENIED,
   canaryContainment,
@@ -89,14 +95,14 @@ const sh = (file, args) =>
     c.stderr.on('data', (d) => (err += d));
     c.on('close', (status) => res({ status, stdout: out, stderr: err }));
   });
-const ledger = async (data, actor = 'script:room') => {
+const ledger = async (data, actor = 'script:room', kind = 'room') => {
   const r = await sh('node', [
     join(ROOT, 'scripts', 'harness', 'ledger.mjs'),
     'append',
     '--plan',
     LEDGER,
     '--kind',
-    'room',
+    kind,
     '--actor',
     actor,
     '--data',
@@ -121,17 +127,31 @@ const snapshot = (dir) => {
 };
 
 // 1. the record refuses what a room cannot be, and the price is checked before anything is spent
+const HARNESS = readJson(join(ROOT, 'harness.json'), {});
 const params = {
   trigger: spec.trigger || 'owner',
   action: spec.action,
   question: spec.question,
   termination: spec.termination,
   addressing: spec.addressing || 'direct',
-  budgetUsd: spec.budgetUsd,
+  // a machine never names its own ceiling: a Master-convened room gets the default
+  budgetUsd: spec.budgetUsd ?? ROOM_DEFAULT_BUDGET_USD,
+  ...(spec.trigger === 'master' && spec.budgetUsd != null ? { budgetNamed: true } : {}),
   seats: (spec.seats || []).map((s) => ({ id: s.id })),
 };
 const valid = validateRoomParams(params);
 if (!valid.ok) fail(`refused: ${valid.refusals.join('; ')}`, 2);
+// the Master convening is an act, ruled before the room exists (authority.mjs room.convene, O-3); a
+// room the owner convenes is not the Master's act
+if (params.trigger === 'master') {
+  const r = rule({
+    act: 'room.convene',
+    floor: HARNESS.yolo?.floor ?? null,
+    mode: HARNESS.yolo?.mode || 'full',
+  });
+  await ledger({ ...r }, 'script:room', 'ruling');
+  if (r.verdict !== 'allow') fail(`convene ${r.verdict}: ${r.reason}`, 2);
+}
 const estimate = estimateRoomUsd(params);
 if (!estimate.within)
   fail(`refused: over budget, ${estimate.arithmetic} > $${params.budgetUsd}`, 2);
@@ -231,7 +251,12 @@ const castIds = seats.map((s) => s.id);
 const SCHEMA = JSON.stringify(
   roomTurnSchema(castIds, { checklist: params.question.type === 'closed' }),
 );
-const MAX_ROUNDS = params.termination.maxRounds;
+// rounds first: the bound is the spec's, and for a Master-convened room the autonomy policy's too
+const MAX_ROUNDS = roundsBound({
+  requested: params.termination.maxRounds,
+  trigger: params.trigger,
+  policyRounds: HARNESS.yolo?.rounds ?? null,
+});
 const opening = (s) =>
   [
     `You sit in a room of ${seats.length} seat(s): ${castIds.join(', ')}. You are ${s.id}. You can read your own folder (the current directory) and the shared folder ${SHARED}. Read the brief there first.`,
@@ -342,33 +367,94 @@ const streamOf = (s) => {
 };
 const short = (p) => (p && p.startsWith(WS) ? relative(WS, p) : p);
 
-// 4. the rounds: every seat speaks each round (16c makes the chooser a parameter); each round is
-// tripwired, its turns classified against each seat's own footprint and recorded as typed rows
+// 4. the rounds: one runRound for both choosers (FR-38). The chooser names the speakers; each round is
+// tripwired, its turns classified against each seat's own footprint and recorded as typed rows, and the
+// boundary after it decides whether the room goes on, pauses or ends.
 const rows = [];
 const sent = []; // what each seat was relayed, to check the fence
 const state = Object.fromEntries(
   seats.map((s) => [s.id, { terminal: null, reason: null, cost: 0 }]),
 );
-let ending = null;
+let spent = 0;
 let round1Streams = null;
-for (let round = 1; round <= MAX_ROUNDS && !ending; round++) {
+const CONDUCTOR_SCHEMA = JSON.stringify({
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    nextSpeaker: { type: 'string' },
+    reason: { type: 'string' },
+    converged: { type: 'boolean' },
+  },
+  required: ['nextSpeaker', 'reason', 'converged'],
+});
+// the conductor: one structured Master call per conducted round, with no tools, reading the minutes as
+// data; what it proposes is validated by acceptSpeaker, never obeyed
+const askConductor = async ({ round, inChair }) => {
+  const text = [
+    `You conduct a room of read-only seats: ${inChair.join(', ')}. Question: ${params.question.text}`,
+    fenceMinutes(rows, null) || '(nothing recorded yet)',
+    `Round ${round} of at most ${MAX_ROUNDS}: one seat speaks. Who should answer next, so the room reaches the evidence that settles the question or shows the conflict? Name exactly one seat id from the list.`,
+  ].join('\n\n');
+  const r = await new Promise((res) => {
+    const child = spawn(
+      'claude',
+      [
+        '-p',
+        '--output-format',
+        'json',
+        '--json-schema',
+        CONDUCTOR_SCHEMA,
+        '--setting-sources',
+        'user',
+        '--strict-mcp-config',
+        '--max-budget-usd',
+        '0.2',
+        '--tools',
+        '',
+      ],
+      { cwd: ORCH, stdio: ['pipe', 'pipe', 'pipe'], env: ENV },
+    );
+    let out = '';
+    child.stdout.on('data', (d) => (out += d));
+    child.stdin.end(text);
+    child.on('close', () => {
+      try {
+        res(JSON.parse(out));
+      } catch {
+        res(null);
+      }
+    });
+  });
+  return { ...(r?.structured_output || {}), costUsd: r?.total_cost_usd ?? 0 };
+};
+const chooser = params.addressing === 'conducted' ? conductedChooser(askConductor) : directChooser;
+
+async function runRound(round, choose) {
+  const inChair = seats.filter((s) => state[s.id].terminal !== 'blocked').map((s) => s.id);
+  const pick = await choose({ round, inChair, rows });
+  spent += pick.conductor?.costUsd || 0;
+  const speaking = seats.filter((s) => pick.speakers.includes(s.id));
   const before = Object.fromEntries(seats.map((s) => [s.id, stateOf(s)]));
   const prompts = Object.fromEntries(
-    seats.map((s) => {
-      const minutes = round === 1 ? '' : fenceMinutes(rows, s.id);
-      if (round > 1) sent.push({ round, seat: s.id, minutes });
-      return [s.id, round === 1 ? opening(s) : later(s, round, minutes)];
+    speaking.map((s) => {
+      // a seat's first turn is its independent read; later ones carry the others' rows as data
+      const first = !state[s.id].spoke;
+      const minutes = first ? '' : fenceMinutes(rows, s.id);
+      if (!first) sent.push({ round, seat: s.id, minutes });
+      return [s.id, first ? opening(s) : later(s, round, minutes)];
     }),
   );
   await ledger({
     event: 'round',
     round,
     phase: 'opened',
-    speakers: castIds,
+    chooser: pick.chooser,
+    speakers: speaking.map((s) => s.id),
+    ...(pick.conductor ? { conductor: pick.conductor } : {}),
     deadlineAt: new Date(Date.now() + DEADLINE_S * 1000).toISOString(),
     ...(FORCE_TRIPWIRE && round === 1 ? { lever: `force-tripwire ${FORCE_TRIPWIRE}` } : {}),
   });
-  const running = seats.map((s) => runSeat(s, round, prompts[s.id]));
+  const running = speaking.map((s) => runSeat(s, state[s.id].spoke ? 2 : 1, prompts[s.id]));
   if (FORCE_TRIPWIRE && round === 1) {
     const s = seats.find((x) => x.id === FORCE_TRIPWIRE);
     if (!s) fail(`--force-tripwire names no seat: ${FORCE_TRIPWIRE}`, 2);
@@ -379,12 +465,14 @@ for (let round = 1; round <= MAX_ROUNDS && !ending; round++) {
   }
   const results = await Promise.all(running);
   if (round === 1) round1Streams = Object.fromEntries(seats.map((s) => [s.id, streamOf(s)]));
-  const outcomes = seats.map((s, i) => {
+  const outcomes = speaking.map((s, i) => {
     const r = results[i];
+    state[s.id].spoke = true;
     const trip = tripwire(before[s.id], stateOf(s));
     const reach = reachHeld(footprintOf(s.session), [s.dir, SHARED]);
     const turn = r.ok ? classifyTurn(r.out?.structured_output, readsOf(s)) : null;
     state[s.id].cost += r.out?.total_cost_usd || 0;
+    spent += r.out?.total_cost_usd || 0;
     const t = !trip.held
       ? { terminal: 'blocked', reason: `tripwire: ${trip.diff.join(', ')}` }
       : !reach.held
@@ -426,6 +514,25 @@ for (let round = 1; round <= MAX_ROUNDS && !ending; round++) {
   );
   rows.push(...added);
   const tripped = outcomes.find((o) => o.tripwire.length);
+  const nextSpeakers = params.addressing === 'conducted' ? 1 : inChair.length;
+  const boundary = boundaryAfter({
+    tripped: tripped && { seat: tripped.seat, diff: tripped.tripwire },
+    blocked: outcomes.find((o) => o.terminal === 'blocked')?.reason,
+    allAbstained: outcomes.every((o) => o.terminal === 'abandoned'),
+    // a conducted round of one seat converges only when every seat has spoken since round 1
+    converged:
+      convergedRound(rows, round) &&
+      (params.addressing !== 'conducted' || seats.every((s) => state[s.id].spoke)),
+    round,
+    maxRounds: MAX_ROUNDS,
+    spent,
+    budget: params.budgetUsd,
+    nextUsd: estimateRoomUsd({
+      ...params,
+      seats: inChair.slice(0, nextSpeakers),
+      termination: { maxRounds: 1 },
+    }).usd,
+  });
   await ledger({
     event: 'round',
     round,
@@ -434,27 +541,24 @@ for (let round = 1; round <= MAX_ROUNDS && !ending; round++) {
       Object.fromEntries(Object.entries(o).filter(([k]) => k !== '_turn')),
     ),
     rows: added.map((r) => ({ ...r, read: short(r.read) })),
-    costUsd: outcomes.reduce((t, o) => t + (o.cost_usd || 0), 0),
-    ...(tripped ? { halt: { cause: 'tripwire', resumable: false } } : {}),
+    costUsd: outcomes.reduce((t, o) => t + (o.cost_usd || 0), 0) + (pick.conductor?.costUsd || 0),
+    ...(boundary.halt ? { halt: boundary.halt } : {}),
   });
-  // the boundary order: tripwire, then all abstained, then termination
-  if (tripped)
-    ending = {
-      terminal: 'blocked',
-      reason: `tripwire on ${tripped.seat}: ${tripped.tripwire.join(', ')}`,
-    };
-  else if (outcomes.some((o) => o.terminal === 'blocked'))
-    ending = { terminal: 'blocked', reason: outcomes.find((o) => o.terminal === 'blocked').reason };
-  else if (outcomes.every((o) => o.terminal === 'abandoned'))
-    ending = { terminal: 'abandoned', reason: 'every seat abstained' };
-  else if (convergedRound(rows, round))
-    ending = { terminal: 'complete', reason: `converged in round ${round}` };
-  else if (round === MAX_ROUNDS)
-    ending = { terminal: 'complete', reason: `the rounds bound (${MAX_ROUNDS}) was reached` };
+  return boundary;
 }
-const closing = closeRows(rows, castIds);
+
+let ending = null;
+let paused = null;
+for (let round = 1; !ending && !paused; round++) {
+  const b = await runRound(round, chooser);
+  ending = b.ending || null;
+  if (!ending && b.halt?.resumable) paused = b.halt;
+}
+if (paused) await ledger({ event: 'paused', halt: paused });
+const closing = ending ? closeRows(rows, castIds) : [];
 rows.push(...closing);
-await ledger({ event: 'ended', ...ending, rows: closing, count: disagreementCount(rows) });
+if (ending)
+  await ledger({ event: 'ended', ...ending, rows: closing, count: disagreementCount(rows) });
 const canaries = Object.fromEntries(seats.filter((s) => s.canary).map((s) => [s.id, s.canary]));
 // containment is judged on what each seat met on its own, in round 1, before any minutes reached it
 const containment = canaryContainment(canaries, round1Streams || {});
@@ -484,11 +588,36 @@ const evidentiaryPairs = new Set(
 const checks = {
   'room-recorded': {
     ok:
-      room.status === 'ended' &&
+      ['ended', 'paused'].includes(room.status) &&
       room.sittings.length === 1 &&
       closedRounds.length === room.rounds.length &&
       room.rounds.length >= 1,
     msg: `${room.status} ${room.terminal} (${room.reason}); ${room.sittings.length} sitting, ${room.rounds.length} round(s)`,
+  },
+  // one runRound for both choosers: every round names the room's chooser; a conducted round after the
+  // first has one speaker, the one the orchestrator accepted, and records the conductor's proposal
+  'one-round-function': {
+    ok: room.rounds.every(
+      (r) =>
+        r.chooser === params.addressing &&
+        (params.addressing !== 'conducted' ||
+          r.round === 1 ||
+          (r.speakers?.length === 1 &&
+            r.conductor &&
+            r.speakers[0] === r.conductor.accepted &&
+            castIds.includes(r.conductor.accepted))),
+    ),
+    msg: room.rounds
+      .map(
+        (r) =>
+          `r${r.round} ${r.chooser}: ${(r.speakers || []).join(', ')}${r.conductor ? ` (proposed ${r.conductor.proposed}${r.conductor.fallback ? ', FALLBACK' : ''})` : ''}`,
+      )
+      .join(' · '),
+  },
+  // rounds first: never more rounds than the bound, and a stop for spend is a pause, never a kill
+  'rounds-bounded': {
+    ok: room.rounds.length <= MAX_ROUNDS && (room.status !== 'paused' || !!room.halt?.resumable),
+    msg: `${room.rounds.length} of at most ${MAX_ROUNDS} round(s) (requested ${params.termination.maxRounds}${params.trigger === 'master' ? `, policy ${HARNESS.yolo?.rounds ?? 'none'}` : ''}); spent $${spent.toFixed(3)} of $${params.budgetUsd.toFixed(2)}${room.halt ? `; paused: ${room.halt.cause}` : ''}`,
   },
   'workspaces-staged': {
     ok: seats.every((s) => s.staged.length > 0),
