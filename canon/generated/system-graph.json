@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-08T18:34:26.103Z",
+  "generatedAt": "2026-10-08T18:47:45.158Z",
   "root": ".",
   "nodes": [
     {
@@ -177,7 +177,7 @@
       "kind": "function",
       "label": "nearHalf",
       "file": "src/game.test.ts",
-      "line": 699,
+      "line": 771,
       "exported": false
     },
     {
@@ -185,7 +185,7 @@
       "kind": "function",
       "label": "besideFruit",
       "file": "src/game.test.ts",
-      "line": 704,
+      "line": 776,
       "exported": false
     },
     {
@@ -193,7 +193,7 @@
       "kind": "arrow",
       "label": "arcAtFruit",
       "file": "src/game.test.ts",
-      "line": 753,
+      "line": 825,
       "exported": false
     },
     {
@@ -201,7 +201,7 @@
       "kind": "function",
       "label": "phasesPlayed",
       "file": "src/game.test.ts",
-      "line": 832,
+      "line": 904,
       "exported": false
     },
     {
@@ -209,7 +209,7 @@
       "kind": "arrow",
       "label": "distance",
       "file": "src/game.test.ts",
-      "line": 877,
+      "line": 949,
       "exported": false
     },
     {
@@ -217,7 +217,7 @@
       "kind": "arrow",
       "label": "fillOf",
       "file": "src/game.test.ts",
-      "line": 1000,
+      "line": 1072,
       "exported": false
     },
     {
@@ -225,7 +225,7 @@
       "kind": "arrow",
       "label": "laneState",
       "file": "src/game.test.ts",
-      "line": 1018,
+      "line": 1090,
       "exported": false
     },
     {
@@ -233,7 +233,7 @@
       "kind": "arrow",
       "label": "atStart",
       "file": "src/game.test.ts",
-      "line": 1026,
+      "line": 1098,
       "exported": false
     },
     {
@@ -457,7 +457,7 @@
       "kind": "function",
       "label": "getStorage",
       "file": "src/main.ts",
-      "line": 33,
+      "line": 34,
       "exported": false
     },
     {
@@ -465,7 +465,7 @@
       "kind": "function",
       "label": "applyScale",
       "file": "src/main.ts",
-      "line": 50,
+      "line": 51,
       "exported": false
     },
     {
@@ -473,7 +473,7 @@
       "kind": "function",
       "label": "render",
       "file": "src/main.ts",
-      "line": 70,
+      "line": 71,
       "exported": false
     },
     {
@@ -481,7 +481,7 @@
       "kind": "function",
       "label": "recordRunEnd",
       "file": "src/main.ts",
-      "line": 81,
+      "line": 83,
       "exported": false
     },
     {
@@ -489,7 +489,7 @@
       "kind": "function",
       "label": "frame",
       "file": "src/main.ts",
-      "line": 90,
+      "line": 92,
       "exported": false
     },
     {
@@ -679,11 +679,19 @@
       "exported": true
     },
     {
+      "id": "func:src/render.ts#dotsText",
+      "kind": "function",
+      "label": "dotsText",
+      "file": "src/render.ts",
+      "line": 102,
+      "exported": true
+    },
+    {
       "id": "func:src/render.ts#drawFrame",
       "kind": "function",
       "label": "drawFrame",
       "file": "src/render.ts",
-      "line": 102,
+      "line": 107,
       "exported": true
     },
     {
@@ -713,6 +721,12 @@
       "file": "tests/e2e/best-score.spec.ts",
       "line": 5,
       "exported": false
+    },
+    {
+      "id": "file:tests/e2e/dots-left.spec.ts",
+      "kind": "file",
+      "label": "tests/e2e/dots-left.spec.ts",
+      "file": "tests/e2e/dots-left.spec.ts"
     },
     {
       "id": "file:tests/e2e/returning-ghost.spec.ts",
@@ -1232,6 +1246,12 @@
     },
     {
       "source": "file:src/render.ts",
+      "target": "func:src/render.ts#dotsText",
+      "type": "DEFINES",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/render.ts",
       "target": "func:src/render.ts#drawFrame",
       "type": "DEFINES",
       "confidence": "EXTRACTED"
@@ -1609,6 +1629,24 @@
       "confidence": "EXTRACTED"
     },
     {
+      "source": "file:src/game.test.ts",
+      "target": "func:src/maze.ts#countRemaining",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.test.ts",
+      "target": "func:src/maze.ts#createMaze",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "file:src/game.test.ts",
+      "target": "func:src/render.ts#dotsText",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
       "source": "func:src/game.test.ts#nearHalf",
       "target": "func:src/game.test.ts#buildState",
       "type": "CALLS",
@@ -1623,12 +1661,6 @@
     {
       "source": "file:src/game.test.ts",
       "target": "func:src/maze.ts#isWalkable",
-      "type": "CALLS",
-      "confidence": "EXTRACTED"
-    },
-    {
-      "source": "file:src/game.test.ts",
-      "target": "func:src/maze.ts#createMaze",
       "type": "CALLS",
       "confidence": "EXTRACTED"
     },
@@ -1959,6 +1991,12 @@
     {
       "source": "func:src/main.ts#render",
       "target": "func:src/render.ts#drawFrame",
+      "type": "CALLS",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "func:src/main.ts#render",
+      "target": "func:src/render.ts#dotsText",
       "type": "CALLS",
       "confidence": "EXTRACTED"
     },
