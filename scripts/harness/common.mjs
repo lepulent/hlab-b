@@ -3,6 +3,7 @@ import { readFileSync, readdirSync, statSync, existsSync, writeFileSync, mkdirSy
 import { join, relative, dirname } from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { globToRegex } from './seat-policy.mjs';
 
 export const ROOT = process.env.HARNESS_ROOT || process.env.CLAUDE_PROJECT_DIR || process.cwd();
 
@@ -222,22 +223,8 @@ export function readStdinJson() {
     return {};
   }
 }
-export function globToRegex(glob) {
-  // tokens first so the expansions of ** and * never feed each other
-  const t = glob
-    .replace(/\*\*\//g, '\u{1F}A')
-    .replace(/\*\*/g, '\u{1F}B')
-    .replace(/\*/g, '\u{1F}C');
-  const esc = t.replace(/[.+^${}()|[\]\\/]/g, '\\$&');
-  const re = esc
-    .split('\u{1F}A')
-    .join('(?:.*/)?')
-    .split('\u{1F}B')
-    .join('.*')
-    .split('\u{1F}C')
-    .join('[^/]*');
-  return new RegExp('^' + re + '$');
-}
+// globToRegex moved to seat-policy.mjs, which a mod carries and so may import nothing
+export { globToRegex };
 
 export function layerOf(relPath, layerMap) {
   for (const [layer, globs] of Object.entries(layerMap.layers || {})) {

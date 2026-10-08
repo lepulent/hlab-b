@@ -88,48 +88,8 @@ export function tripwire(before, after) {
   return { held: diff.length === 0, diff };
 }
 
-// Reach at the call: every place a tool call names lies under the seat's own folder or the shared one.
-// The CLI does not hold this: read-only tools run outside the folders a seat was given (hlab-a and
-// hlab-b r16b, round 1: each seat's Glob over the workspace root listed the other seat's note and the
-// orchestrator's manifest). A path, a pattern's fixed prefix (resolved from its base) and a Grep glob are
-// all places; a `..` in a pattern or glob is refused, since its place is not known until it runs.
-const GLOB_CHARS = /[*?[{]/;
-export function reachRuling(tool, input, cwd, roots) {
-  // a call the guard cannot read is a call it cannot rule on: denied (a malformed hook input parses to {})
-  if (!tool || !cwd || !roots?.length)
-    return { allow: false, reason: 'the call cannot be read, so it is denied' };
-  const i = input || {};
-  const inside = (p) => roots.some((r) => p === r || p.startsWith(`${r}/`));
-  const base = i.path ? resolvePath(cwd, i.path) : cwd;
-  const places = [i.file_path, i.notebook_path].filter(Boolean).map((p) => resolvePath(cwd, p));
-  if (i.path) places.push(base);
-  for (const pat of tool === 'Glob' ? [i.pattern] : [i.glob]) {
-    if (!pat) continue;
-    if (/(^|\/)\.\.(\/|$)/.test(pat))
-      return { allow: false, reason: `the pattern ${pat} climbs out with ..` };
-    const fixed =
-      String(pat)
-        .split(GLOB_CHARS)[0]
-        .replace(/\/[^/]*$/, '') || '.';
-    places.push(resolvePath(base, fixed));
-  }
-  const outside = places.find((p) => !inside(p));
-  return outside
-    ? { allow: false, reason: `${outside} is outside this seat's folders` }
-    : { allow: true };
-}
-// a pure path resolve (node:path is pure, but this module stays import-free of it on purpose: the hook
-// and the runner must agree on one function)
-function resolvePath(from, p) {
-  const parts = (String(p).startsWith('/') ? String(p) : `${from}/${p}`).split('/');
-  const out = [];
-  for (const x of parts) {
-    if (!x || x === '.') continue;
-    if (x === '..') out.pop();
-    else out.push(x);
-  }
-  return `/${out.join('/')}`;
-}
+// Reach at the call is a seat policy (seat-policy.mjs), carried by both adapters
+export { reachRuling } from './seat-policy.mjs';
 
 // Reach after the turn: every path a seat's footprint names that RAN lies under its own workspace or the
 // shared one (a call the guard denied is an attempt, recorded, not a breach). A target that is a pattern
