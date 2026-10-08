@@ -42,7 +42,8 @@
     "harness:jev-replay": "node scripts/harness/jev-replay.mjs",
     "harness:grant": "node scripts/harness/grants.mjs grant",
     "harness:revoke": "node scripts/harness/grants.mjs revoke",
-    "harness:jev-probe": "node scripts/harness/jev-probe.mjs"
+    "harness:jev-probe": "node scripts/harness/jev-probe.mjs",
+    "harness:room": "node scripts/harness/room-run.mjs"
   },
   "repository": {
     "type": "git",

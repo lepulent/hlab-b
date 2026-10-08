@@ -35,6 +35,8 @@ const KINDS = new Set([
   'grant',
   'grant-revoked',
   'ruling',
+  // step 16: a room's life (convened, sitting, round opened/closed, ended), one kind with an event field
+  'room',
 ]);
 const args = process.argv.slice(2);
 const cmd = args[0];
