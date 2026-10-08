@@ -44,7 +44,8 @@
     "harness:revoke": "node scripts/harness/grants.mjs revoke",
     "harness:jev-probe": "node scripts/harness/jev-probe.mjs",
     "harness:room": "node scripts/harness/room-run.mjs",
-    "harness:conformance": "node scripts/harness/conformance.mjs"
+    "harness:conformance": "node scripts/harness/conformance.mjs",
+    "harness:adapter-live": "node scripts/harness/adapter-live.mjs"
   },
   "repository": {
     "type": "git",
