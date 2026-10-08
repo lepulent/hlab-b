@@ -2,9 +2,9 @@
 id: CAP-7
 kind: capability
 title: Eaten ghosts return to the ghost house
-version: 0.0.0
+version: 0.1.0
 assurance: draft
-valid_from: 0000000000000000000000000000000000000000
+valid_from: ad1df41095556646cbc3249f0709a1dc99d1aca6
 ---
 
 ## Why

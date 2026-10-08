@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-08T05:37:48.501Z",
+  "generatedAt": "2026-10-08T12:47:22.478Z",
   "nodes": [
     {
       "id": "MAP",
@@ -642,8 +642,8 @@
       "label": "Eaten ghosts return to the ghost house",
       "file": "canon/capabilities/CAP-7.md",
       "assurance": "draft",
-      "version": "0.0.0",
-      "valid_from": 0,
+      "version": "0.1.0",
+      "valid_from": "ad1df41095556646cbc3249f0709a1dc99d1aca6",
       "valid_to": null,
       "layer": "harness"
     },
