@@ -1,5 +1,6 @@
 import type { Direction, GameState } from './game';
 import { createGameState, tick } from './game';
+import { bestText, nextBest, readBest, writeBest } from './best';
 import { handleKey } from './input';
 import { drawFrame, statusText, TILE } from './render';
 
@@ -21,6 +22,7 @@ const livesEl = required(
   document.querySelector<HTMLElement>('#lives'),
   'Lives element was not found',
 );
+const bestEl = required(document.querySelector<HTMLElement>('#best'), 'Best element was not found');
 const statusEl = required(
   document.querySelector<HTMLElement>('#status'),
   'Status element was not found',
@@ -28,7 +30,19 @@ const statusEl = required(
 
 const STEP_MS = 160;
 
+function getStorage(): Storage | null {
+  try {
+    return window.sessionStorage;
+  } catch {
+    return null;
+  }
+}
+
+const storage = getStorage();
+let best = readBest(storage);
+
 let state = createGameState();
+let previousStatus = state.status;
 canvas.width = state.maze.width * TILE;
 canvas.height = state.maze.height * TILE;
 
@@ -57,7 +71,20 @@ function render(): void {
   drawFrame(ctx, state);
   scoreEl.textContent = `Score: ${state.score}`;
   livesEl.textContent = `Lives: ${state.lives}`;
+  bestEl.textContent = bestText(best);
   statusEl.textContent = statusText(state);
+}
+
+// canon: CAP-9.2
+// canon: CAP-9.3
+// canon: CAP-9.6
+function recordRunEnd(): void {
+  const ended = state.status === 'won' || state.status === 'lost';
+  if (previousStatus === 'playing' && ended) {
+    best = nextBest(best, state.score);
+    writeBest(storage, best);
+  }
+  previousStatus = state.status;
 }
 
 function frame(timestamp: number): void {
@@ -67,6 +94,7 @@ function frame(timestamp: number): void {
     state = tick(state, currentDirection);
     last = timestamp;
   }
+  recordRunEnd();
   render();
   window.requestAnimationFrame(frame);
 }
