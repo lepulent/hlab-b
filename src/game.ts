@@ -35,6 +35,7 @@ export type GameState = {
   dotsTotal: number;
   fruit: Fruit;
   frightenedTicks: number;
+  boostTicks: number;
   readyTicks: number;
   status: GameStatus;
   paused: boolean;
@@ -44,6 +45,9 @@ const DOT_SCORE = 10;
 const PELLET_SCORE = 50;
 const GHOST_SCORE = 200;
 const FRIGHTENED_DURATION = 30;
+// Tunable: boost length in ticks, and cells pacman moves per boosted tick (a positive integer).
+export const BOOST_DURATION = 20;
+export const BOOST_SPEED_MULTIPLIER = 2;
 const FRUIT_SCORE = 100;
 const FRUIT_DURATION = 50;
 const STARTING_LIVES = 3;
@@ -93,6 +97,7 @@ export function createGameState(): GameState {
     dotsTotal,
     fruit: { phase: 'waiting', ticksLeft: 0 },
     frightenedTicks: 0,
+    boostTicks: 0,
     readyTicks: READY_TICKS,
     status: 'playing',
     paused: false,
@@ -107,6 +112,8 @@ export function attemptMove(maze: Maze, pos: Position, dir: Direction): Position
 
 // canon: CAP-1.3
 // canon: CAP-7.5
+// canon: CAP-8.1
+// canon: CAP-8.4
 export function eatDot(state: GameState, pos: Position): GameState {
   const cell = cellAt(state.maze, pos);
   if (cell !== 'dot' && cell !== 'pellet') return state;
@@ -119,6 +126,7 @@ export function eatDot(state: GameState, pos: Position): GameState {
   const dotsRemaining = state.dotsRemaining - 1;
   const score = state.score + (cell === 'pellet' ? PELLET_SCORE : DOT_SCORE);
   const frightenedTicks = cell === 'pellet' ? FRIGHTENED_DURATION : state.frightenedTicks;
+  const boostTicks = cell === 'pellet' ? BOOST_DURATION : state.boostTicks;
   const ghosts =
     cell === 'pellet'
       ? state.ghosts.map((g) =>
@@ -126,7 +134,7 @@ export function eatDot(state: GameState, pos: Position): GameState {
         )
       : state.ghosts;
 
-  return { ...state, maze, dotsRemaining, score, frightenedTicks, ghosts };
+  return { ...state, maze, dotsRemaining, score, frightenedTicks, boostTicks, ghosts };
 }
 
 // canon: CAP-1.5
@@ -139,6 +147,7 @@ export function checkWin(state: GameState): GameState {
 // canon: CAP-6.2
 // canon: CAP-6.3
 // canon: CAP-7.7
+// canon: CAP-8.7
 export function loseLife(state: GameState): GameState {
   const lives = state.lives - 1;
   if (lives <= 0) return { ...state, lives: 0, status: 'lost' };
@@ -146,6 +155,7 @@ export function loseLife(state: GameState): GameState {
     ...state,
     lives,
     readyTicks: READY_TICKS,
+    boostTicks: 0,
     pacman: { pos: { ...PACMAN_START }, dir: 'left' },
     ghosts: state.ghosts.map((g) => ({ ...g, pos: { ...g.home }, mode: 'chase' as GhostMode })),
   };
@@ -247,19 +257,34 @@ export function togglePause(state: GameState): GameState {
   return { ...state, paused: !state.paused };
 }
 
+// canon: CAP-8.2
+// canon: CAP-8.3
+// canon: CAP-8.5
+function movePacmanSteps(state: GameState, dir: Direction | null): GameState {
+  const steps = state.boostTicks > 0 ? BOOST_SPEED_MULTIPLIER : 1;
+  let current: GameState = { ...state, boostTicks: Math.max(0, state.boostTicks - 1) };
+  for (let step = 0; step < steps; step++) {
+    const before = current.pacman.pos;
+    const moved = dir ? movePacman(current, dir) : current;
+    if (moved.status !== 'playing') return moved;
+    current = resolveGhostCollisions(eatFruit(maybeSpawnFruit(moved)));
+    const stopped = current.pacman.pos.x === before.x && current.pacman.pos.y === before.y;
+    if (current.status !== 'playing' || current.lives !== moved.lives || stopped) break;
+  }
+  return current;
+}
+
 // canon: CAP-2.2
 // canon: CAP-2.3
 // canon: CAP-2.4
 // canon: CAP-6.4
 // canon: CAP-6.5
 // canon: CAP-7.6
+// canon: CAP-8.6
 export function tick(state: GameState, dir: Direction | null): GameState {
   if (state.status !== 'playing' || state.paused) return state;
   if (state.readyTicks > 0) return { ...state, readyTicks: state.readyTicks - 1 };
-  const afterPacman = dir ? movePacman(state, dir) : state;
-  if (afterPacman.status !== 'playing') return afterPacman;
-
-  const afterPacmanCollision = resolveGhostCollisions(eatFruit(maybeSpawnFruit(afterPacman)));
+  const afterPacmanCollision = movePacmanSteps(state, dir);
   if (afterPacmanCollision.status !== 'playing') return afterPacmanCollision;
 
   const afterGhosts = moveGhosts(afterPacmanCollision);
