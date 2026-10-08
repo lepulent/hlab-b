@@ -4,6 +4,8 @@ import type { Cell, Maze } from './maze';
 import { PACMAN_START, createMaze, isWalkable } from './maze';
 import { TILE, drawFrame, statusText } from './render';
 import {
+  BOOST_DURATION,
+  BOOST_SPEED_MULTIPLIER,
   FRUIT_POS,
   READY_TICKS,
   attemptMove,
@@ -54,6 +56,7 @@ function buildState(overrides: Partial<GameState> = {}): GameState {
     dotsTotal: 9,
     fruit: { phase: 'waiting', ticksLeft: 0 },
     frightenedTicks: 0,
+    boostTicks: 0,
     readyTicks: 0,
     status: 'playing',
     paused: false,
@@ -1006,5 +1009,146 @@ describe('eaten ghost returns home', () => {
     const colours = [fillOf('chase'), fillOf('frightened'), fillOf('returning')];
     expect(colours.every((c) => c !== undefined)).toBe(true);
     expect(new Set(colours).size).toBe(3);
+  });
+});
+
+// A long corridor on row 1, pacman at x=1, so a boosted tick has room to run.
+const LANE = buildMaze(['####################', '#..................#', '####################']);
+const laneState = (overrides: Partial<GameState> = {}): GameState =>
+  buildState({
+    maze: LANE,
+    pacman: { pos: { x: 1, y: 1 }, dir: 'right' },
+    dotsRemaining: 18,
+    dotsTotal: 36,
+    ...overrides,
+  });
+const atStart = (state: GameState): GameState => ({
+  ...state,
+  pacman: { pos: { x: 1, y: 1 }, dir: 'right' },
+});
+
+describe('speed boost after a power pellet', () => {
+  it('P0-GAME-029 starts the boost on a power pellet and leaves it alone on a dot', () => {
+    // canon: CAP-8.1
+    const maze = buildMaze(['#####', '#o..#', '#...#', '#...#', '#####']);
+    const pellet = eatDot(buildState({ maze }), { x: 1, y: 1 });
+    expect(pellet.boostTicks).toBe(BOOST_DURATION);
+    expect(eatDot(buildState(), { x: 2, y: 2 }).boostTicks).toBe(0);
+  });
+
+  it('P0-GAME-029 moves one cell on the pellet tick and boosts from the next tick', () => {
+    // canon: CAP-8.1
+    const maze = buildMaze([
+      '####################',
+      '#.o................#',
+      '####################',
+    ]);
+    const eating = tick(laneState({ maze }), 'right');
+    expect(eating.pacman.pos.x).toBe(2);
+    expect(eating.boostTicks).toBe(BOOST_DURATION);
+    expect(tick(eating, 'right').pacman.pos.x).toBe(2 + BOOST_SPEED_MULTIPLIER);
+  });
+
+  it('P0-GAME-030 moves the multiplier of cells per tick while boosted and one when not', () => {
+    // canon: CAP-8.2
+    const boosted = tick(laneState({ boostTicks: 5 }), 'right');
+    expect(boosted.pacman.pos.x).toBe(1 + BOOST_SPEED_MULTIPLIER);
+    expect(tick(laneState(), 'right').pacman.pos.x).toBe(2);
+  });
+
+  it('P0-GAME-030 stops at a wall without error and keeps ghosts at one cell per tick', () => {
+    // canon: CAP-8.2
+    const maze = buildMaze(['#####', '#...#', '#####']);
+    const near = tick(
+      buildState({ maze, pacman: { pos: { x: 3, y: 1 }, dir: 'right' }, boostTicks: 5 }),
+      'right',
+    );
+    expect(near.pacman.pos).toEqual({ x: 3, y: 1 });
+
+    const ghost = buildGhost({ pos: { x: 18, y: 1 }, dir: 'left', home: { x: 18, y: 1 } });
+    const next = tick(laneState({ boostTicks: 5, ghosts: [ghost] }), 'right');
+    expect(next.ghosts[0]?.pos.x).toBe(17);
+  });
+
+  it('P0-GAME-031 lasts exactly the boost duration in ticks', () => {
+    // canon: CAP-8.3
+    let state = laneState({ boostTicks: BOOST_DURATION });
+    for (let i = 0; i < BOOST_DURATION; i++) {
+      expect(state.boostTicks).toBe(BOOST_DURATION - i);
+      state = tick(atStart(state), 'right');
+      expect(state.pacman.pos.x).toBe(1 + BOOST_SPEED_MULTIPLIER);
+    }
+    expect(state.boostTicks).toBe(0);
+    const after = tick(atStart(state), 'right');
+    expect(after.pacman.pos.x).toBe(2);
+    expect(after.boostTicks).toBe(0);
+  });
+
+  it('P0-GAME-032 refreshes the boost on a second pellet without adding time or speed', () => {
+    // canon: CAP-8.4
+    const maze = buildMaze([
+      '####################',
+      '#.o................#',
+      '####################',
+    ]);
+    const next = tick(laneState({ maze, boostTicks: 3 }), 'right');
+    expect(next.boostTicks).toBe(BOOST_DURATION);
+    expect(next.pacman.pos.x).toBe(1 + BOOST_SPEED_MULTIPLIER);
+    const again = tick(atStart(next), 'right');
+    expect(again.pacman.pos.x).toBe(1 + BOOST_SPEED_MULTIPLIER);
+    expect(again.boostTicks).toBe(BOOST_DURATION - 1);
+  });
+
+  it('P0-GAME-033 eats and scores each dot crossed in a boosted tick', () => {
+    // canon: CAP-8.5
+    const next = tick(laneState({ boostTicks: 5 }), 'right');
+    expect(next.score).toBe(10 * BOOST_SPEED_MULTIPLIER);
+    expect(next.dotsRemaining).toBe(18 - BOOST_SPEED_MULTIPLIER);
+  });
+
+  it('P0-GAME-033 eats a frightened ghost met on a boosted step', () => {
+    // canon: CAP-8.5
+    const ghost = buildGhost({ pos: { x: 2, y: 1 }, mode: 'frightened', home: { x: 18, y: 1 } });
+    const next = tick(laneState({ boostTicks: 5, frightenedTicks: 10, ghosts: [ghost] }), 'right');
+    expect(next.score).toBeGreaterThanOrEqual(200);
+    expect(next.ghosts[0]?.mode).toBe('returning');
+  });
+
+  it('P0-GAME-033 stops pacman where a chasing ghost costs a life', () => {
+    // canon: CAP-8.5
+    const ghost = buildGhost({ pos: { x: 2, y: 1 }, home: { x: 18, y: 1 } });
+    const next = tick(laneState({ boostTicks: 5, ghosts: [ghost] }), 'right');
+    expect(next.lives).toBe(2);
+    expect(next.pacman.pos).toEqual(PACMAN_START);
+    expect(next.boostTicks).toBe(0);
+  });
+
+  it('P0-GAME-033 wins on the last dot and moves no further', () => {
+    // canon: CAP-8.5
+    const maze = buildMaze(['#####', '#.. #', '#####']);
+    const state = buildState({
+      maze,
+      pacman: { pos: { x: 1, y: 1 }, dir: 'right' },
+      dotsRemaining: 1,
+      boostTicks: 5,
+    });
+    const next = tick(state, 'right');
+    expect(next.status).toBe('won');
+    expect(next.pacman.pos).toEqual({ x: 2, y: 1 });
+  });
+
+  it('P0-GAME-034 does not count the boost down while paused or during READY!', () => {
+    // canon: CAP-8.6
+    const paused = tick(laneState({ boostTicks: 7, paused: true }), 'right');
+    expect(paused.boostTicks).toBe(7);
+    const ready = tick(laneState({ boostTicks: 7, readyTicks: 3 }), 'right');
+    expect(ready.boostTicks).toBe(7);
+    expect(ready.pacman.pos.x).toBe(1);
+  });
+
+  it('P0-GAME-035 ends the boost when a life is lost or a new game starts', () => {
+    // canon: CAP-8.7
+    expect(loseLife(buildState({ lives: 2, boostTicks: 9 })).boostTicks).toBe(0);
+    expect(createGameState().boostTicks).toBe(0);
   });
 });

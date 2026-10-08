@@ -1,0 +1,23 @@
+{
+  "plan": "g3b",
+  "kind": "feature",
+  "stage": "alpha",
+  "stakes": "internal",
+  "assuranceFloor": "prototype",
+  "track": "method",
+  "matchedSignals": {
+    "vertical": ["pacman"],
+    "method": [],
+    "enterprise": []
+  },
+  "requestedRigor": "prototype",
+  "floor": "prototype",
+  "rigor": "prototype",
+  "touchedShards": [],
+  "rungs": ["brief", "prd", "ux", "architecture", "epics", "stories", "build", "test", "qa"],
+  "seal": "required",
+  "hasCanon": true,
+  "base": "d868459ed27729dfebb99da659ba8c22be6b1c21",
+  "branch": "plan/g3b",
+  "plantedAt": "2026-10-08T14:44:52.064Z"
+}
