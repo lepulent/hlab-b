@@ -1,0 +1,23 @@
+{
+  "plan": "g4b",
+  "kind": "feature",
+  "stage": "alpha",
+  "stakes": "internal",
+  "assuranceFloor": "prototype",
+  "track": "method",
+  "matchedSignals": {
+    "vertical": [],
+    "method": [],
+    "enterprise": []
+  },
+  "requestedRigor": "prototype",
+  "floor": "prototype",
+  "rigor": "prototype",
+  "touchedShards": [],
+  "rungs": ["brief", "prd", "ux", "architecture", "epics", "stories", "build", "test", "qa"],
+  "seal": "required",
+  "hasCanon": true,
+  "base": "f24960532e83751a1967c1b39046afab3a5f07be",
+  "branch": "plan/g4b",
+  "plantedAt": "2026-10-08T15:03:26.755Z"
+}
