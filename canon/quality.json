@@ -51,7 +51,15 @@
     "CAP-7.5": "prototype",
     "CAP-7.6": "prototype",
     "CAP-7.7": "prototype",
-    "CAP-7.8": "prototype"
+    "CAP-7.8": "prototype",
+    "CAP-8": "prototype",
+    "CAP-8.1": "prototype",
+    "CAP-8.2": "prototype",
+    "CAP-8.3": "prototype",
+    "CAP-8.4": "prototype",
+    "CAP-8.5": "prototype",
+    "CAP-8.6": "prototype",
+    "CAP-8.7": "prototype"
   },
   "bindings": {
     "criteria": 0,
@@ -71,9 +79,9 @@
         "at": "2026-10-04T22:54:32.444Z"
       },
       "lastSeen": {
-        "plan": "g2b",
-        "commit": "ad1df41095556646cbc3249f0709a1dc99d1aca6",
-        "at": "2026-10-08T12:47:21.448Z"
+        "plan": "g3b",
+        "commit": "e1328bfae9dc31af55798497e18ca06b6ae34250",
+        "at": "2026-10-08T14:52:44.078Z"
       },
       "accepted": null
     }

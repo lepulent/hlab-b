@@ -2,9 +2,9 @@
 id: CAP-8
 kind: capability
 title: Speed boost after a power pellet
-version: 0.0.0
+version: 0.1.0
 assurance: draft
-valid_from: 89d8081f9cd72ba993930977288b9906e750508f
+valid_from: e1328bfae9dc31af55798497e18ca06b6ae34250
 ---
 
 ## Why
