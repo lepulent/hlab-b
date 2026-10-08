@@ -16,7 +16,7 @@
 //        [--expect-question none|answered|needs-input] [--expect-agents a,b]
 //        [--expect-ending goal-closed|needs-input|clarify] [--no-deliver]
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { setTimeout, clearTimeout } from 'node:timers';
@@ -67,6 +67,8 @@ import { deriveTriggers, vetoHeld } from './department.mjs';
 import { rebuild, parseLedger, openSeats, answerStood } from './resume.mjs';
 import { authorizer, authorityAudit, budgetCheck, readStanding } from './grants.mjs';
 import { rule } from './authority.mjs';
+import { routeFor, validateRouting } from './routing.mjs';
+import { stageMod } from './mod-stage.mjs';
 import {
   liveDecisions,
   stampAtWrite,
@@ -127,6 +129,26 @@ if (STAGE_REFUSAL) {
   process.exit(1);
 }
 const MODEL = harness.yolo?.model || null;
+// Steps 18-19: which adapter puts the seat policy in front of every seat (settings hooks, or the mod), and
+// the routing table (model and effort per role). The settings adapter routes by --model/--effort; the
+// mod routes every model request in its turn.step hook.
+const ADAPTER = arg('adapter', harness.adapter || 'settings');
+if (!['settings', 'mod'].includes(ADAPTER)) {
+  console.error(`conduct: --adapter ${ADAPTER} is not settings or mod`);
+  process.exit(2);
+}
+const ROUTING = arg('routing', null)
+  ? readJson(resolve(arg('routing', null)))
+  : harness.routing || null;
+{
+  const v = ROUTING ? validateRouting(ROUTING) : { ok: true };
+  if (!v.ok) {
+    console.error(`conduct: the routing is refused: ${v.refusals.join('; ')}`);
+    process.exit(2);
+  }
+}
+// every seat this run opened, with the route it was given, for the routing-held check
+const routed = [];
 // sessions at once; the laptop's limit (H-18: parallelism 2)
 const MAX_WAVE = harness.conduct?.max_wave || 2;
 // Master decisions per plan, and the size of what one wave relays to the next (H-33 step 5)
@@ -321,8 +343,18 @@ const footprintOf = (session) => {
 
 // one headless session, asynchronous so a wave's sessions run at the same time; tools last because
 // --tools is variadic
-function seat({ session, prompt, budget, schema, tools, permissionMode, deadlineS }) {
+function seat({ session, prompt, budget, schema, tools, permissionMode, deadlineS, role = null }) {
   const start = Date.now();
+  const route = routeFor(role, ROUTING, MODEL);
+  const staged =
+    ADAPTER === 'mod'
+      ? stageMod({
+          root: ROOT,
+          departments: readJson(join(ROOT, 'canon', 'departments.json')),
+          route,
+        })
+      : null;
+  routed.push({ session, role, route, adapter: ADAPTER });
   const child = spawn(
     'claude',
     [
@@ -334,13 +366,20 @@ function seat({ session, prompt, budget, schema, tools, permissionMode, deadline
       '--setting-sources',
       'user',
       '--strict-mcp-config',
-      '--settings',
-      SEAT_SETTINGS,
+      // the settings adapter: the veto and footprint hooks, and the route as flags; the mod adapter:
+      // the staged guard, which also sets the route on every request (turn.step)
+      ...(staged
+        ? ['--plugin-dir', staged.dir]
+        : [
+            '--settings',
+            SEAT_SETTINGS,
+            ...(route.model ? ['--model', route.model] : []),
+            ...(route.effort ? ['--effort', route.effort] : []),
+          ]),
       '--session-id',
       session,
       '--max-budget-usd',
       String(budget),
-      ...(MODEL ? ['--model', MODEL] : []),
       // an allowance may be a pattern (Bash(npm run -s test)); --tools takes the tool names
       ...(tools.length ? ['--allowedTools', tools.join(',')] : []),
       '--tools',
@@ -366,6 +405,7 @@ function seat({ session, prompt, budget, schema, tools, permissionMode, deadline
   return new Promise((resolve) =>
     child.on('close', (code) => {
       if (timer) clearTimeout(timer);
+      staged?.cleanup();
       liveSeats.delete(child.pid);
       seatsChanged();
       let out = null;
@@ -384,6 +424,8 @@ function seat({ session, prompt, budget, schema, tools, permissionMode, deadline
         start,
         end,
         minutes: Math.round((end - start) / 6000) / 10,
+        route,
+        adapter: ADAPTER,
       });
     }),
   );
@@ -406,6 +448,8 @@ const row = (name, station, session, r, extra = {}) => {
     tools: toolUses(transcript(session)),
     transcript_tokens,
     timed_out: !!r.timedOut,
+    ...(r.route && Object.keys(r.route).length ? { route: r.route } : {}),
+    adapter: r.adapter || ADAPTER,
     ...extra,
   };
 };
@@ -905,6 +949,7 @@ async function master(n, attempt, refusals) {
   ledger('seat-start', { seat: 'master', session, station: 'conduct', wave: n, attempt });
   const mStart = treeState();
   const r = await seat({
+    role: 'master',
     session,
     prompt: [
       readFileSync(conductorPrompt, 'utf8'),
@@ -1110,6 +1155,7 @@ async function runWave(n, d) {
   const results = await Promise.all(
     wave.map((a) =>
       seat({
+        role: a.agent,
         session: a.session,
         prompt: a.prompt,
         budget: a.def.budget_usd || 1,
@@ -1528,6 +1574,7 @@ async function questions(n, wave, record) {
     ledger('seat-start', { seat: 'master', session, station: 'answer', wave: n, file: r.file });
     const aStart = treeState();
     const m = await seat({
+      role: 'answer',
       session,
       prompt: [
         readFileSync(answerer, 'utf8'),
@@ -1769,7 +1816,44 @@ const relayWaves = agents.filter((a) => a.relay.needed && a.terminal === 'comple
 const multi = waves.filter((w) => !w.prior && w.activations.length > 1);
 const endLadder = ladderNow();
 const expectedEnding = EXPECT_END || (EXPECT_Q === 'needs-input' ? 'needs-input' : 'goal-closed');
+// the model each request of a seat actually used, from its transcript: a route that did not take (an
+// alias turn.step cannot resolve answers `<synthetic>` at $0) is visible here and nowhere else
+const modelsUsed = (session) => [
+  ...new Set(
+    String(transcript(session) || '')
+      .split('\n')
+      .filter(Boolean)
+      .map((l) => {
+        try {
+          const e = JSON.parse(l);
+          return e.type === 'assistant' ? e.message?.model : null;
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean),
+  ),
+];
 const checks = {
+  // every seat this run opened ran on the model its route named, and on nothing else
+  'routing-held': {
+    ok: routed
+      .filter((x) => x.route.model)
+      .every((x) => {
+        const used = modelsUsed(x.session);
+        return used.length > 0 && used.every((m) => m === x.route.model);
+      }),
+    msg: routed.length
+      ? `${ADAPTER} adapter; ${[
+          ...new Set(
+            routed.map(
+              (x) =>
+                `${x.role}→${x.route.model || 'session'}${x.route.effort ? `/${x.route.effort}` : ''} used ${modelsUsed(x.session).join('+') || 'nothing'}`,
+            ),
+          ),
+        ].join(' · ')}`
+      : 'no seat ran this session',
+  },
   'sessions-distinct': {
     ok: (() => {
       const all = [...decisions.map((d) => d.row.session), ...agents.map((a) => a.row.session)];

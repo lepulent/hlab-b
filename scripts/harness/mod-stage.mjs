@@ -1,7 +1,7 @@
 // Step 18: stage the mod adapter for one seat. The installed copy (scripts/harness/mod/harness-guard,
 // kept equal to the bundle by harness-in-sync) is copied into a fresh 0700 folder outside the app, so it
 // lies outside every path a seat is cast to write, with the seat's own config beside its module:
-// hooks/seat.json { root, departments, reach, forceThrow }. Returns the folder and each file's hash, so
+// hooks/seat.json { root, departments, reach, forceThrow, route }. Returns the folder and each file's hash, so
 // the record can name exactly what a seat was given.
 import { createHash } from 'node:crypto';
 import {
@@ -39,14 +39,14 @@ const hashes = (dir) => {
   return out;
 };
 
-export function stageMod({ root, departments, reach = null, forceThrow = false }) {
+export function stageMod({ root, departments, reach = null, forceThrow = false, route = null }) {
   const from = join(root, 'scripts', 'harness', 'mod', MOD_NAME);
   const base = realpathSync(mkdtempSync(join(tmpdir(), 'harness-mod-')));
   const dir = join(base, MOD_NAME);
   cpSync(from, dir, { recursive: true });
   writeFileSync(
     join(dir, 'hooks', 'seat.json'),
-    JSON.stringify({ root, departments, reach, forceThrow }),
+    JSON.stringify({ root, departments, reach, forceThrow, route }),
   );
   return { dir, files: hashes(dir), cleanup: () => rmSync(base, { recursive: true, force: true }) };
 }
