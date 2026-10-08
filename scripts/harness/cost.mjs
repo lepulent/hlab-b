@@ -10,6 +10,14 @@
 export const RATES = Object.freeze({
   'claude-sonnet-5': Object.freeze({ input: 2, output: 10, cache_read: 0.2, cache_creation: 4 }),
   'claude-sonnet-5-5': Object.freeze({ input: 2, output: 10, cache_read: 0.2, cache_creation: 4 }),
+  // fitted to the six self-reported haiku seats of hlab-a r19a-route2 and hlab-b r19b-route2 (step 19):
+  // exact to 1e-11 USD; the cost test below holds it to every priced seat in both apps
+  'claude-haiku-5-5': Object.freeze({
+    input: 0.1,
+    output: 0.5,
+    cache_read: 0.01,
+    cache_creation: 0.2,
+  }),
 });
 
 const FIELDS = ['input', 'output', 'cache_read', 'cache_creation'];

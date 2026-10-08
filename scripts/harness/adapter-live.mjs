@@ -14,7 +14,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { ROOT, billingFindings, modelEnv, readJson } from './common.mjs';
+import { ROOT, billingFindings, guardCommand, modelEnv, readJson } from './common.mjs';
 import { MOD_CALLS_ALLOWED, modsAdmitted, stageMod } from './mod-stage.mjs';
 
 const argv = process.argv.slice(2);
@@ -33,7 +33,14 @@ const hook = (name) => ({
 });
 const SETTINGS = JSON.stringify({
   hooks: {
-    PreToolUse: [{ matcher: '*', hooks: [hook('veto.mjs')] }],
+    PreToolUse: [
+      {
+        matcher: '*',
+        hooks: [
+          { type: 'command', command: guardCommand(join(ROOT, '.claude', 'hooks', 'veto.mjs')) },
+        ],
+      },
+    ],
     PostToolUse: [{ matcher: '*', hooks: [hook('footprint.mjs')] }],
   },
 });

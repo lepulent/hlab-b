@@ -16,6 +16,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
+import { spawnSync } from 'node:child_process';
 
 export const MOD_NAME = 'harness-guard';
 // what the guard may call on `$` (the mod-reach check): files and the session's own facts, never a
@@ -76,4 +77,42 @@ export function modsAdmitted(initPlugins, { guardDir = null, refused = [] } = {}
       };
     });
   return { ok: rows.every((r) => r.ok) && (!guardDir || rows.some((r) => r.guard)), rows };
+}
+
+// A mod whose module cannot load is skipped by the engine, and its seat then runs with no guard at all:
+// the mod's own way of failing open (Ludwig 2026-10-08). So a staged copy is admitted only when the
+// engine's own reading of it (claude plugin validate --json) succeeds, registers both gates with .catch,
+// and calls nothing beyond MOD_CALLS_ALLOWED; a refused stage means the seat is not spawned.
+export function admitStaged(dir, validate = defaultValidate) {
+  const v = validate(dir);
+  if (!v?.success)
+    return {
+      ok: false,
+      reason: `the staged mod does not load: ${JSON.stringify(v?.errors || v?.contents?.flatMap((c) => c.errors || []) || 'no report').slice(0, 200)}`,
+    };
+  const notes = (v.contents || []).flatMap((c) => c.notes || []);
+  const calls = [
+    ...(notes.find((n) => n.includes(' calls: ')) || '').matchAll(/\$\.([\w.]+)/g),
+  ].map((m) => m[1]);
+  const gates = (v.contents || []).flatMap((c) => c.gatingHooks || []);
+  const need = ['tool.call', 'plugin.register'];
+  if (!need.every((h) => gates.some((g) => g.hook === h && g.hasCatch)))
+    return {
+      ok: false,
+      reason: `the staged mod lacks a gate with .catch: has ${gates.map((g) => g.hook).join(', ') || 'none'}`,
+    };
+  const extra = calls.filter((c) => !MOD_CALLS_ALLOWED.includes(c));
+  if (extra.length) return { ok: false, reason: `the staged mod calls ${extra.join(', ')}` };
+  return { ok: true, calls, gates: gates.map((g) => g.hook) };
+}
+function defaultValidate(dir) {
+  const r = spawnSync('claude', ['plugin', 'validate', '--json', dir], {
+    encoding: 'utf8',
+    timeout: 120000,
+  });
+  try {
+    return JSON.parse(r.stdout);
+  } catch {
+    return null;
+  }
 }

@@ -232,3 +232,15 @@ export function layerOf(relPath, layerMap) {
   }
   return null;
 }
+
+// A guard hook as a shell command that fails closed. Claude Code treats a PreToolUse exit of 2 as a deny
+// and any other non-zero exit as a non-blocking error, so the call RUNS: a guard whose module cannot load
+// (node exits 1 before a line of it runs) let every call through (Ludwig 2026-10-08). Wrapped, 0 stays
+// an allow and every other exit becomes a deny with its reason.
+export function guardCommand(script, args = [], env = {}) {
+  const pre = Object.entries(env)
+    .map(([k, v]) => `${k}=${JSON.stringify(String(v))} `)
+    .join('');
+  const call = [JSON.stringify(script), ...args.map((a) => JSON.stringify(String(a)))].join(' ');
+  return `${pre}node ${call}; s=$?; [ $s -eq 0 ] && exit 0; [ $s -eq 2 ] && exit 2; echo "the guard ${script.split('/').pop()} failed (exit $s), so the call is denied" >&2; exit 2`;
+}

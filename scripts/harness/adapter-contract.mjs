@@ -105,6 +105,19 @@ export const CASES = [
     expect: { verdict: 'deny' },
   },
   {
+    name: 'fails closed: a policy that reads as nothing (null) is denied (Ludwig 2026-10-08)',
+    call: { tool: 'Read', input: { file_path: '{root}/src/a.ts' } },
+    fault: 'null-policy',
+    expect: { verdict: 'deny', by: 'no-policy' },
+  },
+  {
+    name: 'fails closed: a guard that cannot even load denies (Ludwig 2026-10-08)',
+    call: { tool: 'Read', input: { file_path: '{root}/src/a.ts' } },
+    fault: 'unloadable',
+    // nothing of the guard ran, so nothing can witness the call; the deny is what the contract holds
+    expect: { verdict: 'deny', unwitnessed: true },
+  },
+  {
     name: 'fails closed: a guard that throws denies',
     call: { tool: 'Read', input: { file_path: '{root}/src/a.ts' } },
     fault: 'throw',
@@ -130,8 +143,9 @@ export function conform(c, observed) {
       why.push(`witnessed ${ran[0].tool} ${ran[0].target}, not ${e.line.tool} ${e.line.target}`);
   } else {
     if (lines.some((l) => !l.denied)) why.push('a denied call was recorded as one that ran');
-    // a call the adapter cannot read has no session to record against; the deny is what matters
-    if (c.call.tool && lines.filter((l) => l.denied).length !== 1)
+    // a call the adapter cannot read has no session to record against, and a guard that never loaded
+    // wrote nothing; the deny is what matters
+    if (c.call.tool && !e.unwitnessed && lines.filter((l) => l.denied).length !== 1)
       why.push(`${lines.filter((l) => l.denied).length} denied line(s), not 1`);
   }
   return { name: c.name, ok: !why.length, why };

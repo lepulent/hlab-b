@@ -31,6 +31,7 @@ import {
   commitOnly,
   modelEnv,
   billingFindings,
+  guardCommand,
 } from './common.mjs';
 import {
   rosterById,
@@ -68,7 +69,7 @@ import { rebuild, parseLedger, openSeats, answerStood } from './resume.mjs';
 import { authorizer, authorityAudit, budgetCheck, readStanding } from './grants.mjs';
 import { rule } from './authority.mjs';
 import { routeFor, validateRouting } from './routing.mjs';
-import { stageMod } from './mod-stage.mjs';
+import { admitStaged, stageMod } from './mod-stage.mjs';
 import {
   liveDecisions,
   stampAtWrite,
@@ -147,8 +148,16 @@ const ROUTING = arg('routing', null)
     process.exit(2);
   }
 }
-// every seat this run opened, with the route it was given, for the routing-held check
-const routed = [];
+// The department policy every seat is ruled by, read once and refused before anything is spent: both
+// adapters now deny every call when it cannot be read, so a broken file would cast seats that can do
+// nothing and still bill them (Ludwig 2026-10-08)
+const DEPARTMENTS = readJson(join(ROOT, 'canon', 'departments.json'));
+if (!DEPARTMENTS || !Array.isArray(DEPARTMENTS.departments)) {
+  console.error(
+    'conduct: canon/departments.json cannot be read as { departments: [...] }; every seat would be denied every call',
+  );
+  process.exit(2);
+}
 // sessions at once; the laptop's limit (H-18: parallelism 2)
 const MAX_WAVE = harness.conduct?.max_wave || 2;
 // Master decisions per plan, and the size of what one wave relays to the next (H-33 step 5)
@@ -307,7 +316,8 @@ const SEAT_SETTINGS = JSON.stringify({
         hooks: [
           {
             type: 'command',
-            command: `node ${JSON.stringify(join(ROOT, '.claude', 'hooks', 'veto.mjs'))}`,
+            // fails closed even when the hook cannot start (common.mjs guardCommand)
+            command: guardCommand(join(ROOT, '.claude', 'hooks', 'veto.mjs')),
           },
         ],
       },
@@ -350,11 +360,28 @@ function seat({ session, prompt, budget, schema, tools, permissionMode, deadline
     ADAPTER === 'mod'
       ? stageMod({
           root: ROOT,
-          departments: readJson(join(ROOT, 'canon', 'departments.json')),
+          departments: DEPARTMENTS,
           route,
         })
       : null;
-  routed.push({ session, role, route, adapter: ADAPTER });
+  // a staged mod that would not load leaves the seat unguarded: it is refused, and the seat never runs
+  const admitted = staged ? admitStaged(staged.dir) : { ok: true };
+  if (!admitted.ok) {
+    staged.cleanup();
+    const end = Date.now();
+    return Promise.resolve({
+      ok: false,
+      timedOut: false,
+      deadlineS: deadlineS || null,
+      out: { result: `the seat was not spawned: ${admitted.reason}` },
+      stderr: admitted.reason,
+      start,
+      end,
+      minutes: 0,
+      route,
+      adapter: ADAPTER,
+    });
+  }
   const child = spawn(
     'claude',
     [
@@ -630,14 +657,14 @@ const deliveredByGap = (d) =>
 // What an artifact has on HEAD, for a seat that changed nothing (record.mjs confirmedOnHead): code is this
 // plan's committed files under its path with the app's gate passed on them this wave; a document is its
 // committed file, or for a pattern any committed file under it (hlab-b t7b w3: CAP-2 stood on main).
-const onHeadFor = (d) =>
-  d.kind === 'code'
-    ? changedUnder(d).length > 0 && !!gates[d.id]?.ok
-    : artifactPath(d).includes('*')
-      ? sh('git', ['ls-files', '--', artifactPath(d).replace(/\*\*$/, '')])
-          .stdout.split('\n')
-          .some((p) => p && owns([artifactPath(d)], p))
-      : committedText(artifactPath(d), ROOT) !== null;
+// One fact, one predicate: "on HEAD" is what coverage counts (artifactFiles: this plan's committed files
+// under a pattern, the committed file at a plain path), and for code the gate passed too. It used to
+// count any committed file under a pattern from any plan, so a curator could be credited "nothing to
+// change" for a capability this plan's coverage still called absent (Ludwig 2026-10-08, hlab-b t7b).
+const onHeadFor = (d) => artifactFiles(d).length > 0 && (d.kind !== 'code' || !!gates[d.id]?.ok);
+// an artifact's own path, by its index among the seat's artifacts: `owned` interleaves also_owns paths,
+// `deliverables` is aligned with `artifacts` (gap.mjs castGap)
+const artifactPathOf = (a, i) => (a.deliverables || a.owned)[i];
 const present = () =>
   catalogue.doctypes
     .filter((d) =>
@@ -1238,13 +1265,13 @@ async function runWave(n, d) {
     );
     // the artifacts this seat found already delivered on HEAD and left alone: they owe no change
     a.confirmed = confirmedOnHead({
-      owned: a.artifacts.map((_, i) => a.owned[i]),
+      owned: a.artifacts.map((_, i) => artifactPathOf(a, i)),
       authored: a.authored,
       read: a.read,
       onHead: Object.fromEntries(
         a.artifacts.map((id, i) => {
           const d = catalogue.doctypes.find((x) => x.id === id);
-          return [a.owned[i], !!d && onHeadFor(d)];
+          return [artifactPathOf(a, i), !!d && onHeadFor(d)];
         }),
       ),
     });
@@ -1337,7 +1364,7 @@ async function runWave(n, d) {
   const val = (m) => Object.fromEntries(Object.entries(m).map(([k, v]) => [k, v.value]));
   gap.closure = verifyClosure({
     claimed: wave.flatMap((a) =>
-      a.artifacts.map((id, i) => ({ artifact: id, path: a.owned[i], agent: a.agent })),
+      a.artifacts.map((id, i) => ({ artifact: id, path: artifactPathOf(a, i), agent: a.agent })),
     ),
     mutationsBySeat: Object.fromEntries(wave.map((a) => [a.agent, a.mutations])),
     before: val(maturityBefore),
@@ -1835,25 +1862,26 @@ const modelsUsed = (session) => [
   ),
 ];
 const checks = {
-  // every seat this run opened ran on the model its route named, and on nothing else
-  'routing-held': {
-    ok: routed
-      .filter((x) => x.route.model)
-      .every((x) => {
-        const used = modelsUsed(x.session);
-        return used.length > 0 && used.every((m) => m === x.route.model);
-      }),
-    msg: routed.length
-      ? `${ADAPTER} adapter; ${[
-          ...new Set(
-            routed.map(
-              (x) =>
-                `${x.role}→${x.route.model || 'session'}${x.route.effort ? `/${x.route.effort}` : ''} used ${modelsUsed(x.session).join('+') || 'nothing'}`,
-            ),
-          ),
-        ].join(' · ')}`
-      : 'no seat ran this session',
-  },
+  // Every routed seat of the plan ran on the model its route named, and on nothing else. Read from the
+  // ledger's seat-end rows (each carries its route and session), so a resumed plan's earlier waves are
+  // judged too: a check built from this run's memory went blind on a resume (Ludwig 2026-10-08, the
+  // jevSeen class). Effort leaves no trace in a transcript, so it is stated, never verified.
+  'routing-held': (() => {
+    const rows = ledgerLines()
+      .filter((l) => l.kind === 'seat-end' && l.data?.route?.model && l.data?.session)
+      .map((l) => ({ role: l.data.seat, route: l.data.route, session: l.data.session }));
+    const held = (x) => {
+      const used = modelsUsed(x.session);
+      return used.length > 0 && used.every((m) => m === x.route.model);
+    };
+    return {
+      ok: rows.every(held),
+      msg: rows.length
+        ? `${ADAPTER} adapter; ${[...new Set(rows.map((x) => `${x.role}→${x.route.model}${x.route.effort ? ` (effort ${x.route.effort}, not verifiable from a transcript)` : ''} used ${modelsUsed(x.session).join('+') || 'nothing'}`))].join(' · ')}`
+        : 'no routed seat in the ledger',
+    };
+  })(),
+
   'sessions-distinct': {
     ok: (() => {
       const all = [...decisions.map((d) => d.row.session), ...agents.map((a) => a.row.session)];
@@ -2226,7 +2254,7 @@ if (WANT_DELIVER && ending === 'goal-closed' && endLadder.covered) {
   };
 }
 
-const pass = Object.values(checks).every((c) => c.ok);
+let pass = Object.values(checks).every((c) => c.ok);
 writeJson(join(H, `conduct-${PLAN}.json`), {
   plan: PLAN,
   expect: EXPECT,
@@ -2299,13 +2327,30 @@ handoff(`${PLAN} conduct ${pass ? 'passed' : 'failed'}`);
 // A delivered plan ends on main (land runs there), and its last ledger commit is made after land pushed.
 // Left local, the next plan is planted on it, its seal names a base origin never received, and land
 // refuses it after the squash merge (hlab-b g1b 3981334 → g2b; hlab-a g1a2 dc73e41). It is pushed as
-// land pushes, and a refused push is said, never silent.
+// land pushes. A refused push is a ledger finding and a failed check, never a console line alone
+// (Ludwig 2026-10-08): the finding stays uncommitted on main, so the next run's first handoff records it.
 if (git(['rev-parse', '--abbrev-ref', 'HEAD']) === 'main') {
   const p = sh('git', ['push', '-q', 'origin', 'main'], {
     env: { ...process.env, ALLOW_MAIN_PUSH: '1' },
   });
-  if (!ok(p))
-    console.log(`conduct: push of main failed: ${String(p.stderr || p.stdout).slice(-200)}`);
+  const unpushed = git(['rev-list', '--count', 'origin/main..main']);
+  checks['main-pushed'] = {
+    ok: ok(p) && unpushed === '0',
+    msg:
+      ok(p) && unpushed === '0'
+        ? 'main equals origin/main'
+        : `push refused, ${unpushed || '?'} commit(s) local only: ${String(p.stderr || p.stdout)
+            .trim()
+            .slice(-160)}`,
+  };
+  if (!checks['main-pushed'].ok) {
+    ledger('finding', {
+      type: 'main-unpushed',
+      unpushed: Number(unpushed) || null,
+      error: String(p.stderr || p.stdout).slice(-300),
+    });
+    pass = false;
+  }
 }
 for (const [k, v] of Object.entries(checks))
   console.log(`${v.ok ? 'pass' : 'FAIL'}  ${k.padEnd(24)} ${v.msg}`);

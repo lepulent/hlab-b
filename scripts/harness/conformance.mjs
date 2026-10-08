@@ -25,6 +25,7 @@ import { setTimeout } from 'node:timers';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CASES, DEPARTMENTS, bind, conform } from './adapter-contract.mjs';
+import { guardCommand } from './common.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 // the hooks beside these scripts: <app>/.claude/hooks installed, or bundle/claude/hooks in the lab
@@ -37,7 +38,10 @@ export function settingsAdapter(hooksDir = defaultHooks()) {
   return (c, root) => {
     mkdirSync(join(root, 'canon'), { recursive: true });
     if (c.fault !== 'no-policy')
-      writeFileSync(join(root, 'canon', 'departments.json'), JSON.stringify(DEPARTMENTS));
+      writeFileSync(
+        join(root, 'canon', 'departments.json'),
+        c.fault === 'null-policy' ? 'null' : JSON.stringify(DEPARTMENTS),
+      );
     const session = `conf-${Math.random().toString(36).slice(2, 10)}`;
     const stdin = JSON.stringify({
       session_id: session,
@@ -51,18 +55,34 @@ export function settingsAdapter(hooksDir = defaultHooks()) {
       CLAUDE_PROJECT_DIR: root,
       ...(c.fault === 'throw' ? { HARNESS_FORCE_GUARD_THROW: '1' } : {}),
     };
+    // a guard runs as the seat's settings give it to Claude Code (common.mjs guardCommand); a guard that
+    // cannot load is a module whose import fails before a line of it runs
+    const broken = join(root, 'broken-guard.mjs');
+    if (c.fault === 'unloadable')
+      writeFileSync(broken, "import { nothing } from './not-there.mjs';\nnothing();\n");
     const run = (hook, args = []) =>
-      spawnSync('node', [join(hooksDir, hook), ...args], { input: stdin, env, encoding: 'utf8' });
+      hook === 'footprint.mjs'
+        ? spawnSync('node', [join(hooksDir, hook), ...args], {
+            input: stdin,
+            env,
+            encoding: 'utf8',
+          })
+        : spawnSync(
+            'bash',
+            ['-c', guardCommand(c.fault === 'unloadable' ? broken : join(hooksDir, hook), args)],
+            {
+              input: stdin,
+              env,
+              encoding: 'utf8',
+            },
+          );
     const guards = [...(c.reach ? [['room-reach.mjs', c.reach]] : []), ['veto.mjs', []]];
     let observed = { verdict: 'allow' };
     for (const [hook, args] of guards) {
       const r = run(hook, args);
+      // the engine's rule: exit 2 denies; any other exit, 0 or a crash, lets the call run
       if (r.status === 2) {
         observed = { verdict: 'deny', message: r.stderr };
-        break;
-      }
-      if (r.status !== 0) {
-        observed = { verdict: 'error', message: r.stderr };
         break;
       }
     }
@@ -103,7 +123,7 @@ async function dispatchToolCall(hooks, $, e) {
 }
 export function modAdapter(modDir = null) {
   return async (c, root) => {
-    const { stageMod } = await import('./mod-stage.mjs');
+    const { stageMod, admitStaged } = await import('./mod-stage.mjs');
     // the installed mod in an app; in the lab the bundle's, with the seat policy laid beside it
     const appMod = join(HERE, 'mod', 'harness-guard');
     const labMod = join(HERE, '..', '..', 'mod', 'harness-guard');
@@ -123,11 +143,22 @@ export function modAdapter(modDir = null) {
     if (!existsSync(policy)) cpSync(join(HERE, 'seat-policy.mjs'), policy);
     const staged = stageMod({
       root,
-      departments: DEPARTMENTS,
+      departments: c.fault === 'null-policy' ? null : DEPARTMENTS,
       reach: c.reach || null,
       forceThrow: c.fault === 'throw',
     });
     if (c.fault === 'no-policy') rmSync(join(staged.dir, 'hooks', 'seat.json'));
+    if (c.fault === 'unloadable')
+      writeFileSync(
+        join(staged.dir, 'hooks', 'seat-policy.mjs'),
+        "export { nothing } from './not-there.mjs';\n",
+      );
+    // what conduct does before it spawns a seat: a stage the engine would not load is refused
+    const admitted = admitStaged(staged.dir);
+    if (!admitted.ok) {
+      staged.cleanup();
+      return { verdict: 'deny', message: admitted.reason, lines: [] };
+    }
     try {
       const mod = await import(
         `${join(staged.dir, 'hooks', 'register.mjs')}?case=${Math.random()}`

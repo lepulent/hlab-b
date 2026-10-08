@@ -30,7 +30,15 @@ import {
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
 import { setTimeout, clearTimeout } from 'node:timers';
-import { ROOT, billingFindings, commitOnly, git, modelEnv, readJson } from './common.mjs';
+import {
+  ROOT,
+  billingFindings,
+  commitOnly,
+  git,
+  guardCommand,
+  modelEnv,
+  readJson,
+} from './common.mjs';
 import { transcriptDir } from './activation.mjs';
 import { rule } from './authority.mjs';
 import {
@@ -222,7 +230,9 @@ const settingsFor = (roots) =>
           hooks: [
             {
               type: 'command',
-              command: `CLAUDE_PROJECT_DIR=${JSON.stringify(ROOT)} node ${JSON.stringify(join(ROOT, '.claude', 'hooks', 'room-reach.mjs'))} ${roots.map((r) => JSON.stringify(r)).join(' ')}`,
+              command: guardCommand(join(ROOT, '.claude', 'hooks', 'room-reach.mjs'), roots, {
+                CLAUDE_PROJECT_DIR: ROOT,
+              }),
             },
           ],
         },
@@ -703,7 +713,7 @@ const checks = {
     msg: `${EXPECT_TERMINAL ? `expected ${EXPECT_TERMINAL}; ` : ''}ended ${room.terminal}`,
   },
 };
-const pass = Object.values(checks).every((c) => c.ok);
+let pass = Object.values(checks).every((c) => c.ok);
 await ledger({
   event: 'checks',
   pass,
@@ -719,8 +729,18 @@ else if (git(['rev-parse', '--abbrev-ref', 'HEAD']) === 'main') {
     cwd: ROOT,
     env: { ...process.env, ALLOW_MAIN_PUSH: '1' },
   });
-  if (p.status !== 0)
-    console.log(`room: push of main failed: ${String(p.stderr || p.stdout).slice(-200)}`);
+  // a refused push fails the room's run, as it fails conduct's (the ledger is committed, not pushed)
+  const unpushed = git(['rev-list', '--count', 'origin/main..main']);
+  checks['main-pushed'] = {
+    ok: p.status === 0 && unpushed === '0',
+    msg:
+      p.status === 0 && unpushed === '0'
+        ? 'main equals origin/main'
+        : `push refused, ${unpushed || '?'} commit(s) local only: ${String(p.stderr || p.stdout)
+            .trim()
+            .slice(-160)}`,
+  };
+  if (!checks['main-pushed'].ok) pass = false;
 }
 for (const s of seats)
   console.log(

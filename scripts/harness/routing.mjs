@@ -8,6 +8,8 @@
 //     "master":  { "effort": "low" },
 //     "seats":   { "dev": { "effort": "medium" } } }
 
+import { RATES } from './cost.mjs';
+
 export const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'];
 // A turn.step rewrite takes a model's full id: an alias ("haiku") fails the request in silence, as a
 // `<synthetic>` reply at $0 (probe 2026-10-08, CLI 2.1.294). So a route is resolved to this build's ids
@@ -18,10 +20,13 @@ export const MODEL_IDS = {
   opus: 'claude-opus-5-5',
   fable: 'claude-fable-5-1',
 };
+// A route the harness cannot price is refused (H-34: a killed seat is priced from its transcript, and
+// a model with no rate would go unpriced). RATES rows are fitted to measured seats, never assumed, so a
+// model joins the routable set when a measured seat gives it a row.
 export const resolveModel = (m) => (m == null ? null : MODEL_IDS[m] || m);
 const MODEL_RE = /^(haiku|sonnet|opus|fable|claude-[a-z0-9.-]+)$/;
 
-export function validateRouting(routing) {
+export function validateRouting(routing, rates = RATES) {
   const refusals = [];
   const each = [
     ['default', routing?.default],
@@ -32,6 +37,10 @@ export function validateRouting(routing) {
   for (const [where, r] of each) {
     if (r.model != null && !MODEL_RE.test(String(r.model)))
       refusals.push(`${where}: model "${r.model}" is not a model name`);
+    else if (r.model != null && !rates[resolveModel(r.model)])
+      refusals.push(
+        `${where}: model "${r.model}" has no rate in cost.mjs RATES, so its seats could not be priced`,
+      );
     if (r.effort != null && !EFFORTS.includes(r.effort))
       refusals.push(`${where}: effort "${r.effort}" is not one of ${EFFORTS.join(', ')}`);
     const extra = Object.keys(r).filter((k) => !['model', 'effort'].includes(k));

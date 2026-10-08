@@ -124,6 +124,15 @@ function main() {
   const branch = git(['rev-parse', '--abbrev-ref', 'HEAD']);
   if (branch !== route.branch) fail(`on ${branch}, the plan lives on ${route.branch}`, 2);
   const base = route.base || git(['merge-base', 'main', 'HEAD']);
+  // A seal names its base, and land refuses a base that is not an ancestor of main after the merge. A
+  // plan planted on a commit origin never received cannot land: refused here, before anything is
+  // pushed or merged (hlab-b g2b on 3981334; Ludwig 2026-10-08, the consumer side of 03197b9).
+  sh('git', ['fetch', '-q', 'origin', 'main']);
+  if (sh('git', ['merge-base', '--is-ancestor', base, 'origin/main']).status !== 0)
+    fail(
+      `the plan was planted on ${base.slice(0, 7)}, which origin/main does not contain; push main (or re-plant) before delivering`,
+      2,
+    );
   const changed = git(['diff', '--name-only', `${base}..HEAD`])
     .split('\n')
     .filter(Boolean);

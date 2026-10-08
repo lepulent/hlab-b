@@ -102,11 +102,27 @@ export function footprintLine(tool, input, root) {
 }
 
 // The one ruling an adapter asks for. A call it cannot read is denied (a malformed hook input parses to
-// {}). Reach first, when the seat is held to folders; then the departments' vetoes on the root-relative
-// target. The message is what the seat receives.
-export function seatRuling({ tool, input, cwd, root, departments = null, reach = null } = {}) {
+// {}). A seat is held to a department policy, to a room's folders, or both; a policy that was given but
+// cannot be read (null, not { departments: [...] }) denies, and so does a seat given neither: a guard
+// with nothing to rule by is not a guard (Ludwig 2026-10-08: the mod adapter skipped every veto when
+// conduct's readJson of departments.json came back null). Reach first, then the departments' vetoes on
+// the root-relative target. The message is what the seat receives.
+const readablePolicy = (d) => !!d && typeof d === 'object' && Array.isArray(d.departments);
+export function seatRuling({ tool, input, cwd, root, departments, reach = null } = {}) {
   if (!tool)
     return { allow: false, by: 'unreadable', reason: 'the call cannot be read, so it is denied' };
+  if (departments === undefined && !reach)
+    return {
+      allow: false,
+      by: 'no-policy',
+      reason: 'the seat was given no policy to rule by, so the call is denied',
+    };
+  if (departments !== undefined && !readablePolicy(departments))
+    return {
+      allow: false,
+      by: 'no-policy',
+      reason: 'the department policy cannot be read, so the call is denied',
+    };
   if (reach) {
     const r = reachRuling(tool, input, cwd, reach);
     if (!r.allow)
@@ -117,7 +133,7 @@ export function seatRuling({ tool, input, cwd, root, departments = null, reach =
         message: `room reach: ${r.reason}`,
       };
   }
-  if (departments) {
+  if (departments !== undefined) {
     const i = input || {};
     const target = relOf(i.file_path || i.notebook_path || i.path, root);
     const v = matchVeto(departments, tool, target);
