@@ -2212,6 +2212,17 @@ ledger('decision', {
   checks: Object.fromEntries(Object.entries(checks).map(([k, v]) => [k, v.ok])),
 });
 handoff(`${PLAN} conduct ${pass ? 'passed' : 'failed'}`);
+// A delivered plan ends on main (land runs there), and its last ledger commit is made after land pushed.
+// Left local, the next plan is planted on it, its seal names a base origin never received, and land
+// refuses it after the squash merge (hlab-b g1b 3981334 → g2b; hlab-a g1a2 dc73e41). It is pushed as
+// land pushes, and a refused push is said, never silent.
+if (git(['rev-parse', '--abbrev-ref', 'HEAD']) === 'main') {
+  const p = sh('git', ['push', '-q', 'origin', 'main'], {
+    env: { ...process.env, ALLOW_MAIN_PUSH: '1' },
+  });
+  if (!ok(p))
+    console.log(`conduct: push of main failed: ${String(p.stderr || p.stdout).slice(-200)}`);
+}
 for (const [k, v] of Object.entries(checks))
   console.log(`${v.ok ? 'pass' : 'FAIL'}  ${k.padEnd(24)} ${v.msg}`);
 console.log(`conduct: ${pass ? 'PASSED' : 'FAILED'} · ${sequence.join(' → ')} · ended ${ending}`);
