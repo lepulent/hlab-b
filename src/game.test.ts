@@ -1,8 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import type { Cell, Maze } from './maze';
-import { PACMAN_START, createMaze, isWalkable } from './maze';
-import { TILE, drawFrame, statusText } from './render';
+import { PACMAN_START, countRemaining, createMaze, isWalkable } from './maze';
+import { TILE, dotsText, drawFrame, statusText } from './render';
 import {
   BOOST_DURATION,
   BOOST_SPEED_MULTIPLIER,
@@ -690,6 +690,78 @@ describe('in-play score display', () => {
 
     const later = tick(tick(lost, 'left'), 'up');
     expect(scoreScreenText(later)).toEqual(scoreScreenText(lost));
+  });
+});
+
+describe('dots left display', () => {
+  it('P0-UI-020 starts at the number of dots and pellets in the maze', () => {
+    // canon: CAP-4.7
+    const state = createGameState();
+    const total = countRemaining(createMaze());
+    expect(total).toBeGreaterThan(0);
+    expect(state.dotsRemaining).toBe(total);
+    expect(state.dotsTotal).toBe(total);
+    expect(dotsText(state)).toBe(`Dots left: ${total}`);
+    expect(/<span id="dots">([^<]*)<\/span>/.exec(pageHtml())).not.toBeNull();
+  });
+
+  it('P0-UI-021 lowers the count by exactly one when a dot is eaten', () => {
+    // canon: CAP-4.8
+    const before = buildState();
+    const after = tick(before, 'right');
+    expect(before.maze.grid[2]?.[3]).toBe('dot');
+    expect(after.dotsRemaining).toBe(before.dotsRemaining - 1);
+    expect(dotsText(after)).toBe(`Dots left: ${before.dotsRemaining - 1}`);
+    expect(eatDot(before, { x: 3, y: 2 }).dotsRemaining).toBe(before.dotsRemaining - 1);
+  });
+
+  it('P0-UI-021 leaves the count alone on an empty tile, when paused, and on READY!', () => {
+    // canon: CAP-4.8
+    const before = buildState();
+    expect(eatDot(tick(before, 'right'), { x: 3, y: 2 }).dotsRemaining).toBe(8);
+    expect(tick(togglePause(before), 'right').dotsRemaining).toBe(before.dotsRemaining);
+    expect(tick(buildState({ readyTicks: READY_TICKS }), 'right').dotsRemaining).toBe(
+      before.dotsRemaining,
+    );
+    expect(loseLife(before).dotsRemaining).toBe(before.dotsRemaining);
+  });
+
+  it('P0-UI-021 lowers the count by two when a boosted tick clears two cells', () => {
+    // canon: CAP-4.8
+    const before = buildState({
+      maze: buildMaze(['######', '#....#', '######']),
+      pacman: { pos: { x: 1, y: 1 }, dir: 'right' },
+      dotsRemaining: 4,
+      dotsTotal: 4,
+      boostTicks: BOOST_DURATION,
+    });
+    const after = tick(before, 'right');
+    expect(BOOST_SPEED_MULTIPLIER).toBeGreaterThanOrEqual(2);
+    expect(after.pacman.pos.x).toBe(3);
+    expect(after.dotsRemaining).toBe(2);
+  });
+
+  it('P0-UI-022 lowers the count by exactly one when a power pellet is eaten', () => {
+    // canon: CAP-4.9
+    const maze = buildMaze(['#####', '#...#', '#..o#', '#...#', '#####']);
+    const before = buildState({ maze });
+    const after = tick(before, 'right');
+    expect(after.maze.grid[2]?.[3]).toBe('empty');
+    expect(after.dotsRemaining).toBe(before.dotsRemaining - 1);
+    expect(dotsText(after)).toBe(`Dots left: ${before.dotsRemaining - 1}`);
+  });
+
+  it('P0-UI-023 shows Dots left in the page between lives and best, and 0 after the last dot', () => {
+    // canon: CAP-4.10
+    const hud = /<div id="hud">([\s\S]*?)<\/div>/.exec(pageHtml())?.[1] ?? '';
+    const ids = [...hud.matchAll(/<span id="([^"]+)">/g)].map((m) => m[1]);
+    expect(ids.indexOf('dots')).toBe(ids.indexOf('lives') + 1);
+    expect(ids.indexOf('best')).toBe(ids.indexOf('dots') + 1);
+
+    const lastDot = buildMaze(['#####', '#   #', '#  .#', '#   #', '#####']);
+    const won = tick(buildState({ maze: lastDot, dotsRemaining: 1, dotsTotal: 1 }), 'right');
+    expect(won.status).toBe('won');
+    expect(dotsText(won)).toBe('Dots left: 0');
   });
 });
 

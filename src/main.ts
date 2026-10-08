@@ -2,7 +2,7 @@ import type { Direction, GameState } from './game';
 import { createGameState, tick } from './game';
 import { bestText, nextBest, readBest, writeBest } from './best';
 import { handleKey } from './input';
-import { drawFrame, statusText, TILE } from './render';
+import { dotsText, drawFrame, statusText, TILE } from './render';
 
 function required<T>(value: T | null, message: string): T {
   if (value === null) throw new Error(message);
@@ -22,6 +22,7 @@ const livesEl = required(
   document.querySelector<HTMLElement>('#lives'),
   'Lives element was not found',
 );
+const dotsEl = required(document.querySelector<HTMLElement>('#dots'), 'Dots element was not found');
 const bestEl = required(document.querySelector<HTMLElement>('#best'), 'Best element was not found');
 const statusEl = required(
   document.querySelector<HTMLElement>('#status'),
@@ -71,6 +72,7 @@ function render(): void {
   drawFrame(ctx, state);
   scoreEl.textContent = `Score: ${state.score}`;
   livesEl.textContent = `Lives: ${state.lives}`;
+  dotsEl.textContent = dotsText(state);
   bestEl.textContent = bestText(best);
   statusEl.textContent = statusText(state);
 }
