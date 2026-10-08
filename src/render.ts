@@ -98,6 +98,11 @@ export function statusText(state: GameState): string {
   return state.paused ? 'Paused' : '';
 }
 
+// canon: CAP-4.10
+export function dotsText(state: GameState): string {
+  return `Dots left: ${state.dotsRemaining}`;
+}
+
 // canon: CAP-1.8
 export function drawFrame(ctx: CanvasRenderingContext2D, state: GameState): void {
   const { maze } = state;
