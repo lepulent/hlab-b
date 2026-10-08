@@ -14,6 +14,9 @@ is shown beside the lives for the whole run and follows every dot, pellet and gh
 showing is in scope: the display shows the score as scoring (CAP-1) defines it, and what things are worth
 is owned there, not here.
 
+The same in-play display also shows how close the level is to clear: the number of dots and power pellets
+still to eat. A player watching it can tell how much of the maze is left without leaving the game.
+
 ## Criteria
 
 ### CAP-4.1 While the game is being played, the score is visible on the page as Score followed by the current points, and reads Score: 0 before anything is eaten
@@ -39,3 +42,19 @@ bindings: [P0-UI-013]
 ### CAP-4.6 The score on the win and game-over screens equals the score the display showed on the last step
 
 bindings: [P0-UI-014]
+
+### CAP-4.7 At the start of a game, Dots left shows the number of dots and power pellets in the maze
+
+bindings: [P0-UI-020]
+
+### CAP-4.8 Eating a dot lowers the Dots left count by exactly one
+
+bindings: [P0-UI-021]
+
+### CAP-4.9 Eating a power pellet lowers the Dots left count by exactly one, the same as a dot
+
+bindings: [P0-UI-022]
+
+### CAP-4.10 The page shows the Dots left count as Dots left followed by the current number, and it reads 0 once every dot and pellet is eaten
+
+bindings: [P0-UI-023]
