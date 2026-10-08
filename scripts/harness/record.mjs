@@ -2,6 +2,8 @@
 // and never inferred from silence; whether two independent witnesses of what it did agree; and the
 // ActivationRecord, in which only resultProse is written by the model. No I/O here.
 
+import { owns } from './activation.mjs';
+
 export const TERMINALS = ['complete', 'escalated', 'blocked', 'abandoned'];
 const FILE_TOOLS = ['Write', 'Edit', 'MultiEdit', 'NotebookEdit'];
 
@@ -64,6 +66,7 @@ export function terminalFor({
   escalated = null,
   owned = [],
   written = [],
+  confirmed = [],
 }) {
   if (timedOut) return { terminal: 'abandoned', reason: `deadline of ${deadlineS}s passed` };
   if (!ok) return { terminal: 'abandoned', reason: `session failed: ${error || 'no result'}` };
@@ -71,9 +74,30 @@ export function terminalFor({
   // `owned` is what the caller says is still undelivered; a glob is never 'in' the written list
   const missing = owned.filter((p) => (p.includes('*') ? true : !written.includes(p)));
   if (missing.length && denied.length) return { terminal: 'blocked', reason: `veto: ${denied[0]}` };
-  if (missing.length)
-    return { terminal: 'abandoned', reason: `ended without writing ${missing.join(', ')}` };
+  // what the seat left unwritten because it was already delivered on HEAD is not missing: the seat read
+  // it and changed nothing, and for code the app's gate passed on it (confirmedOnHead)
+  const owed = missing.filter((p) => !confirmed.includes(p));
+  if (missing.length && !owed.length)
+    return {
+      terminal: 'complete',
+      reason: `nothing to change: ${missing.join(', ')} already delivered on HEAD`,
+    };
+  if (owed.length)
+    return { terminal: 'abandoned', reason: `ended without writing ${owed.join(', ')}` };
   return { terminal: 'complete', reason: `wrote ${written.join(', ')}` };
+}
+
+// "Complete, nothing to change": an owned path the seat confirmed as already delivered on HEAD. The seat
+// read a file under it, authored nothing under it, and the artifact is on the branch: a document is
+// present, code has committed files under its path and the app's gate passed on HEAD this wave. Without
+// it such a seat had no terminal but `abandoned`, and the Master re-cast the rung it found done (hlab-a
+// g1a w3-w6: devs wrote nothing after w2's timeout left the code committed; hlab-b t7b w3: the curator
+// found CAP-2 complete). A seat that read nothing under the path confirmed nothing.
+export function confirmedOnHead({ owned = [], authored = [], read = [], onHead = {} }) {
+  return owned.filter(
+    (o) =>
+      onHead[o] === true && !authored.some((p) => owns([o], p)) && read.some((p) => owns([o], p)),
+  );
 }
 
 // Two witnesses that no model authored, and the transcript as a third: per session, the hook's file

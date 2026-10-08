@@ -58,6 +58,7 @@ import {
   mutationsSince,
   footprintWrites,
   terminalFor,
+  confirmedOnHead,
   corroborate,
   buildRecord,
   supersede,
@@ -582,6 +583,17 @@ const deliveredByGap = (d) =>
       (g.status === 'closed' ||
         (g.status === 'linked' && (g.written || []).some((p) => owns([artifactPath(d)], p)))),
   )?.status === 'closed';
+// What an artifact has on HEAD, for a seat that changed nothing (record.mjs confirmedOnHead): code is this
+// plan's committed files under its path with the app's gate passed on them this wave; a document is its
+// committed file, or for a pattern any committed file under it (hlab-b t7b w3: CAP-2 stood on main).
+const onHeadFor = (d) =>
+  d.kind === 'code'
+    ? changedUnder(d).length > 0 && !!gates[d.id]?.ok
+    : artifactPath(d).includes('*')
+      ? sh('git', ['ls-files', '--', artifactPath(d).replace(/\*\*$/, '')])
+          .stdout.split('\n')
+          .some((p) => p && owns([artifactPath(d)], p))
+      : committedText(artifactPath(d), ROOT) !== null;
 const present = () =>
   catalogue.doctypes
     .filter((d) =>
@@ -1178,6 +1190,18 @@ async function runWave(n, d) {
     a.undelivered = (a.deliverables || a.owned).filter((o) =>
       o.includes('*') ? !a.written.some((p) => owns([o], p)) : !a.written.includes(o),
     );
+    // the artifacts this seat found already delivered on HEAD and left alone: they owe no change
+    a.confirmed = confirmedOnHead({
+      owned: a.artifacts.map((_, i) => a.owned[i]),
+      authored: a.authored,
+      read: a.read,
+      onHead: Object.fromEntries(
+        a.artifacts.map((id, i) => {
+          const d = catalogue.doctypes.find((x) => x.id === id);
+          return [a.owned[i], !!d && onHeadFor(d)];
+        }),
+      ),
+    });
     a.asked = r.out?.structured_output?.questions || [];
     a.footprint = footprintOf(a.session);
     a.veto = vetoHeld(a.footprint);
@@ -1220,6 +1244,7 @@ async function runWave(n, d) {
             denied: a.veto.denied.map((d) => `${d.department} ${d.denied}: ${d.reason}`),
             owned: a.undelivered,
             written: a.written,
+            confirmed: a.confirmed,
           }),
     );
     a.row = row(a.agent, 'conduct', a.session, r, {
@@ -1232,6 +1257,7 @@ async function runWave(n, d) {
       questions: a.asked.length,
       terminal: a.terminal,
       reason: a.reason,
+      confirmed: a.confirmed,
       footprint_calls: a.footprint.length,
     });
     ledger('seat-end', a.row);
@@ -1271,12 +1297,14 @@ async function runWave(n, d) {
     before: val(maturityBefore),
     after: val(maturityAfter),
     existed: existedBefore,
+    confirmed: Object.fromEntries(wave.map((a) => [a.agent, a.confirmed])),
   });
   gap.maturity = Object.fromEntries(
     gap.artifacts.map((id) => [id, [maturityBefore[id].value, maturityAfter[id].value]]),
   );
   gap.status =
-    wave.every((a) => a.terminal === 'complete' && a.commit) && gap.closure.ok
+    wave.every((a) => a.terminal === 'complete' && (a.commit || a.confirmed.length)) &&
+    gap.closure.ok
       ? 'closed'
       : 'linked';
   gap.agents = wave.map((a) => a.agent);

@@ -74,9 +74,19 @@ export function rollup(members) {
 // no linked artifact matured over the wave. A gap that only rewrites artifacts which already existed is a
 // reconciliation, not growth: it must show the change, and its maturity is recorded but not required to
 // rise until drift (FR-33, 34) gives a repair its own proof.
-export function verifyClosure({ claimed, mutationsBySeat, before, after, existed = [] }) {
+export function verifyClosure({
+  claimed,
+  mutationsBySeat,
+  before,
+  after,
+  existed = [],
+  confirmed = {},
+}) {
   const refusals = [];
-  for (const c of claimed)
+  // a path the seat confirmed as already delivered on HEAD (record.mjs confirmedOnHead) owes no change;
+  // it is a reconciliation of an artifact that existed, never a maturing one
+  const owes = (c) => !(confirmed[c.agent] || []).includes(c.path);
+  for (const c of claimed.filter(owes))
     // a claimed path may be a glob (`src/**`): the change is matched by the pattern, not by equality
     if (!(mutationsBySeat[c.agent] || []).some((m) => owns([c.path], m.target)))
       refusals.push(`${c.artifact} (${c.path}) shows no change by ${c.agent}`);
