@@ -596,7 +596,8 @@ describe('in-play score display', () => {
     const html = pageHtml();
     const hud = /<div id="hud">([\s\S]*?)<\/div>/.exec(html)?.[1] ?? '';
     const spans = [...hud.matchAll(/<span id="([^"]+)">([^<]*)<\/span>/g)].map((m) => [m[1], m[2]]);
-    expect(spans).toEqual([
+    // The best-score span (CAP-9) follows score and lives; its placement is a changeable default.
+    expect(spans.slice(0, 2)).toEqual([
       ['score', 'Score: 0'],
       ['lives', `Lives: ${createGameState().lives}`],
     ]);
