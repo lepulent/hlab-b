@@ -480,3 +480,67 @@ export function boundaryAfter({
     };
   return {};
 }
+
+// ── A seat's persona, and the minutes as a document ───────────────────────────────────────────────
+
+// A persona (a BMAD agent's resolved `agent` block: name, title, icon, role, identity,
+// communication_style, principles) becomes the seat's appended system prompt. The agent's activation
+// (greeting, menu, waiting for a user) is left out on purpose: a room seat has no user to greet, and a
+// menu would be its whole turn. The voice stays; the turn's shape and the evidence rule do not bend.
+export function personaPrompt(p) {
+  if (!p?.name) return '';
+  return [
+    `You are ${p.name}${p.title ? `, ${p.title}` : ''}${p.icon ? ` ${p.icon}` : ''}.`,
+    p.role ? `Role: ${p.role}` : '',
+    p.identity ? `Identity: ${p.identity}` : '',
+    p.communication_style ? `Communication style: ${p.communication_style}` : '',
+    ...(p.principles?.length ? ['Principles:', ...p.principles.map((x) => `- ${x}`)] : []),
+    '',
+    'Here you sit as one read-only seat in a room of other agents. Do not greet anyone, show a menu or wait for a user: read the files you were given and give your turn in the structured output. Keep your own voice in the summary and proposals. Every finding cites, as its source, the one file it comes from.',
+  ]
+    .filter((l) => l !== null)
+    .join('\n');
+}
+
+// The minutes as a markdown document, written from the typed rows alone (never a model summary): each
+// round's positions, evidence, assertions, proposals and disagreements, then the open decisions the room
+// leaves. `names` maps a seat id to how it is shown.
+export function minutesMarkdown(rows, { title, question, terminal, reason, names = {} } = {}) {
+  const who = (id) => names[id] || id;
+  const line = (r) => {
+    const tag =
+      r.kind === 'disagreement'
+        ? `disagreement with ${who(r.with)}${r.evidentiary ? ', evidentiary' : ', rhetorical'}`
+        : r.kind;
+    // a multi-line text (page copy, a wireframe) stays inside its bullet
+    const text = String(r.text).trim().split('\n').join('\n  ');
+    return `- **${who(r.raisedBy)}** · ${tag}: ${text}${r.source ? ` _(${r.source})_` : ''}`;
+  };
+  const rounds = [...new Set(rows.filter((r) => r.round != null).map((r) => r.round))].sort(
+    (a, b) => a - b,
+  );
+  const out = [
+    `# ${title || 'Room minutes'}`,
+    '',
+    `**Question.** ${question || ''}`,
+    '',
+    `**Ended** ${terminal || 'open'}${reason ? `: ${reason}` : ''}.`,
+    '',
+  ];
+  for (const n of rounds) {
+    out.push(`## Round ${n}`, '');
+    const rs = rows.filter((r) => r.round === n);
+    for (const r of rs.filter((x) => x.kind === 'position'))
+      out.push(
+        `### ${who(r.raisedBy)}${r.turnKind ? ` (${r.turnKind})` : ''}`,
+        '',
+        String(r.text).trim(),
+        '',
+      );
+    const rest = rs.filter((x) => x.kind !== 'position');
+    if (rest.length) out.push('**Rows**', '', ...rest.map(line), '');
+  }
+  const close = rows.filter((r) => r.round == null);
+  if (close.length) out.push('## Left open', '', ...close.map(line), '');
+  return out.join('\n');
+}

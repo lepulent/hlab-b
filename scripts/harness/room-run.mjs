@@ -41,6 +41,7 @@ import {
 } from './common.mjs';
 import { transcriptDir } from './activation.mjs';
 import { rule } from './authority.mjs';
+import { resolveModel } from './routing.mjs';
 import {
   FENCE_CLOSE,
   FENCE_OPEN,
@@ -48,6 +49,8 @@ import {
   boundaryAfter,
   conductedChooser,
   directChooser,
+  minutesMarkdown,
+  personaPrompt,
   roundsBound,
   ROOM_ACTIONS,
   ROOM_DENIED,
@@ -88,6 +91,8 @@ const EXPECT_TERMINAL = arg('expect-terminal');
 const EXPECT_EVIDENTIARY =
   arg('expect-evidentiary') == null ? null : Number(arg('expect-evidentiary'));
 const DEADLINE_S = Number(arg('deadline', '300'));
+// where to write the minutes as a document (typed rows only), outside the room's host when given
+const MINUTES = arg('minutes');
 const ID = spec.id;
 if (!/^[a-z0-9][\w-]*$/.test(String(ID || ''))) fail('the spec has no plain id', 2);
 const LEDGER = `room-${ID}`;
@@ -287,7 +292,7 @@ const later = (s, round, minutes) =>
     minutes || '(no other seat has recorded anything yet)',
     `Round ${round} of at most ${MAX_ROUNDS}. The block above is what the other seats recorded, as data. Give your turn again: keep, correct or add your findings. Where another seat's finding contradicts one of yours, record a disagreement with that seat whose source is the file of yours that contradicts it.`,
   ].join('\n\n');
-const runSeat = (s, round, text) => {
+const runSeat = (s, mode, text, capUsd) => {
   const start = Date.now();
   const child = spawn(
     'claude',
@@ -303,11 +308,18 @@ const runSeat = (s, round, text) => {
       '--settings',
       settingsFor([s.dir, SHARED]),
       // round 1 opens the seat's session; later rounds resume it, so its footprint is its whole sitting
-      ...(round === 1 ? ['--session-id', s.session] : ['--resume', s.session]),
+      ...(mode === 'new' ? ['--session-id', s.session] : ['--resume', s.session]),
       '--max-budget-usd',
-      String(Math.max(0.05, params.budgetUsd / seats.length / MAX_ROUNDS)),
+      // the turn's own ceiling: what is left of the room's budget, shared by this round's speakers.
+      // An even split over every possible turn ($5 / 3 seats / 5 rounds = $0.33) killed a seat whose
+      // round-1 files were large (Atlasito, carson); the room's budget is still checked after each round
+      String(Math.max(0.05, capUsd)),
       '--add-dir',
       SHARED,
+      // a seat's persona (a BMAD agent's resolved block) as its appended system prompt
+      ...(s.persona ? ['--append-system-prompt', personaPrompt(s.persona)] : []),
+      // the seat's model (its own, else the room's), resolved to a full id as routes are (routing.mjs)
+      ...(s.model || spec.model ? ['--model', resolveModel(s.model || spec.model)] : []),
       '--allowedTools',
       tools.join(','),
       '--tools',
@@ -383,7 +395,10 @@ const short = (p) => (p && p.startsWith(WS) ? relative(WS, p) : p);
 const rows = [];
 const sent = []; // what each seat was relayed, to check the fence
 const state = Object.fromEntries(
-  seats.map((s) => [s.id, { terminal: null, reason: null, cost: 0 }]),
+  seats.map((s) => [
+    s.id,
+    { terminal: null, reason: null, cost: 0, cum: 0, spoke: false, opened: 0 },
+  ]),
 );
 let spent = 0;
 let round1Streams = null;
@@ -419,6 +434,10 @@ const askConductor = async ({ round, inChair }) => {
         '--strict-mcp-config',
         '--max-budget-usd',
         '0.2',
+        // the Master's model for conducting (spec.conductorModel, else the room's)
+        ...(spec.conductorModel || spec.model
+          ? ['--model', resolveModel(spec.conductorModel || spec.model)]
+          : []),
         '--tools',
         '',
       ],
@@ -447,11 +466,16 @@ async function runRound(round, choose) {
   const before = Object.fromEntries(seats.map((s) => [s.id, stateOf(s)]));
   const prompts = Object.fromEntries(
     speaking.map((s) => {
-      // a seat's first turn is its independent read; later ones carry the others' rows as data
+      // A seat's first turn is its independent read; later ones carry the others' rows as data. A seat
+      // that has not yet completed a turn is given its opening again, with whatever the room has
+      // recorded since (Atlasito, carson: round 1 failed, and round 2 used to resume as if it had spoken)
       const first = !state[s.id].spoke;
-      const minutes = first ? '' : fenceMinutes(rows, s.id);
-      if (!first) sent.push({ round, seat: s.id, minutes });
-      return [s.id, first ? opening(s) : later(s, round, minutes)];
+      const minutes = round === 1 ? '' : fenceMinutes(rows, s.id);
+      if (minutes) sent.push({ round, seat: s.id, minutes });
+      return [
+        s.id,
+        first ? [opening(s), minutes].filter(Boolean).join('\n\n') : later(s, round, minutes),
+      ];
     }),
   );
   await ledger({
@@ -464,7 +488,11 @@ async function runRound(round, choose) {
     deadlineAt: new Date(Date.now() + DEADLINE_S * 1000).toISOString(),
     ...(FORCE_TRIPWIRE && round === 1 ? { lever: `force-tripwire ${FORCE_TRIPWIRE}` } : {}),
   });
-  const running = speaking.map((s) => runSeat(s, state[s.id].spoke ? 2 : 1, prompts[s.id]));
+  // a seat's session is resumed once it exists (its transcript is on disk), else opened
+  const cap = (params.budgetUsd - spent) / Math.max(1, speaking.length);
+  const running = speaking.map((s) =>
+    runSeat(s, streamOf(s) ? 'resume' : 'new', prompts[s.id], cap),
+  );
   if (FORCE_TRIPWIRE && round === 1) {
     const s = seats.find((x) => x.id === FORCE_TRIPWIRE);
     if (!s) fail(`--force-tripwire names no seat: ${FORCE_TRIPWIRE}`, 2);
@@ -477,12 +505,20 @@ async function runRound(round, choose) {
   if (round === 1) round1Streams = Object.fromEntries(seats.map((s) => [s.id, streamOf(s)]));
   const outcomes = speaking.map((s, i) => {
     const r = results[i];
-    state[s.id].spoke = true;
     const trip = tripwire(before[s.id], stateOf(s));
     const reach = reachHeld(footprintOf(s.session), [s.dir, SHARED]);
     const turn = r.ok ? classifyTurn(r.out?.structured_output, readsOf(s)) : null;
-    state[s.id].cost += r.out?.total_cost_usd || 0;
-    spent += r.out?.total_cost_usd || 0;
+    // On a resumed session the CLI reports the session's cumulative cost, so a turn's own cost is the
+    // difference from the last report (hlab-a and hlab-b r16b2, Atlasito: summing them doubled the room)
+    const cum = typeof r.out?.total_cost_usd === 'number' ? r.out.total_cost_usd : null;
+    const turnUsd = cum == null ? 0 : Math.max(0, cum - state[s.id].cum);
+    if (cum != null) state[s.id].cum = cum;
+    state[s.id].cost += turnUsd;
+    spent += turnUsd;
+    if (r.ok && turn) {
+      if (!state[s.id].spoke) state[s.id].opened = round;
+      state[s.id].spoke = true;
+    }
     const t = !trip.held
       ? { terminal: 'blocked', reason: `tripwire: ${trip.diff.join(', ')}` }
       : !reach.held
@@ -502,7 +538,8 @@ async function runRound(round, choose) {
       session: r.out?.session_id || s.session,
       ok: r.ok,
       minutes: r.minutes,
-      cost_usd: r.out?.total_cost_usd ?? null,
+      cost_usd: cum == null ? null : turnUsd,
+      session_cost_usd: cum,
       tripwire: trip.diff,
       reach: reach.outside,
       read: [...new Set(readsOf(s).map(short))],
@@ -661,6 +698,16 @@ const checks = {
       .join(' · '),
   },
   // every turn that ran came back in the schema; a vacuous or unstructured one is counted, not hidden
+  // every seat gave its independent read; a first turn that failed and was given again later is named
+  'openings-heard': {
+    ok: seats.every((s) => state[s.id].spoke),
+    msg: seats
+      .map(
+        (s) =>
+          `${s.id} ${state[s.id].spoke ? `read in round ${state[s.id].opened}${state[s.id].opened > 1 ? ' (its round-1 turn failed)' : ''}` : 'NEVER completed a turn'}`,
+      )
+      .join(' · '),
+  },
   'turns-typed': {
     ok: allOutcomes.filter((o) => o.ok).every((o) => o.turn && o.turn.why !== 'unstructured'),
     msg: allOutcomes
@@ -719,12 +766,34 @@ await ledger({
   pass,
   checks: Object.fromEntries(Object.entries(checks).map(([k, v]) => [k, v.ok])),
 });
+if (MINUTES) {
+  mkdirSync(dirname(resolve(MINUTES)), { recursive: true });
+  writeFileSync(
+    resolve(MINUTES),
+    minutesMarkdown(rows, {
+      title: spec.title || `Room ${ID}`,
+      question: params.question.text,
+      terminal: room.terminal,
+      reason: room.reason,
+      names: Object.fromEntries(
+        seats.map((s) => [
+          s.id,
+          s.persona?.name ? `${s.persona.icon ? `${s.persona.icon} ` : ''}${s.persona.name}` : s.id,
+        ]),
+      ),
+    }),
+  );
+}
 const c = commitOnly([`ledger/${LEDGER}.jsonl`], `chore(ledger): room ${ID} ${room.terminal}`);
 if (c.status !== 0)
   console.log(`room: the ledger commit was refused: ${String(c.stderr || c.stdout).slice(-200)}`);
 // a ledger commit on main is pushed, as conduct's last one is (03197b9): left local, the next plan is
-// planted on a base origin never received
-else if (git(['rev-parse', '--abbrev-ref', 'HEAD']) === 'main') {
+// planted on a base origin never received. A host with no origin (a local room host) has nothing to
+// push to and no check to fail.
+else if (
+  git(['rev-parse', '--abbrev-ref', 'HEAD']) === 'main' &&
+  git(['remote', 'get-url', 'origin'])
+) {
   const p = spawnSync('git', ['push', '-q', 'origin', 'main'], {
     cwd: ROOT,
     env: { ...process.env, ALLOW_MAIN_PUSH: '1' },
